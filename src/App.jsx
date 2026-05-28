@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login.jsx'
+import AgentAccountSetup from './pages/AgentAccountSetup.jsx'
 import MasterDashboard from './pages/MasterDashboard.jsx'
 import AdminDashboard from './pages/AdminDashboard.jsx'
 import DashboardLayout from './layouts/DashboardLayout.jsx'
@@ -17,15 +18,35 @@ import Training from './pages/admin/Training.jsx'
 import Compliance from './pages/admin/Compliance.jsx'
 import Notifications from './pages/admin/Notifications.jsx'
 import Reports from './pages/admin/Reports.jsx'
+import AgentRegistrationForm from './pages/agent/AgentRegistrationForm.jsx'
+import AgentDocumentSigning from './pages/agent/AgentDocumentSigning.jsx'
+import AgentWelcome from './pages/agent/AgentWelcome.jsx'
+import AgentDashboard from './pages/agent/AgentDashboard.jsx'
 
 
 function Protected({ children }) {
   return auth.isAuthenticated() ? children : <Navigate to="/login" replace />
 }
 
+function getAgentRoute(status) {
+  const step = Number(status || 2)
+  if (step >= 5) return '/agent/dashboard'
+  if (step >= 4) return '/agent/dashboard'
+  if (step >= 3) return '/agent/sign-documents'
+  return '/agent/registration'
+}
+
+function AgentProtected({ children }) {
+  const session = auth.get()
+  if (!session) return <Navigate to="/login" replace />
+  if (session.role !== 'agent') return <Navigate to="/" replace />
+  return children
+}
+
 function RoleRoute() {
   const session = auth.get()
   if (!session) return <Navigate to="/login" replace />
+  if (session.role === 'agent') return <Navigate to={getAgentRoute(session.onboardingStatus)} replace />
   return (
     <Navigate
       to={session.role === 'master_admin' ? '/master' : '/admin'}
@@ -38,6 +59,40 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/agent/account-setup" element={<AgentAccountSetup />} />
+      <Route path="/agent/account-setup/:inviteToken" element={<AgentAccountSetup />} />
+      <Route
+        path="/agent/registration"
+        element={
+          <AgentProtected>
+            <AgentRegistrationForm />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/sign-documents"
+        element={
+          <AgentProtected>
+            <AgentDocumentSigning />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/welcome"
+        element={
+          <AgentProtected>
+            <AgentWelcome />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/dashboard"
+        element={
+          <AgentProtected>
+            <AgentDashboard />
+          </AgentProtected>
+        }
+      />
       <Route path="/" element={<RoleRoute />} />
 
       <Route

@@ -40,11 +40,10 @@ export const auditLogs = [
 ]
 
 export const adminStats = [
-  { label: 'Total Agents', value: '2,482', delta: '+10%' },
-  { label: 'Pending', value: '48' },
-  { label: 'Under Review', value: '15' },
-  { label: 'Approved', value: '124' },
-  { label: 'Expiring', value: '03' }
+  { label: 'Total Agents', value: '48', delta: '+4% vs last month' },
+  { label: 'Onboarding In Progress', value: '12' },
+  { label: 'Pending Approvals', value: '5' },
+  { label: 'Licences Expiring', value: '3' }
 ]
 
 export const onboardingPipeline = [
@@ -89,33 +88,52 @@ export const trainingCompletion = {
 
 export const recentAgents = [
   {
-    name: 'Jonathan Doe',
-    email: 'john@agency.com',
-    state: 'TX, FL',
-    level: 'Level 4',
-    status: 'Training',
-    statusTone: 'gray',
-    updated: '3h ago',
-    initials: 'JD'
-  },
-  {
-    name: 'Alice Miller',
-    email: 'a.miller@partner.net',
-    state: 'NY',
-    level: 'Level 2',
-    status: 'Active',
-    statusTone: 'green',
-    updated: '3h ago',
-    initials: 'AM'
-  },
-  {
-    name: 'Robert Wong',
-    email: 'r.wong@firm.io',
+    name: 'Alex Martinez',
+    email: 'alex.m@agency.com',
+    contact: '(555) 0123-4567',
     state: 'CA',
-    level: 'Level 5',
-    status: 'Contract Expiring',
-    statusTone: 'red',
-    updated: 'Yesterday',
-    initials: 'RW'
+    level: 'ID: AGT-2321',
+    status: 'Onboarding',
+    progress: 60,
+    updated: 'Oct 15, 2024',
+    initials: 'AM',
+    licenceExpiry: 'Oct 15, 2024'
+  },
+  {
+    name: 'Sarah Williams',
+    email: 's.williams@global.com',
+    contact: '(555) 0123-8988',
+    state: 'NY',
+    level: 'ID: AGT-1102',
+    status: 'Under Review',
+    progress: 20,
+    updated: 'Dec 01, 2024',
+    initials: 'SW',
+    licenceExpiry: 'Dec 01, 2024'
+  },
+  {
+    name: 'James King',
+    email: 'james.k@prime.com',
+    contact: '(555) 0123-1122',
+    state: 'IL',
+    level: 'ID: AGT-4402',
+    status: 'Active',
+    progress: 100,
+    updated: 'Expired (3d)',
+    initials: 'JK',
+    licenceExpiry: 'Expired (3d)'
+  }
+  ,
+  {
+    name: 'Linda Chen',
+    email: 'linda.c@nextgen.com',
+    contact: '(555) 0123-5566',
+    state: 'WA',
+    level: 'ID: AGT-5512',
+    status: 'Prospect',
+    progress: 5,
+    updated: 'N/A',
+    initials: 'LC',
+    licenceExpiry: 'N/A'
   }
 ]
