@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersModule } from '../users/users.module';
+import { AgentDocument } from '../agents/agent-document.entity';
 import { Agent } from '../agents/agent.entity';
 
 type JwtExpiresIn = NonNullable<JwtModuleOptions['signOptions']>['expiresIn'];
@@ -13,7 +14,7 @@ type JwtExpiresIn = NonNullable<JwtModuleOptions['signOptions']>['expiresIn'];
 @Module({
   imports: [
     UsersModule,
-    TypeOrmModule.forFeature([Agent]),
+    TypeOrmModule.forFeature([Agent, AgentDocument]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

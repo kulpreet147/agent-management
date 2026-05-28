@@ -1,138 +1,233 @@
-import { useState } from 'react'
+import {
+  Bell,
+  BookOpenCheck,
+  CalendarClock,
+  CheckCircle2,
+  CircleHelp,
+  FileCheck2,
+  FileText,
+  Home,
+  LogOut,
+  Search,
+  Settings,
+  WalletCards
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, CheckCircle2, Circle, CircleHelp, Info, UserRound } from 'lucide-react'
 import { auth } from '../../utils/auth.js'
-import { updateAgentOnboardingStatus } from '../../utils/agents.js'
+
+const documents = [
+  { name: 'Advisor Contract', updated: 'Signed today', status: 'Approved', action: 'View' },
+  { name: 'Code of Conduct', updated: 'Signed today', status: 'Approved', action: 'Download' },
+  { name: 'Privacy Agreement', updated: 'Signed today', status: 'Approved', action: 'View' }
+]
+
+const nextTasks = [
+  { label: 'Complete profile verification', status: 'Ready' },
+  { label: 'Start compliance training', status: 'Next' },
+  { label: 'Review carrier appointment', status: 'Pending' }
+]
 
 export default function AgentDashboard() {
-  const session = auth.get()
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
-  const [status, setStatus] = useState(Number(session?.onboardingStatus || 4))
-  const dashboardActive = status >= 5
-  const displayName = session?.name || 'Sarah Johnson'
+  const session = auth.get()
+  const agentName = session?.name || 'Sarah Johnson'
+  const initials = agentName
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 
-  const handleContinue = async () => {
-    if (!session?.id || dashboardActive) return
-
-    setLoading(true)
-    try {
-      await updateAgentOnboardingStatus(session.id, 5)
-      auth.update({ onboardingStatus: 5 })
-      setStatus(5)
-      navigate('/agent/dashboard')
-    } finally {
-      setLoading(false)
-    }
+  const handleLogout = () => {
+    auth.logout()
+    navigate('/login', { replace: true })
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f8fc] text-slate-950">
-      <header className="h-11 border-b border-slate-200 bg-white">
-        <div className="flex h-full items-center px-8">
-          <div className="text-xs font-bold text-slate-950">Agent Management</div>
-          <div className="ml-auto flex items-center gap-4 text-slate-500">
-            <Bell size={13} />
-            <CircleHelp size={13} />
-            <div className="text-right leading-tight">
-              <div className="text-[10px] font-bold text-slate-900">{displayName}</div>
-              <div className="text-[9px] text-slate-500">Agent In-Onboarding</div>
-            </div>
-            <div className="grid h-7 w-7 place-items-center rounded-full bg-slate-800 text-white">
-              <UserRound size={14} />
+    <div className="min-h-screen bg-[#eef3f8] text-slate-950">
+      <div className="flex h-screen overflow-hidden">
+        <aside className="flex w-60 shrink-0 flex-col bg-[#111b31] text-white">
+          <div className="border-b border-white/10 px-5 py-5">
+            <div className="text-sm font-bold">Agent Portal</div>
+            <div className="mt-0.5 text-[10px] text-white/55">Agent Console</div>
+          </div>
+
+          <nav className="flex-1 space-y-1 px-3 py-4">
+            <SideItem icon={Home} label="Dashboard" active />
+            <SideItem icon={FileCheck2} label="Documents" />
+            <SideItem icon={BookOpenCheck} label="Training" />
+            <SideItem icon={WalletCards} label="Commissions" />
+            <SideItem icon={Settings} label="Settings" />
+          </nav>
+
+          <div className="border-t border-white/10 p-4">
+            <div className="flex items-center gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-white/15 text-[11px] font-bold">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-[11px] font-bold">{agentName}</div>
+                <div className="text-[9px] text-white/55">Active Agent</div>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="ml-auto rounded p-1 text-white/50 hover:bg-white/10 hover:text-white"
+                title="Logout"
+              >
+                <LogOut size={14} />
+              </button>
             </div>
           </div>
-        </div>
-      </header>
+        </aside>
 
-      <main className="px-6 py-7">
-        <div className="text-center">
-          <h1 className="text-xl font-bold tracking-tight">Welcome, {displayName}</h1>
-          <p className="mt-1 text-xs text-slate-500">Complete your onboarding to get started.</p>
-        </div>
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="flex h-14 shrink-0 items-center border-b border-slate-200 bg-white px-6">
+            <div className="text-sm font-bold">Agent Dashboard</div>
+            <div className="relative ml-8 w-72">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                placeholder="Search documents, training..."
+                className="h-8 w-full rounded-md border border-slate-300 bg-slate-50 pl-9 pr-3 text-[11px] outline-none focus:border-brand-500 focus:bg-white"
+              />
+            </div>
+            <div className="ml-auto flex items-center gap-4 text-slate-500">
+              <Bell size={15} />
+              <CircleHelp size={15} />
+              <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+                {initials}
+              </div>
+            </div>
+          </header>
 
-        <section className="mx-auto mt-5 max-w-[440px] rounded-lg border border-slate-300 bg-white p-5 shadow-card">
-          <div className="grid grid-cols-4 text-center">
-            {['Account Setup', 'Registration', 'Documents', 'Profile & Training'].map((label, index) => {
-              const complete = index < 3 || dashboardActive
-              const active = index === 3 && !dashboardActive
-              return (
-                <div key={label} className="relative">
-                  {index > 0 && (
-                    <div className="absolute right-1/2 top-[12px] h-0.5 w-full -translate-x-3 bg-brand-700" />
-                  )}
-                  <div
-                    className={`relative z-10 mx-auto grid h-6 w-6 place-items-center rounded-full text-[10px] font-bold ${
-                      complete
-                        ? 'bg-brand-700 text-white'
-                        : active
-                          ? 'border-[5px] border-brand-700 bg-white text-brand-700'
-                          : 'bg-slate-200 text-slate-500'
-                    }`}
-                  >
-                    {complete ? <CheckCircle2 size={13} fill="currentColor" /> : ''}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="mx-auto max-w-6xl space-y-5">
+              <div>
+                <div className="text-[11px] font-semibold text-slate-500">Agents &gt; Dashboard</div>
+                <h1 className="mt-1 text-2xl font-bold tracking-tight">Welcome back, {agentName}</h1>
+              </div>
+
+              <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Metric icon={CheckCircle2} label="Onboarding Status" value="Active" tone="emerald" />
+                <Metric icon={FileText} label="Signed Documents" value="3 Files" tone="blue" />
+                <Metric icon={CalendarClock} label="Next Step" value="Training" tone="amber" />
+              </section>
+
+              <section className="rounded-lg border border-slate-300 bg-white shadow-card">
+                <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+                  <div>
+                    <h2 className="text-sm font-bold">Document Review</h2>
+                    <p className="mt-0.5 text-[10px] text-slate-500">Your submitted documents are approved and ready.</p>
                   </div>
-                  <div className="mt-2 text-[9px] font-bold text-slate-950">{label}</div>
+                  <span className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase text-emerald-700">
+                    Approved
+                  </span>
                 </div>
-              )
-            })}
-          </div>
 
-          <div className="mt-5">
-            <div className="mb-1.5 flex items-center justify-between text-[10px] font-bold text-slate-950">
-              <span>Overall Progress</span>
-              <span className="text-brand-700">60%</span>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-[11px]">
+                    <thead className="bg-slate-50 text-[9px] uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-5 py-3 font-bold">Document Name</th>
+                        <th className="px-5 py-3 font-bold">Updated</th>
+                        <th className="px-5 py-3 font-bold">Status</th>
+                        <th className="px-5 py-3 text-right font-bold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {documents.map((document) => (
+                        <tr key={document.name} className="hover:bg-slate-50">
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="grid h-8 w-8 place-items-center rounded-md bg-brand-50 text-brand-700">
+                                <FileText size={15} />
+                              </div>
+                              <div>
+                                <div className="font-bold text-slate-900">{document.name}</div>
+                                <div className="text-[10px] text-slate-500">Agent onboarding document</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-slate-600">{document.updated}</td>
+                          <td className="px-5 py-4">
+                            <span className="rounded bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase text-emerald-700">
+                              {document.status}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <button className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-50">
+                              {document.action}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-lg border border-slate-300 bg-white p-5 shadow-card">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-sm font-bold">Onboarding Progress</h2>
+                    <span className="text-[10px] font-bold text-brand-700">80%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-full w-4/5 rounded-full bg-brand-600" />
+                  </div>
+                  <div className="mt-3 text-[10px] text-slate-500">Documents complete. Training and final profile review remain.</div>
+                </div>
+
+                <div className="rounded-lg border border-slate-300 bg-white p-5 shadow-card">
+                  <h2 className="text-sm font-bold">Next Tasks</h2>
+                  <div className="mt-4 space-y-2">
+                    {nextTasks.map((task) => (
+                      <div key={task.label} className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
+                        <span className="text-[11px] font-semibold text-slate-700">{task.label}</span>
+                        <span className="text-[10px] font-bold text-slate-500">{task.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-              <div className="h-full w-[60%] rounded-full bg-brand-700" />
-            </div>
           </div>
-
-          <div className="mt-5 flex items-center gap-2 rounded-md border border-brand-100 bg-brand-50 px-3 py-2 text-[10px] text-brand-900">
-            <Info size={13} className="shrink-0" />
-            Your documents have been approved. Please complete your profile to continue.
-          </div>
-
-          <div className="mt-5">
-            <h2 className="text-sm font-bold text-slate-950">Onboarding Checklist</h2>
-            <div className="mt-3 space-y-2">
-              <ChecklistRow label="Account Created" status="Completed" complete />
-              <ChecklistRow label="Registration Complete" status="Completed" complete />
-              <ChecklistRow label="Documents Signed" status="Completed" complete />
-              <ChecklistRow label="Profile Setup Pending" status={dashboardActive ? 'Completed' : 'In Progress'} complete={dashboardActive} icon="hourglass" />
-              <ChecklistRow label="Training Not Started" status={dashboardActive ? 'Available' : 'Locked'} />
-            </div>
-          </div>
-
-          <div className="mt-5 border-t border-slate-200 pt-3">
-            <button
-              type="button"
-              onClick={handleContinue}
-              disabled={loading || dashboardActive}
-              className="h-10 w-full rounded-md bg-brand-700 text-[11px] font-bold text-white shadow-sm hover:bg-brand-800 disabled:bg-brand-300"
-            >
-              {dashboardActive ? 'Dashboard Active' : loading ? 'Continuing...' : 'Continue Onboarding  ->'}
-            </button>
-          </div>
-        </section>
-
-        <p className="mt-4 text-center text-[10px] text-slate-500">
-          You will get access to leads and full portal once onboarding is complete.
-        </p>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }
 
-function ChecklistRow({ label, status, complete = false, icon }) {
+function SideItem({ icon: Icon, label, active = false }) {
   return (
-    <div className="flex h-9 items-center gap-3 rounded-md border border-slate-300 bg-slate-50 px-3">
-      <div className={`grid h-4 w-4 place-items-center rounded-full ${complete ? 'bg-brand-700 text-white' : 'bg-white text-slate-600'}`}>
-        {complete ? <CheckCircle2 size={11} fill="currentColor" /> : icon === 'hourglass' ? <span className="text-[10px]">H</span> : <Circle size={11} />}
-      </div>
-      <div className="flex-1 text-[11px] font-semibold text-slate-800">{label}</div>
-      <div className={`text-[9px] font-bold uppercase ${complete || status === 'In Progress' ? 'text-brand-700' : 'text-slate-700'}`}>
-        {status}
+    <button
+      className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-[11px] font-bold transition ${
+        active ? 'bg-brand-700 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
+      }`}
+    >
+      <Icon size={14} />
+      {label}
+    </button>
+  )
+}
+
+function Metric({ icon: Icon, label, value, tone }) {
+  const tones = {
+    emerald: 'bg-emerald-50 text-emerald-700',
+    blue: 'bg-brand-50 text-brand-700',
+    amber: 'bg-amber-50 text-amber-700'
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-card">
+      <div className="flex items-center gap-3">
+        <div className={`grid h-10 w-10 place-items-center rounded-full ${tones[tone]}`}>
+          <Icon size={18} />
+        </div>
+        <div>
+          <div className="text-[10px] font-semibold text-slate-500">{label}</div>
+          <div className="text-sm font-bold text-slate-950">{value}</div>
+        </div>
       </div>
     </div>
   )

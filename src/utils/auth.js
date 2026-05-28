@@ -22,6 +22,7 @@ export const auth = {
       role: data.user.role,
       name: data.user.name,
       onboardingStatus: data.user.onboardingStatus,
+      signedDocuments: data.user.signedDocuments || {},
       token: data.accessToken,
       loggedInAt: new Date().toISOString()
     }

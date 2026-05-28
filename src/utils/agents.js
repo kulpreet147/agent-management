@@ -66,3 +66,13 @@ export function updateAgentOnboardingStatus(agentId, status) {
     body: JSON.stringify({ status })
   })
 }
+
+export function saveAgentSignedDocument(agentId, document) {
+  return apiRequest(`/agents/${agentId}/signed-documents`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(document)
+  })
+}

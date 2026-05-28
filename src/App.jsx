@@ -21,6 +21,7 @@ import Reports from './pages/admin/Reports.jsx'
 import AgentRegistrationForm from './pages/agent/AgentRegistrationForm.jsx'
 import AgentDocumentSigning from './pages/agent/AgentDocumentSigning.jsx'
 import AgentWelcome from './pages/agent/AgentWelcome.jsx'
+import AgentOnboardingDashboard from './pages/agent/AgentOnboardingDashboard.jsx'
 import AgentDashboard from './pages/agent/AgentDashboard.jsx'
 
 
@@ -31,7 +32,7 @@ function Protected({ children }) {
 function getAgentRoute(status) {
   const step = Number(status || 2)
   if (step >= 5) return '/agent/dashboard'
-  if (step >= 4) return '/agent/dashboard'
+  if (step >= 4) return '/agent/onboarding-progress'
   if (step >= 3) return '/agent/sign-documents'
   return '/agent/registration'
 }
@@ -82,6 +83,14 @@ export default function App() {
         element={
           <AgentProtected>
             <AgentWelcome />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/onboarding-progress"
+        element={
+          <AgentProtected>
+            <AgentOnboardingDashboard />
           </AgentProtected>
         }
       />

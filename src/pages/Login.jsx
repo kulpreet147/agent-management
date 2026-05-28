@@ -41,7 +41,7 @@ export default function Login() {
       if (session.role === 'agent') {
         const status = Number(session.onboardingStatus || 2)
         if (status >= 5) navigate('/agent/dashboard')
-        else if (status >= 4) navigate('/agent/dashboard')
+        else if (status >= 4) navigate('/agent/onboarding-progress')
         else if (status >= 3) navigate('/agent/sign-documents')
         else navigate('/agent/registration')
         return

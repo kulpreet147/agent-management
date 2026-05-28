@@ -16,6 +16,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { AgentsService } from './agents.service';
 import { ActivateAgentDto } from './dto/activate-agent.dto';
 import { CreateAgentDto } from './dto/create-agent.dto';
+import { SaveAgentSignedDocumentDto } from './dto/save-agent-signed-document.dto';
 import { UpdateAgentOnboardingStatusDto } from './dto/update-agent-onboarding-status.dto';
 
 const uploadDir = join(process.cwd(), 'uploads', 'agents');
@@ -86,6 +87,14 @@ export class AgentsController {
     @Body() updateDto: UpdateAgentOnboardingStatusDto,
   ) {
     return this.agentsService.updateOnboardingStatus(id, updateDto.status);
+  }
+
+  @Patch(':id/signed-documents')
+  saveSignedDocument(
+    @Param('id') id: string,
+    @Body() saveDto: SaveAgentSignedDocumentDto,
+  ) {
+    return this.agentsService.saveSignedDocument(id, saveDto);
   }
 
   @Get(':id')

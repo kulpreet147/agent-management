@@ -9,9 +9,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { createHash, randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
+import { AgentDocument } from './agent-document.entity';
 import { Agent } from './agent.entity';
 import { ActivateAgentDto } from './dto/activate-agent.dto';
 import { CreateAgentDto } from './dto/create-agent.dto';
+import { SaveAgentSignedDocumentDto } from './dto/save-agent-signed-document.dto';
 import { MailService } from '../common/mail/mail.service';
 
 type AgentFiles = Record<string, Express.Multer.File[]>;
@@ -22,12 +24,15 @@ export class AgentsService implements OnModuleInit {
   constructor(
     @InjectRepository(Agent)
     private readonly agentsRepository: Repository<Agent>,
+    @InjectRepository(AgentDocument)
+    private readonly agentDocumentsRepository: Repository<AgentDocument>,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
   ) {}
 
   async onModuleInit() {
     await this.ensureAgentsTable();
+    await this.ensureAgentDocumentsTable();
   }
 
   async create(createAgentDto: CreateAgentDto, files: AgentFiles) {
@@ -151,6 +156,61 @@ export class AgentsService implements OnModuleInit {
       message: 'Agent onboarding status updated successfully.',
       agent: updatedAgent ? this.toSafeAgent(updatedAgent) : null,
     };
+  }
+
+  async saveSignedDocument(id: string, signedDocumentDto: SaveAgentSignedDocumentDto) {
+    const agent = await this.agentsRepository.findOneBy({ id });
+
+    if (!agent) {
+      throw new BadRequestException('Agent not found.');
+    }
+
+    const signedDocument = {
+      agentId: agent.id,
+      documentId: signedDocumentDto.documentId,
+      documentName: signedDocumentDto.documentName,
+      accepted: signedDocumentDto.accepted,
+      acceptanceText: signedDocumentDto.acceptanceText ?? null,
+      signature: signedDocumentDto.signature ?? null,
+      signatureType: signedDocumentDto.signatureType ?? null,
+      metadata: signedDocumentDto.metadata ?? {},
+      submittedAt: new Date(),
+    };
+
+    await this.agentDocumentsRepository.upsert(signedDocument as any, [
+      'agentId',
+      'documentId',
+    ]);
+
+    const signedDocuments = await this.findSignedDocumentsByAgentId(agent.id);
+
+    return {
+      message: 'Signed document saved successfully.',
+      signedDocuments,
+    };
+  }
+
+  async findSignedDocumentsByAgentId(agentId: string) {
+    const documents = await this.agentDocumentsRepository.find({
+      where: { agentId },
+      order: { createdAt: 'ASC' },
+    });
+
+    return documents.reduce<Record<string, unknown>>((acc, document) => {
+      acc[document.documentId] = {
+        id: document.id,
+        agentId: document.agentId,
+        documentId: document.documentId,
+        documentName: document.documentName,
+        accepted: document.accepted,
+        acceptanceText: document.acceptanceText,
+        signature: document.signature,
+        signatureType: document.signatureType,
+        metadata: document.metadata,
+        submittedAt: document.submittedAt,
+      };
+      return acc;
+    }, {});
   }
 
   private mapFiles(files: AgentFiles) {
@@ -282,6 +342,34 @@ export class AgentsService implements OnModuleInit {
     await this.agentsRepository.query(`
       CREATE INDEX IF NOT EXISTS "idx_agents_invite_token_hash"
       ON agents ("invite_token_hash");
+    `);
+  }
+
+  private async ensureAgentDocumentsTable() {
+    await this.agentDocumentsRepository.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
+
+    await this.agentDocumentsRepository.query(`
+      CREATE TABLE IF NOT EXISTS agent_documents (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        "agentId" uuid NOT NULL,
+        "documentId" varchar NOT NULL,
+        "documentName" varchar NOT NULL,
+        accepted boolean NOT NULL DEFAULT false,
+        "acceptanceText" text NULL,
+        signature text NULL,
+        "signatureType" varchar NULL,
+        metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+        "submittedAt" timestamp NOT NULL DEFAULT now(),
+        "createdAt" timestamp NOT NULL DEFAULT now(),
+        "updatedAt" timestamp NOT NULL DEFAULT now(),
+        CONSTRAINT "fk_agent_documents_agent"
+          FOREIGN KEY ("agentId") REFERENCES agents(id) ON DELETE CASCADE
+      );
+    `);
+
+    await this.agentDocumentsRepository.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "idx_agent_documents_agent_document"
+      ON agent_documents ("agentId", "documentId");
     `);
   }
 }
