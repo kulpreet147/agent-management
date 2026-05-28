@@ -10,6 +10,8 @@ import MasterSettings from './pages/master/Settings.jsx'
 
 import AgentRecordCreation from './pages/admin/AgentRecordCreation.jsx'
 import Agents from './pages/admin/Agents.jsx'
+import LeadManagement from './pages/admin/LeadManagement.jsx'
+import LeadRecordCreation from './pages/admin/LeadRecordCreation.jsx'
 import AgentDetails from './pages/admin/AgentDetails.jsx'
 import Agreements from './pages/admin/Agreements.jsx'
 import MGACContracts from './pages/admin/MGACContracts.jsx'
@@ -112,6 +114,28 @@ export default function App() {
           <Protected>
             <DashboardLayout variant="admin">
               <AgentDetails />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/admin/leads"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <LeadManagement />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/admin/leads/new"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <LeadRecordCreation />
             </DashboardLayout>
           </Protected>
         }

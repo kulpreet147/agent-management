@@ -1,306 +1,224 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Plus,
-  SlidersHorizontal,
-  AlertCircle,
-  PenLine,
-  ShieldCheck,
-  MoreHorizontal,
+  Users,
+  Clock,
+  FileCheck,
+  AlertTriangle,
   Search,
-  FileText,
-  X
+  UserPlus,
+  Eye,
+  PenLine,
+  MoreHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
+  BarChart3,
+  AlertCircle
 } from 'lucide-react'
-import StatCard from '../components/StatCard.jsx'
-import StatusPill from '../components/StatusPill.jsx'
-import {
-  adminStats,
-  onboardingPipeline,
-  recentSubmissions,
-  complianceAlerts,
-  trainingCompletion,
-  recentAgents
-} from '../data/dummy.js'
-
-const STAT_TONES = ['indigo', 'amber', 'slate', 'emerald', 'rose']
+import { recentAgents } from '../data/dummy.js'
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
+  const [searchTerm, setSearchTerm] = useState('')
 
-  return (
-    <div className="space-y-6 max-w-[1500px] mx-auto">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">System Overview</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Real-time metrics for agent lifecycle management.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-sm font-semibold px-3.5 py-2.5 rounded-lg transition">
-            <SlidersHorizontal size={15} />
-            Filters
-          </button>
-          <button
-            onClick={() => navigate('/admin/agent-record-creation')}
-            className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm shadow-brand-600/20 transition"
-          >
-            <Plus size={16} />
-            New Agent
-          </button>
-
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        {adminStats.map((s, i) => (
-          <StatCard key={s.label} label={s.label} value={s.value} delta={s.delta} tone={STAT_TONES[i]} />
-        ))}
-      </div>
-
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* LEFT — main column (2/3) */}
-        <div className="xl:col-span-2 space-y-6">
-          <RecentAgentsPanel />
-        </div>
-
-        {/* RIGHT — side column (1/3) */}
-        <div className="space-y-6">
-          <TrainingPanel />
-        </div>
-      </div>
-
-    </div>
+  const filteredAgents = recentAgents.filter((a) =>
+    a.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
-}
 
-/* ------------------------------- Sub panels ------------------------------- */
+  const statusBadge = (status) => {
+    const styles = {
+      Active: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+      Pending: 'bg-amber-50 text-amber-700 border border-amber-100'
+    }
+    return styles[status] || 'bg-slate-100 text-slate-600 border border-slate-200'
+  }
 
-function OnboardingPanel() {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-card">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-        <h2 className="font-bold text-slate-900">Onboarding Overview</h2>
-        <button className="text-sm text-brand-600 font-semibold hover:underline">
-          View Full Pipeline
-        </button>
+    <div className="max-w-[1750px] mx-auto w-full">
+      <div className="mb-10">
+        <h2 className="text-3xl font-bold text-slate-900 mb-2">Administrative Overview</h2>
+        <p className="text-base text-slate-500 font-medium">
+          Real-time performance metrics and workforce compliance monitoring.
+        </p>
       </div>
 
-      <div className="px-6 py-5 grid grid-cols-4 gap-4">
-        {onboardingPipeline.map((p) => (
-          <div key={p.label} className="text-center">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              {p.label}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+          <div className="flex justify-between items-center mb-6">
+            <div className="w-12 h-12 flex items-center justify-center bg-blue-50 text-blue-600 rounded-xl">
+              <Users size={24} />
             </div>
-            <div className="mt-2 text-3xl font-bold text-slate-900 tabular-nums">
-              {String(p.value).padStart(2, '0')}
+            <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">
+              <TrendingUp size={14} /> 4%
+            </span>
+          </div>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Agents</p>
+          <p className="text-2xl font-extrabold text-slate-900">{recentAgents.length}</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+          <div className="flex justify-between items-center mb-6">
+            <div className="w-12 h-12 flex items-center justify-center bg-amber-50 text-amber-600 rounded-xl">
+              <Clock size={24} />
             </div>
           </div>
-        ))}
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Onboarding</p>
+          <p className="text-2xl font-extrabold text-slate-900">12</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+          <div className="flex justify-between items-center mb-6">
+            <div className="w-12 h-12 flex items-center justify-center bg-rose-50 text-rose-600 rounded-xl">
+              <FileCheck size={24} />
+            </div>
+          </div>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Pending Approvals</p>
+          <p className="text-2xl font-extrabold text-slate-900">5</p>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+          <div className="flex justify-between items-center mb-6">
+            <div className="w-12 h-12 flex items-center justify-center bg-slate-50 text-slate-600 rounded-xl">
+              <AlertTriangle size={24} />
+            </div>
+          </div>
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Licences Expiring</p>
+          <p className="text-2xl font-extrabold text-slate-900">3</p>
+        </div>
       </div>
 
-      <div className="px-6 pb-5">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
-          Recent Submissions
-        </div>
-        <div className="space-y-2">
-          {recentSubmissions.map((s) => (
-            <div
-              key={s.app}
-              className="flex items-center gap-3 p-2.5 rounded-lg border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition"
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-12">
+        <div className="px-8 py-6 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">Workforce Registry</h3>
+            <p className="text-sm text-slate-500">Manage active agents and track their lifecycle progress.</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search agents..."
+                className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none w-56"
+              />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+            <button
+              onClick={() => navigate('/admin/agent-record-creation')}
+              className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
             >
-              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 grid place-items-center text-white text-xs font-bold">
-                {s.name
+              <UserPlus size={18} />
+              Add New Agent
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50/50">
+              <tr>
+                <th className="px-8 py-5 text-xs font-extrabold text-slate-500 uppercase tracking-widest">Agent Name</th>
+                <th className="px-6 py-5 text-xs font-extrabold text-slate-500 uppercase tracking-widest">Contact</th>
+                <th className="px-6 py-5 text-xs font-extrabold text-slate-500 uppercase tracking-widest text-center">Status</th>
+                <th className="px-6 py-5 text-xs font-extrabold text-slate-500 uppercase tracking-widest">Onboarding</th>
+                <th className="px-6 py-5 text-xs font-extrabold text-slate-500 uppercase tracking-widest">Licence Expiry</th>
+                <th className="px-8 py-5 text-xs font-extrabold text-slate-500 uppercase tracking-widest text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredAgents.map((a) => {
+                const initials = a.name
                   .split(' ')
                   .map((n) => n[0])
-                  .join('')}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-slate-800">{s.name}</div>
-                <div className="text-xs text-slate-500">
-                  {s.app} • Submitted {s.submitted}
-                </div>
-              </div>
-              <StatusPill status={s.tag} size="xs" />
-            </div>
-          ))}
+                  .join('')
+                return (
+                  <tr key={a.email} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm border border-blue-100">
+                          {initials}
+                        </div>
+                        <div>
+                          <p className="text-base font-bold text-slate-900">{a.name}</p>
+                          <p className="text-xs text-slate-500 font-medium">ID: {a.agentId}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-6">
+                      <p className="text-sm font-semibold text-slate-700">{a.email}</p>
+                      <p className="text-xs text-slate-400">{a.phone}</p>
+                    </td>
+                    <td className="px-6 py-6 text-center">
+                      <span className={`inline-flex items-center justify-center px-3 py-1 text-xs font-bold rounded-full leading-none ${statusBadge(a.status)}`}>
+                        {a.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-6">
+                      <div className="w-full bg-slate-100 rounded-full h-1.5 max-w-[140px]">
+                        <div
+                          className={`h-1.5 rounded-full ${a.onboardingProgress === 100 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                          style={{ width: `${a.onboardingProgress}%` }}
+                        />
+                      </div>
+                      <p className={`text-xs mt-2 font-bold uppercase tracking-wider ${a.onboardingProgress === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {a.onboardingLabel}
+                      </p>
+                    </td>
+                    <td className="px-6 py-6">
+                      <p className={`text-sm font-medium ${a.licenceExpiry.includes('2024') ? 'text-rose-600 font-bold' : 'text-slate-600'}`}>
+                        {a.licenceExpiry}
+                      </p>
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                      <div className="flex justify-end gap-3">
+                        <button className="text-slate-400 hover:text-blue-600 transition-colors">
+                          <Eye size={18} />
+                        </button>
+                        <button className="text-slate-400 hover:text-slate-700 transition-colors">
+                          <PenLine size={18} />
+                        </button>
+                        <button className="text-slate-400 hover:text-rose-600 transition-colors">
+                          <MoreHorizontal size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
-      </div>
-    </div>
-  )
-}
 
-function RecentAgentsPanel() {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-card">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-        <h2 className="font-bold text-slate-900">Recent Agent Activity</h2>
-        <div className="flex items-center gap-1">
-          <button className="h-8 w-8 grid place-items-center rounded-md text-slate-500 hover:bg-slate-100">
-            <Search size={15} />
-          </button>
-          <button className="h-8 w-8 grid place-items-center rounded-md text-slate-500 hover:bg-slate-100">
-            <MoreHorizontal size={15} />
-          </button>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead>
-            <tr className="text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50/50">
-              <th className="text-left font-semibold px-6 py-3">Agent Name</th>
-              <th className="text-left font-semibold px-6 py-3">State</th>
-              <th className="text-left font-semibold px-6 py-3">MGA Level</th>
-              <th className="text-left font-semibold px-6 py-3">Status</th>
-              <th className="text-left font-semibold px-6 py-3">Last Updated</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {recentAgents.map((a) => (
-              <tr key={a.email} className="hover:bg-slate-50/60 transition">
-                <td className="px-6 py-3.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 grid place-items-center text-white text-[10px] font-bold">
-                      {a.initials}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-800">{a.name}</div>
-                      <div className="text-xs text-slate-500">{a.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-3.5 text-slate-600">{a.state}</td>
-                <td className="px-6 py-3.5 text-slate-600">{a.level}</td>
-                <td className="px-6 py-3.5">
-                  <StatusPill status={a.status} />
-                </td>
-                <td className="px-6 py-3.5 text-slate-500">{a.updated}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-function CompliancePanel() {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-card">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-        <h2 className="font-bold text-slate-900">Compliance Alerts</h2>
-        <span className="text-[10px] font-bold tracking-wider text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
-          3 TOTAL
-        </span>
-      </div>
-
-      <div className="p-5 space-y-3">
-        {complianceAlerts.map((alert, i) => (
-          <AlertItem key={i} alert={alert} />
-        ))}
-
-        <button className="w-full text-sm text-brand-600 font-semibold hover:underline pt-1">
-          View All Compliance Logs
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function AlertItem({ alert }) {
-  const icon = {
-    critical: <AlertCircle size={16} className="text-red-600" />,
-    warning: <PenLine size={16} className="text-amber-600" />,
-    info: <ShieldCheck size={16} className="text-emerald-600" />
-  }[alert.type]
-
-  const bg = {
-    critical: 'bg-red-50/60 border-red-100',
-    warning: 'bg-amber-50/40 border-amber-100',
-    info: 'bg-emerald-50/40 border-emerald-100'
-  }[alert.type]
-
-  return (
-    <div className={`rounded-lg border p-3 ${bg}`}>
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5">{icon}</div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-slate-900">{alert.title}</div>
-          <div className="text-xs text-slate-600 mt-0.5 leading-relaxed">{alert.body}</div>
-          {alert.actions && (
-            <div className="flex flex-wrap gap-2 mt-2.5">
-              {alert.actions.map((a) => (
-                <button
-                  key={a}
-                  className={`text-[11px] font-bold uppercase tracking-wider px-2 py-1 rounded ${
-                    a === 'Suspend Agent'
-                      ? 'bg-red-600 text-white hover:bg-red-700'
-                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-                  } transition`}
-                >
-                  {a}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function TrainingPanel() {
-  const t = trainingCompletion
-  return (
-    <div className="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-5 shadow-card">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="text-sm font-semibold text-slate-700">Training Completion</div>
-          <div className="mt-1 text-4xl font-bold text-brand-700 tabular-nums">{t.percent}%</div>
-          <div className="text-xs text-slate-500 mt-0.5">{t.target}</div>
-        </div>
-      </div>
-
-      <div className="mt-5 space-y-3">
-        {t.modules.map((m) => (
-          <div key={m.label}>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-600 font-medium">{m.label}</span>
-              <span className="font-bold text-slate-800 tabular-nums">{m.percent}%</span>
-            </div>
-            <div className="mt-1 h-1.5 bg-slate-200/70 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-brand-600 rounded-full transition-all"
-                style={{ width: `${m.percent}%` }}
-              />
-            </div>
+        <div className="px-8 py-5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+          <p className="text-sm text-slate-500 font-medium">
+            Showing <span className="text-slate-900 font-bold">{filteredAgents.length}</span> of {recentAgents.length} agents
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              disabled
+              className="p-2 rounded-lg hover:bg-slate-200 disabled:opacity-20 text-slate-600 transition-colors"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button className="w-9 h-9 flex items-center justify-center bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm shadow-blue-600/20">
+              1
+            </button>
+            <button className="w-9 h-9 flex items-center justify-center hover:bg-slate-200 rounded-lg text-sm font-semibold text-slate-600 transition-colors">
+              2
+            </button>
+            <button className="w-9 h-9 flex items-center justify-center hover:bg-slate-200 rounded-lg text-sm font-semibold text-slate-600 transition-colors">
+              3
+            </button>
+            <button className="p-2 rounded-lg hover:bg-slate-200 text-slate-600 transition-colors">
+              <ChevronRight size={18} />
+            </button>
           </div>
-        ))}
+        </div>
       </div>
 
-      <button className="mt-5 w-full bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold py-2.5 rounded-lg transition">
-        ASSIGN MODULES
-      </button>
-    </div>
-  )
-}
-
-function ReportCard() {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card flex items-start gap-3">
-      <div className="h-10 w-10 rounded-lg bg-brand-50 text-brand-600 grid place-items-center shrink-0">
-        <FileText size={18} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-slate-900">Q4 Compliance Report</div>
-        <div className="text-xs text-slate-500 mt-0.5">Generated 10 mins ago</div>
-      </div>
-      <button className="text-slate-400 hover:text-slate-600">
-        <X size={16} />
-      </button>
+      
     </div>
   )
 }

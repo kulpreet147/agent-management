@@ -89,33 +89,48 @@ export const trainingCompletion = {
 
 export const recentAgents = [
   {
-    name: 'Jonathan Doe',
-    email: 'john@agency.com',
+    name: 'Sarah Miller',
+    email: 's.miller@insurance.com',
+    phone: '+1 (555) 123-4567',
     state: 'TX, FL',
     level: 'Level 4',
-    status: 'Training',
-    statusTone: 'gray',
-    updated: '3h ago',
-    initials: 'JD'
-  },
-  {
-    name: 'Alice Miller',
-    email: 'a.miller@partner.net',
-    state: 'NY',
-    level: 'Level 2',
     status: 'Active',
     statusTone: 'green',
     updated: '3h ago',
-    initials: 'AM'
+    initials: 'SM',
+    agentId: 'AGT-9921',
+    licenceExpiry: 'Oct 12, 2025',
+    onboardingProgress: 100,
+    onboardingLabel: 'Completed'
   },
   {
-    name: 'Robert Wong',
-    email: 'r.wong@firm.io',
+    name: 'James Bennett',
+    email: 'j.bennett@agency.co',
+    phone: '+1 (555) 987-6543',
+    state: 'NY',
+    level: 'Level 2',
+    status: 'Pending',
+    statusTone: 'amber',
+    updated: '3h ago',
+    initials: 'JB',
+    agentId: 'AGT-9922',
+    licenceExpiry: 'Nov 04, 2024',
+    onboardingProgress: 45,
+    onboardingLabel: '45% In Progress'
+  },
+  {
+    name: 'Linda Wu',
+    email: 'linda.wu@service.net',
+    phone: '+1 (555) 246-8135',
     state: 'CA',
     level: 'Level 5',
-    status: 'Contract Expiring',
-    statusTone: 'red',
+    status: 'Active',
+    statusTone: 'green',
     updated: 'Yesterday',
-    initials: 'RW'
+    initials: 'LW',
+    agentId: 'AGT-9923',
+    licenceExpiry: 'Jan 18, 2026',
+    onboardingProgress: 100,
+    onboardingLabel: 'Completed'
   }
 ]
