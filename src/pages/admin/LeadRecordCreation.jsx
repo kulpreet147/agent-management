@@ -16,6 +16,16 @@ import {
   X
 } from 'lucide-react'
 
+const today = new Date().toISOString().split('T')[0]
+
+const priorityStyles = {
+  HOT: { default: 'border-red-100 bg-red-50 text-red-700 hover:border-red-500', active: 'border-red-500 bg-red-50 text-red-700', badge: 'bg-red-600' },
+  WARM: { default: 'border-orange-100 bg-orange-50 text-orange-700 hover:border-orange-500', active: 'border-orange-500 bg-orange-50 text-orange-700', badge: 'bg-orange-600' },
+  COLD: { default: 'border-blue-100 bg-blue-50 text-blue-700 hover:border-blue-500', active: 'border-blue-500 bg-blue-50 text-blue-700', badge: 'bg-blue-600' }
+}
+
+const PRIORITY_KEYS = ['HOT', 'WARM', 'COLD']
+
 const AVAILABLE_AGENTS = [
   { name: 'John Doe', role: 'Senior Agent', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDxMZalfX-J1y-uh21kDlryk7WwlXgaP9Rx5ZWGRNze3xLSW04RqoR7v6Gi_BU59_K5hU-k_j4-0MoLrvECy5dSn6uiTmFOImBDs2aZQEo8Bn_0BNBDdcV9MjGftTYLeP0oc02HEMm5Ner6OkUrpXY84EZpoZtCqMDuNTrI7IChidc7i5MmSCui_dbM5pCJ9vY3-FGKltjLnpq2uNafHvK-tvzmub31wiAlNewwQItGiUxN-qvM7wxiDTSoknudjscv0MTbr4e6imE' },
   { name: 'Alice Smith', role: 'Field Specialist', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBk2kmzVv5tYK76YO6CiyY8-JKyEe5un6ZPy964zwpL2P3fvEsxIBt-NdgLUYoee4zhUTGIVv9YwbfZqFIrRsx42aZ6O4SStS5jPzlBWipNJ9LsPpsCAa-NjMoXRk5JNoxwbb-RnSt5bKOJ8-ModKZ__UihdBq6tkmSKGnfXZxee4PARLOmR4H8_fxleCvAsGO4dfzIKCU6wrCHm7YUfqlfqD7oky8larwY3SuE0Sr9lJKV8KOaCGhmoORas7JddYBYXbBy-YW4nMA' },
@@ -127,11 +137,11 @@ export default function LeadRecordCreation() {
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">PHONE NUMBER</label>
-              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="+1 (555) 000-0000" type="tel" />
+              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="+1 (555) 000-0000" type="tel" maxLength={10} onInput={(e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10) }} />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">DATE OF BIRTH</label>
-              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" type="date" />
+              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" type="date" max={today} />
             </div>
             <div className="col-span-2 flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">EMAIL ADDRESS</label>
@@ -241,29 +251,25 @@ export default function LeadRecordCreation() {
               <div className="flex flex-col gap-3">
                 <label className="text-xs font-bold text-slate-500 tracking-wider">PRIORITY LEVEL</label>
                 <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: 'HOT', color: 'red' },
-                    { label: 'WARM', color: 'orange' },
-                    { label: 'COLD', color: 'blue' }
-                  ].map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => setPriority(p.label)}
-                      className={`relative flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${
-                        priority === p.label
-                          ? `border-${p.color}-500 bg-${p.color}-50 text-${p.color}-700`
-                          : `border-${p.color}-100 bg-${p.color}-50 text-${p.color}-700 hover:border-${p.color}-500`
-                      }`}
-                    >
-                      {priority === p.label && (
-                        <div className={`absolute -top-2 -right-2 bg-${p.color}-600 text-white p-0.5 rounded-full`}>
-                          <Check size={14} />
-                        </div>
-                      )}
-                      <span className="text-xs font-bold">{p.label}</span>
-                    </button>
-                  ))}
+                  {PRIORITY_KEYS.map((key) => {
+                    const st = priorityStyles[key]
+                    const isActive = priority === key
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setPriority(key)}
+                        className={`relative flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${isActive ? st.active : st.default}`}
+                      >
+                        {isActive && (
+                          <div className={`absolute -top-2 -right-2 ${st.badge} text-white p-0.5 rounded-full`}>
+                            <Check size={14} />
+                          </div>
+                        )}
+                        <span className="text-xs font-bold">{key}</span>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             </div>

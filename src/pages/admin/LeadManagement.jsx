@@ -12,14 +12,14 @@ import {
 } from 'lucide-react'
 
 const leadData = [
-  { id: '#LM-8421', name: 'Johnathan Doe', phone: '+1 (555) 0123', product: 'Enterprise SaaS', agent: 'S. Jenkins', agentInitials: 'SJ', priority: 'Hot', priorityStyle: 'bg-red-100 text-red-700 border-red-200', status: 'Interested', statusStyle: 'bg-blue-50 text-blue-700', lastActivity: '2h ago', followUp: 'Today, 4:00 PM', followUpUrgent: true },
-  { id: '#LM-8422', name: 'Sarah Miller', phone: '+1 (555) 0456', product: 'Cloud Infrastructure', agent: 'M. Chen', agentInitials: 'MC', priority: 'Warm', priorityStyle: 'bg-orange-100 text-orange-700 border-orange-200', status: 'In Progress', statusStyle: 'bg-amber-50 text-amber-700', lastActivity: '5h ago', followUp: 'Tomorrow, 10:00 AM', followUpUrgent: false },
-  { id: '#LM-8423', name: 'Bruce Wayne', phone: '+1 (555) 0912', product: 'Security Suite', agent: 'E. Wilson', agentInitials: 'EW', priority: 'Cold', priorityStyle: 'bg-blue-100 text-blue-700 border-blue-200', status: 'New', statusStyle: 'bg-gray-100 text-gray-700', lastActivity: '1d ago', followUp: 'Oct 24, 2023', followUpUrgent: false },
-  { id: '#LM-8424', name: 'Diana Prince', phone: '+1 (555) 0777', product: 'Premium ERP', agent: 'S. Jenkins', agentInitials: 'SJ', priority: 'Hot', priorityStyle: 'bg-red-100 text-red-700 border-red-200', status: 'Converted', statusStyle: 'bg-green-100 text-green-700', lastActivity: '3h ago', followUp: 'Completed', followUpUrgent: false },
-  { id: '#LM-8425', name: 'Arthur Knight', phone: '+1 (555) 0331', product: 'AI Analytics', agent: 'E. Wilson', agentInitials: 'EW', priority: 'Warm', priorityStyle: 'bg-orange-100 text-orange-700 border-orange-200', status: 'Quote Sent', statusStyle: 'bg-blue-50 text-blue-700', lastActivity: '12h ago', followUp: 'Oct 26, 2023', followUpUrgent: false },
-  { id: '#LM-8426', name: 'Tony Lewis', phone: '+1 (555) 0552', product: 'Data Warehouse', agent: 'M. Chen', agentInitials: 'MC', priority: 'Hot', priorityStyle: 'bg-red-100 text-red-700 border-red-200', status: 'Negotiation', statusStyle: 'bg-amber-50 text-amber-700', lastActivity: '1h ago', followUp: 'Overdue (2d)', followUpUrgent: true },
-  { id: '#LM-8427', name: 'Rebecca Vance', phone: '+1 (555) 0119', product: 'SaaS Pro', agent: 'S. Jenkins', agentInitials: 'SJ', priority: 'Cold', priorityStyle: 'bg-blue-100 text-blue-700 border-blue-200', status: 'Lost', statusStyle: 'bg-red-50 text-red-700', lastActivity: '3d ago', followUp: 'N/A', followUpUrgent: false },
-  { id: '#LM-8428', name: 'Kevin Smith', phone: '+1 (555) 0884', product: 'ERP Module', agent: 'E. Wilson', agentInitials: 'EW', priority: 'Warm', priorityStyle: 'bg-orange-100 text-orange-700 border-orange-200', status: 'Contacted', statusStyle: 'bg-amber-50 text-amber-700', lastActivity: '45m ago', followUp: 'Today, 5:30 PM', followUpUrgent: false }
+  { id: '#LM-8421', name: 'Johnathan Doe', phone: '+1 (555) 0123', email: 'john.doe@provider.com', product: 'Enterprise SaaS', agent: 'S. Jenkins', agentInitials: 'SJ', priority: 'Hot', priorityStyle: 'bg-red-100 text-red-700 border-red-200', status: 'Interested', statusStyle: 'bg-blue-50 text-blue-700', lastActivity: '2h ago', followUp: 'Today, 4:00 PM', followUpUrgent: true },
+  { id: '#LM-8422', name: 'Sarah Miller', phone: '+1 (555) 0456', email: 's.miller@provider.com', product: 'Cloud Infrastructure', agent: 'M. Chen', agentInitials: 'MC', priority: 'Warm', priorityStyle: 'bg-orange-100 text-orange-700 border-orange-200', status: 'In Progress', statusStyle: 'bg-amber-50 text-amber-700', lastActivity: '5h ago', followUp: 'Tomorrow, 10:00 AM', followUpUrgent: false },
+  { id: '#LM-8423', name: 'Bruce Wayne', phone: '+1 (555) 0912', email: 'b.wayne@provider.com', product: 'Security Suite', agent: 'E. Wilson', agentInitials: 'EW', priority: 'Cold', priorityStyle: 'bg-blue-100 text-blue-700 border-blue-200', status: 'New', statusStyle: 'bg-gray-100 text-gray-700', lastActivity: '1d ago', followUp: 'Oct 24, 2023', followUpUrgent: false },
+  { id: '#LM-8424', name: 'Diana Prince', phone: '+1 (555) 0777', email: 'd.prince@provider.com', product: 'Premium ERP', agent: 'S. Jenkins', agentInitials: 'SJ', priority: 'Hot', priorityStyle: 'bg-red-100 text-red-700 border-red-200', status: 'Converted', statusStyle: 'bg-green-100 text-green-700', lastActivity: '3h ago', followUp: 'Completed', followUpUrgent: false },
+  { id: '#LM-8425', name: 'Arthur Knight', phone: '+1 (555) 0331', email: 'a.knight@provider.com', product: 'AI Analytics', agent: 'E. Wilson', agentInitials: 'EW', priority: 'Warm', priorityStyle: 'bg-orange-100 text-orange-700 border-orange-200', status: 'Quote Sent', statusStyle: 'bg-blue-50 text-blue-700', lastActivity: '12h ago', followUp: 'Oct 26, 2023', followUpUrgent: false },
+  { id: '#LM-8426', name: 'Tony Lewis', phone: '+1 (555) 0552', email: 't.lewis@provider.com', product: 'Data Warehouse', agent: 'M. Chen', agentInitials: 'MC', priority: 'Hot', priorityStyle: 'bg-red-100 text-red-700 border-red-200', status: 'Negotiation', statusStyle: 'bg-amber-50 text-amber-700', lastActivity: '1h ago', followUp: 'Overdue (2d)', followUpUrgent: true },
+  { id: '#LM-8427', name: 'Rebecca Vance', phone: '+1 (555) 0119', email: 'r.vance@provider.com', product: 'SaaS Pro', agent: 'S. Jenkins', agentInitials: 'SJ', priority: 'Cold', priorityStyle: 'bg-blue-100 text-blue-700 border-blue-200', status: 'Lost', statusStyle: 'bg-red-50 text-red-700', lastActivity: '3d ago', followUp: 'N/A', followUpUrgent: false },
+  { id: '#LM-8428', name: 'Kevin Smith', phone: '+1 (555) 0884', email: 'k.smith@provider.com', product: 'ERP Module', agent: 'E. Wilson', agentInitials: 'EW', priority: 'Warm', priorityStyle: 'bg-orange-100 text-orange-700 border-orange-200', status: 'Contacted', statusStyle: 'bg-amber-50 text-amber-700', lastActivity: '45m ago', followUp: 'Today, 5:30 PM', followUpUrgent: false }
 ]
 
 const initialsBg = {
@@ -191,7 +191,11 @@ export default function LeadManagement() {
                 <tr key={lead.id} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-6 py-4 text-sm text-slate-500">{lead.id}</td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/admin/leads/${lead.id.replace('#', '')}`, { state: { lead } })}
+                      className="flex items-center gap-3 hover:opacity-80 transition-opacity text-left"
+                    >
                       <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold border border-blue-200">
                         {lead.name.split(' ').map(n => n[0]).join('')}
                       </div>
@@ -199,7 +203,7 @@ export default function LeadManagement() {
                         <p className="text-sm font-semibold text-slate-800">{lead.name}</p>
                         <p className="text-xs text-slate-500">{lead.phone}</p>
                       </div>
-                    </div>
+                    </button>
                   </td>
                   <td className="px-6 py-4 text-sm">{lead.product}</td>
                   <td className="px-6 py-4">
