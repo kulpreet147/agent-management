@@ -1,61 +1,65 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import Login from './pages/Login.jsx'
-import AgentAccountSetup from './pages/AgentAccountSetup.jsx'
-import MasterDashboard from './pages/MasterDashboard.jsx'
-import AdminDashboard from './pages/AdminDashboard.jsx'
-import DashboardLayout from './layouts/DashboardLayout.jsx'
-import { auth } from './utils/auth.js'
+import { Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/Login.jsx";
+import AgentAccountSetup from "./pages/AgentAccountSetup.jsx";
+import MasterDashboard from "./pages/MasterDashboard.jsx";
+import AdminDashboard from "./pages/AdminDashboard.jsx";
+import DashboardLayout from "./layouts/DashboardLayout.jsx";
+import { auth } from "./utils/auth.js";
 
-import AdminManagement from './pages/master/AdminManagement.jsx'
-import MasterSettings from './pages/master/Settings.jsx'
+import AdminManagement from "./pages/master/AdminManagement.jsx";
+import MasterSettings from "./pages/master/Settings.jsx";
 
-import AgentRecordCreation from './pages/admin/AgentRecordCreation.jsx'
-import Agents from './pages/admin/Agents.jsx'
-import LeadManagement from './pages/admin/LeadManagement.jsx'
-import ClientManagement from './pages/admin/ClientManagement.jsx'
-import PolicyManagement from './pages/admin/PolicyManagement.jsx'
-import LeadDetail from './pages/admin/LeadDetail.jsx'
-import LeadNeedAnalysis from './pages/admin/LeadNeedAnalysis.jsx'
-import LeadReassign from './pages/admin/LeadReassign.jsx'
-import LeadRecordCreation from './pages/admin/LeadRecordCreation.jsx'
-import AgentDetails from './pages/admin/AgentDetails.jsx'
-import AgentMGAPackage from './pages/admin/AgentMGAPackage.jsx'
-import AgentRegistrationForm from './pages/agent/AgentRegistrationForm.jsx'
-import AgentDocumentSigning from './pages/agent/AgentDocumentSigning.jsx'
-import AgentWelcome from './pages/agent/AgentWelcome.jsx'
-import AgentOnboardingDashboard from './pages/agent/AgentOnboardingDashboard.jsx'
-import AgentDashboard from './pages/agent/AgentDashboard.jsx'
-
+import AgentRecordCreation from "./pages/admin/AgentRecordCreation.jsx";
+import Agents from "./pages/admin/Agents.jsx";
+import LeadManagement from "./pages/admin/LeadManagement.jsx";
+import ClientManagement from "./pages/admin/ClientManagement.jsx";
+import PolicyManagement from "./pages/admin/PolicyManagement.jsx";
+import LeadDetail from "./pages/admin/LeadDetail.jsx";
+import LeadNeedAnalysis from "./pages/admin/LeadNeedAnalysis.jsx";
+import LeadReassign from "./pages/admin/LeadReassign.jsx";
+import LeadRecordCreation from "./pages/admin/LeadRecordCreation.jsx";
+import AgentDetails from "./pages/admin/AgentDetails.jsx";
+import AgentMGAPackage from "./pages/admin/AgentMGAPackage.jsx";
+import AgentRegistrationForm from "./pages/agent/AgentRegistrationForm.jsx";
+import AgentDocumentSigning from "./pages/agent/AgentDocumentSigning.jsx";
+import AgentWelcome from "./pages/agent/AgentWelcome.jsx";
+import AgentOnboardingDashboard from "./pages/agent/AgentOnboardingDashboard.jsx";
+import AgentDashboard from "./pages/agent/AgentDashboard.jsx";
+import AgentLeadManagement from "./pages/agent/AgentLeadManagement.jsx";
+import AgentLeadDetail from "./pages/agent/AgentLeadDetail.jsx";
+import AgentActionItems from "./pages/agent/AgentActionItems.jsx";
+import Analytics from "./pages/admin/Analytics.jsx";
 
 function Protected({ children }) {
-  return auth.isAuthenticated() ? children : <Navigate to="/login" replace />
+  return auth.isAuthenticated() ? children : <Navigate to="/login" replace />;
 }
 
 function getAgentRoute(status) {
-  const step = Number(status || 2)
-  if (step >= 5) return '/agent/dashboard'
-  if (step >= 4) return '/agent/onboarding-progress'
-  if (step >= 3) return '/agent/sign-documents'
-  return '/agent/registration'
+  const step = Number(status || 2);
+  if (step >= 5) return "/agent/dashboard";
+  if (step >= 4) return "/agent/onboarding-progress";
+  if (step >= 3) return "/agent/sign-documents";
+  return "/agent/registration";
 }
 
 function AgentProtected({ children }) {
-  const session = auth.get()
-  if (!session) return <Navigate to="/login" replace />
-  if (session.role !== 'agent') return <Navigate to="/" replace />
-  return children
+  const session = auth.get();
+  if (!session) return <Navigate to="/login" replace />;
+  if (session.role !== "agent") return <Navigate to="/" replace />;
+  return children;
 }
 
 function RoleRoute() {
-  const session = auth.get()
-  if (!session) return <Navigate to="/login" replace />
-  if (session.role === 'agent') return <Navigate to={getAgentRoute(session.onboardingStatus)} replace />
+  const session = auth.get();
+  if (!session) return <Navigate to="/login" replace />;
+  if (session.role === "agent")
+    return <Navigate to={getAgentRoute(session.onboardingStatus)} replace />;
   return (
     <Navigate
-      to={session.role === 'master_admin' ? '/master' : '/admin'}
+      to={session.role === "master_admin" ? "/master" : "/admin"}
       replace
     />
-  )
+  );
 }
 
 export default function App() {
@@ -63,7 +67,10 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/agent/account-setup" element={<AgentAccountSetup />} />
-      <Route path="/agent/account-setup/:inviteToken" element={<AgentAccountSetup />} />
+      <Route
+        path="/agent/account-setup/:inviteToken"
+        element={<AgentAccountSetup />}
+      />
       <Route
         path="/agent/registration"
         element={
@@ -101,6 +108,30 @@ export default function App() {
         element={
           <AgentProtected>
             <AgentDashboard />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/leads"
+        element={
+          <AgentProtected>
+            <AgentLeadManagement />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/leads/:leadId"
+        element={
+          <AgentProtected>
+            <AgentLeadDetail />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/action-items"
+        element={
+          <AgentProtected>
+            <AgentActionItems />
           </AgentProtected>
         }
       />
@@ -270,8 +301,17 @@ export default function App() {
           </Protected>
         }
       />
-
+      <Route
+        path="/admin/analytics"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <Analytics />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-  )
+  );
 }

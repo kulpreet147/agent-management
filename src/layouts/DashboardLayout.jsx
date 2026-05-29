@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   LogOut,
   TrendingUp,
+  Activity,
   BriefcaseBusiness
 } from 'lucide-react'
 
@@ -29,7 +30,8 @@ const adminNav = [
   { label: 'Agent Management', icon: Users, to: '/admin/agents' },
   { label: 'Lead Management', icon: TrendingUp, to: '/admin/leads' },
   { label: 'Client Management', icon: BriefcaseBusiness, to: '/admin/clients' },
-  { label: 'Policy Management', icon: ShieldCheck, to: '/admin/policies' }
+  { label: 'Policy Management', icon: ShieldCheck, to: '/admin/policies' },
+  { label: 'Analytics', icon: Activity, to: '/admin/analytics' },
 ]
 
 
