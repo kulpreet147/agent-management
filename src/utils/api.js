@@ -25,7 +25,7 @@ export async function apiRequest(path, options = {}) {
 
 function getSession() {
   try {
-    const raw = localStorage.getItem('agentflow_auth')
+    const raw = sessionStorage.getItem('agentflow_auth') || localStorage.getItem('agentflow_auth')
     return raw ? JSON.parse(raw) : null
   } catch {
     return null

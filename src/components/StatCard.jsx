@@ -11,9 +11,25 @@ const TONE = {
   rose: { bg: 'bg-rose-50', text: 'text-rose-600', icon: FileX }
 }
 
-export default function StatCard({ label, value, delta, tone = 'blue', urgent = false }) {
+export default function StatCard({ label, value, delta, tone = 'blue', urgent = false, compact = false }) {
   const t = TONE[tone] || TONE.blue
   const Icon = t.icon
+
+  if (compact) {
+    return (
+      <div className={`rounded-xl border bg-white p-3 shadow-sm overflow-hidden ${urgent ? 'border-red-200' : 'border-slate-200'}`}>
+        <div className="flex items-center justify-between">
+          <div className={`h-9 w-9 rounded-lg ${t.bg} ${t.text} grid place-items-center`}> 
+            <Icon size={18} />
+          </div>
+          <div className="text-right">
+            <div className="text-sm font-semibold text-slate-900 tabular-nums">{value}</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">{label}</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
