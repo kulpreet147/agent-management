@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -22,7 +21,7 @@ type AgentFiles = Record<string, Express.Multer.File[]>;
 const INVITE_EXPIRY_MINUTES = 10;
 
 @Injectable()
-export class AgentsService implements OnModuleInit {
+export class AgentsService {
   constructor(
     @InjectRepository(Agent)
     private readonly agentsRepository: Repository<Agent>,
@@ -31,11 +30,6 @@ export class AgentsService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
   ) {}
-
-  async onModuleInit() {
-    await this.ensureAgentsTable();
-    await this.ensureAgentDocumentsTable();
-  }
 
   async create(createAgentDto: CreateAgentDto, files: AgentFiles) {
     this.validateRequiredFiles(createAgentDto.licenceWorkflow, files);
@@ -462,86 +456,4 @@ export class AgentsService implements OnModuleInit {
     return safeAgent;
   }
 
-  private async ensureAgentsTable() {
-    await this.agentsRepository.query(
-      'CREATE EXTENSION IF NOT EXISTS pgcrypto;',
-    );
-
-    await this.agentsRepository.query(`
-      CREATE TABLE IF NOT EXISTS agents (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        "agentId" varchar UNIQUE NOT NULL,
-        name varchar NOT NULL,
-        email varchar NOT NULL,
-        "licenceType" varchar NOT NULL,
-        "licenceWorkflow" varchar NOT NULL,
-        "agentLevel" varchar NOT NULL,
-        "insuranceCompany" varchar NOT NULL,
-        "agentCode" varchar NOT NULL,
-        eo varchar NOT NULL,
-        apex varchar NOT NULL,
-        "creditReport" varchar NOT NULL,
-        sin varchar NOT NULL,
-        mga varchar NOT NULL,
-        "commissionOverride" numeric(5, 2) NOT NULL,
-        documents jsonb NOT NULL DEFAULT '{}'::jsonb,
-        status varchar NOT NULL DEFAULT 'active',
-        "onboarding_status" integer NOT NULL DEFAULT 1,
-        "account_activation_status" integer NOT NULL DEFAULT 0,
-        "invite_token_hash" varchar NULL,
-        "invite_expires_at" timestamp NULL,
-        "invite_used_at" timestamp NULL,
-        "password_hash" varchar NULL,
-        "activated_at" timestamp NULL,
-        "createdAt" timestamp NOT NULL DEFAULT now(),
-        "updatedAt" timestamp NOT NULL DEFAULT now()
-      );
-    `);
-
-    await this.agentsRepository.query(`
-      ALTER TABLE agents
-      ADD COLUMN IF NOT EXISTS "invite_token_hash" varchar NULL,
-      ADD COLUMN IF NOT EXISTS "onboarding_status" integer NOT NULL DEFAULT 1,
-      ADD COLUMN IF NOT EXISTS "account_activation_status" integer NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS "invite_expires_at" timestamp NULL,
-      ADD COLUMN IF NOT EXISTS "invite_used_at" timestamp NULL,
-      ADD COLUMN IF NOT EXISTS "password_hash" varchar NULL,
-      ADD COLUMN IF NOT EXISTS "activated_at" timestamp NULL;
-    `);
-
-    await this.agentsRepository.query(`
-      CREATE INDEX IF NOT EXISTS "idx_agents_invite_token_hash"
-      ON agents ("invite_token_hash");
-    `);
-  }
-
-  private async ensureAgentDocumentsTable() {
-    await this.agentDocumentsRepository.query(
-      'CREATE EXTENSION IF NOT EXISTS pgcrypto;',
-    );
-
-    await this.agentDocumentsRepository.query(`
-      CREATE TABLE IF NOT EXISTS agent_documents (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        "agentId" uuid NOT NULL,
-        "documentId" varchar NOT NULL,
-        "documentName" varchar NOT NULL,
-        accepted boolean NOT NULL DEFAULT false,
-        "acceptanceText" text NULL,
-        signature text NULL,
-        "signatureType" varchar NULL,
-        metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
-        "submittedAt" timestamp NOT NULL DEFAULT now(),
-        "createdAt" timestamp NOT NULL DEFAULT now(),
-        "updatedAt" timestamp NOT NULL DEFAULT now(),
-        CONSTRAINT "fk_agent_documents_agent"
-          FOREIGN KEY ("agentId") REFERENCES agents(id) ON DELETE CASCADE
-      );
-    `);
-
-    await this.agentDocumentsRepository.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS "idx_agent_documents_agent_document"
-      ON agent_documents ("agentId", "documentId");
-    `);
-  }
 }
