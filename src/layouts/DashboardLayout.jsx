@@ -12,7 +12,8 @@ import {
   ClipboardCheck,
   BellRing,
   BarChart3,
-  LogOut
+  LogOut,
+  TrendingUp
 } from 'lucide-react'
 
 import { auth } from '../utils/auth.js'
@@ -30,6 +31,7 @@ const masterNav = [
 const adminNav = [
   { label: 'Dashboard', icon: LayoutDashboard, active: true, to: '/admin' },
   { label: 'Agents', icon: Users, to: '/admin/agents' },
+  { label: 'Lead Management', icon: TrendingUp, to: '/admin/leads' },
   { label: 'Agreements', icon: FileText, to: '/admin/agreements' },
   {
     label: 'MGA Contracts',

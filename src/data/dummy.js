@@ -88,52 +88,48 @@ export const trainingCompletion = {
 
 export const recentAgents = [
   {
-    name: 'Alex Martinez',
-    email: 'alex.m@agency.com',
-    contact: '(555) 0123-4567',
-    state: 'CA',
-    level: 'ID: AGT-2321',
-    status: 'Onboarding',
-    progress: 60,
-    updated: 'Oct 15, 2024',
-    initials: 'AM',
-    licenceExpiry: 'Oct 15, 2024'
-  },
-  {
-    name: 'Sarah Williams',
-    email: 's.williams@global.com',
-    contact: '(555) 0123-8988',
-    state: 'NY',
-    level: 'ID: AGT-1102',
-    status: 'Under Review',
-    progress: 20,
-    updated: 'Dec 01, 2024',
-    initials: 'SW',
-    licenceExpiry: 'Dec 01, 2024'
-  },
-  {
-    name: 'James King',
-    email: 'james.k@prime.com',
-    contact: '(555) 0123-1122',
-    state: 'IL',
-    level: 'ID: AGT-4402',
+    name: 'Sarah Miller',
+    email: 's.miller@insurance.com',
+    phone: '+1 (555) 123-4567',
+    state: 'TX, FL',
+    level: 'Level 4',
     status: 'Active',
-    progress: 100,
-    updated: 'Expired (3d)',
-    initials: 'JK',
-    licenceExpiry: 'Expired (3d)'
-  }
-  ,
+    statusTone: 'green',
+    updated: '3h ago',
+    initials: 'SM',
+    agentId: 'AGT-9921',
+    licenceExpiry: 'Oct 12, 2025',
+    onboardingProgress: 100,
+    onboardingLabel: 'Completed'
+  },
   {
-    name: 'Linda Chen',
-    email: 'linda.c@nextgen.com',
-    contact: '(555) 0123-5566',
-    state: 'WA',
-    level: 'ID: AGT-5512',
-    status: 'Prospect',
-    progress: 5,
-    updated: 'N/A',
-    initials: 'LC',
-    licenceExpiry: 'N/A'
+    name: 'James Bennett',
+    email: 'j.bennett@agency.co',
+    phone: '+1 (555) 987-6543',
+    state: 'NY',
+    level: 'Level 2',
+    status: 'Pending',
+    statusTone: 'amber',
+    updated: '3h ago',
+    initials: 'JB',
+    agentId: 'AGT-9922',
+    licenceExpiry: 'Nov 04, 2024',
+    onboardingProgress: 45,
+    onboardingLabel: '45% In Progress'
+  },
+  {
+    name: 'Linda Wu',
+    email: 'linda.wu@service.net',
+    phone: '+1 (555) 246-8135',
+    state: 'CA',
+    level: 'Level 5',
+    status: 'Active',
+    statusTone: 'green',
+    updated: 'Yesterday',
+    initials: 'LW',
+    agentId: 'AGT-9923',
+    licenceExpiry: 'Jan 18, 2026',
+    onboardingProgress: 100,
+    onboardingLabel: 'Completed'
   }
 ]

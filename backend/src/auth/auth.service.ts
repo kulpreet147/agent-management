@@ -14,11 +14,6 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     @InjectRepository(Agent)
-    private readonly agentsRepository: Repository<Agent>,
-    @InjectRepository(AgentDocument)
-    private readonly agentDocumentsRepository: Repository<AgentDocument>,
-  ) {}
-
   async login(loginDto: LoginDto) {
     if (loginDto.loginAs === 'agent') {
       return this.loginAgent(loginDto);
@@ -29,7 +24,6 @@ export class AuthService {
       ? await bcrypt.compare(loginDto.password, user.passwordHash)
       : false;
 
-    if (!user || !passwordMatches) {
       throw new UnauthorizedException('Invalid email or password.');
     }
 

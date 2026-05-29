@@ -158,7 +158,10 @@ export class AgentsService implements OnModuleInit {
     };
   }
 
-  async saveSignedDocument(id: string, signedDocumentDto: SaveAgentSignedDocumentDto) {
+  async saveSignedDocument(
+    id: string,
+    signedDocumentDto: SaveAgentSignedDocumentDto,
+  ) {
     const agent = await this.agentsRepository.findOneBy({ id });
 
     if (!agent) {
@@ -257,8 +260,8 @@ export class AgentsService implements OnModuleInit {
   }
 
   private buildInviteUrl(token: string) {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') ??
-      'http://127.0.0.1:5173';
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ?? 'http://127.0.0.1:5173';
 
     return `${frontendUrl.replace(/\/$/, '')}/agent/account-setup/${token}`;
   }
@@ -281,7 +284,10 @@ export class AgentsService implements OnModuleInit {
       throw new BadRequestException('Invite link has already been used.');
     }
 
-    if (!agent.inviteExpiresAt || agent.inviteExpiresAt.getTime() <= Date.now()) {
+    if (
+      !agent.inviteExpiresAt ||
+      agent.inviteExpiresAt.getTime() <= Date.now()
+    ) {
       throw new BadRequestException('Invite link has expired.');
     }
   }
@@ -297,7 +303,9 @@ export class AgentsService implements OnModuleInit {
   }
 
   private async ensureAgentsTable() {
-    await this.agentsRepository.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
+    await this.agentsRepository.query(
+      'CREATE EXTENSION IF NOT EXISTS pgcrypto;',
+    );
 
     await this.agentsRepository.query(`
       CREATE TABLE IF NOT EXISTS agents (
@@ -346,7 +354,9 @@ export class AgentsService implements OnModuleInit {
   }
 
   private async ensureAgentDocumentsTable() {
-    await this.agentDocumentsRepository.query('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
+    await this.agentDocumentsRepository.query(
+      'CREATE EXTENSION IF NOT EXISTS pgcrypto;',
+    );
 
     await this.agentDocumentsRepository.query(`
       CREATE TABLE IF NOT EXISTS agent_documents (

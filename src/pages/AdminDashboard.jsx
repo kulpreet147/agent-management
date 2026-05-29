@@ -1,14 +1,20 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Plus,
-  SlidersHorizontal,
-  AlertCircle,
-  PenLine,
-  ShieldCheck,
-  MoreHorizontal,
+  Users,
+  Clock,
+  FileCheck,
+  AlertTriangle,
   Search,
-  FileText,
-  X
+  UserPlus,
+  Eye,
+  PenLine,
+  MoreHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
+  BarChart3,
+  AlertCircle
 } from 'lucide-react'
 import StatCard from '../components/StatCard.jsx'
 import StatusPill from '../components/StatusPill.jsx'
@@ -22,6 +28,7 @@ const STAT_TONES = ['indigo', 'amber', 'slate', 'emerald', 'rose']
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
+  const [searchTerm, setSearchTerm] = useState('')
 
   return (
     <div className="space-y-6 max-w-[1500px] mx-auto">
@@ -74,7 +81,6 @@ export default function AdminDashboard() {
 
     </div>
   )
-}
 
 
 function RecentAgentsPanel() {
