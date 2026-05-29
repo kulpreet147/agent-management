@@ -13,7 +13,8 @@ import {
   BellRing,
   BarChart3,
   LogOut,
-  TrendingUp
+  TrendingUp,
+  Activity
 } from 'lucide-react'
 
 import { auth } from '../utils/auth.js'
@@ -32,6 +33,7 @@ const adminNav = [
   { label: 'Dashboard', icon: LayoutDashboard, active: true, to: '/admin' },
   { label: 'Agents', icon: Users, to: '/admin/agents' },
   { label: 'Lead Management', icon: TrendingUp, to: '/admin/leads' },
+  { label: 'Analytics', icon: Activity, to: '/admin/analytics' },
   { label: 'Agreements', icon: FileText, to: '/admin/agreements' },
   {
     label: 'MGA Contracts',

@@ -23,11 +23,15 @@ import Training from './pages/admin/Training.jsx'
 import Compliance from './pages/admin/Compliance.jsx'
 import Notifications from './pages/admin/Notifications.jsx'
 import Reports from './pages/admin/Reports.jsx'
+import Analytics from './pages/admin/Analytics.jsx'
 import AgentRegistrationForm from './pages/agent/AgentRegistrationForm.jsx'
 import AgentDocumentSigning from './pages/agent/AgentDocumentSigning.jsx'
 import AgentWelcome from './pages/agent/AgentWelcome.jsx'
 import AgentOnboardingDashboard from './pages/agent/AgentOnboardingDashboard.jsx'
 import AgentDashboard from './pages/agent/AgentDashboard.jsx'
+import AgentLeadManagement from './pages/agent/AgentLeadManagement.jsx'
+import AgentLeadDetail from './pages/agent/AgentLeadDetail.jsx'
+import AgentActionItems from './pages/agent/AgentActionItems.jsx'
 
 
 function Protected({ children }) {
@@ -104,6 +108,30 @@ export default function App() {
         element={
           <AgentProtected>
             <AgentDashboard />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/leads"
+        element={
+          <AgentProtected>
+            <AgentLeadManagement />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/leads/:leadId"
+        element={
+          <AgentProtected>
+            <AgentLeadDetail />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/action-items"
+        element={
+          <AgentProtected>
+            <AgentActionItems />
           </AgentProtected>
         }
       />
@@ -307,6 +335,16 @@ export default function App() {
         }
       />
 
+      <Route
+        path="/admin/analytics"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <Analytics />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

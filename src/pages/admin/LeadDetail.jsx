@@ -28,7 +28,11 @@ import {
   History,
   Package,
   RefreshCw,
-  CheckCircle
+  CheckCircle,
+  Calendar,
+  Clock,
+  Users,
+  StickyNote
 } from 'lucide-react'
 
 export default function LeadDetail() {
@@ -39,6 +43,12 @@ export default function LeadDetail() {
   const [activeTab, setActiveTab] = useState(0)
   const [showReassign, setShowReassign] = useState(false)
   const [reassignState, setReassignState] = useState('idle')
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false)
+  const [followUpForm, setFollowUpForm] = useState({
+    activityType: 'Call', date: '', time: '', outcomeGoal: '',
+    reminder: '', notes: '', quickLogOutcome: '',
+  })
+  const [newFollowUps, setNewFollowUps] = useState([])
 
   if (!lead) {
     navigate('/admin/leads', { replace: true })
@@ -54,16 +64,41 @@ export default function LeadDetail() {
     { label: 'Activity Log', icon: ClipboardList, to: null }
   ]
 
-  const followups = [
+  const staticFollowups = [
     { date: 'Oct 26, 2023', time: '10:30 AM', action: 'Inbound Call', actionIcon: Phone, actionColor: 'text-blue-600', outcome: 'Scheduled Demo', outcomeStyle: 'bg-green-100 text-green-800', agent: 'Marcus R.' },
     { date: 'Oct 25, 2023', time: '02:15 PM', action: 'Brochure Sent', actionIcon: Mail, actionColor: 'text-slate-500', outcome: 'Opened', outcomeStyle: 'bg-blue-100 text-blue-800', agent: 'Marcus R.' },
     { date: 'Oct 24, 2023', time: '09:00 AM', action: 'System SMS', actionIcon: MessageSquare, actionColor: 'text-slate-400', outcome: 'Delivered', outcomeStyle: 'bg-slate-200 text-slate-600', agent: 'Automated' }
   ]
+  const followups = [...newFollowUps.map((f) => ({
+    date: f.date,
+    time: f.time,
+    action: f.activityType,
+    actionIcon: f.activityType === 'Call' ? Phone : f.activityType === 'Email' ? Mail : f.activityType === 'Meeting' ? Users : StickyNote,
+    actionColor: 'text-blue-600',
+    outcome: f.outcomeGoal || 'Pending',
+    outcomeStyle: f.outcomeGoal ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800',
+    agent: 'Current User',
+  })), ...staticFollowups]
 
   const priorityStyle =
     lead.priority === 'Hot' ? 'bg-red-100 text-red-700 border-red-200' :
     lead.priority === 'Warm' ? 'bg-orange-100 text-orange-700 border-orange-200' :
     'bg-blue-100 text-blue-700 border-blue-200'
+
+  const handleAddFollowUp = (e) => {
+    e.preventDefault()
+    const entry = {
+      activityType: followUpForm.activityType,
+      date: followUpForm.date || new Date().toISOString().split('T')[0],
+      time: followUpForm.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      outcomeGoal: followUpForm.outcomeGoal,
+      notes: followUpForm.notes,
+      quickLogOutcome: followUpForm.quickLogOutcome,
+    }
+    setNewFollowUps((prev) => [entry, ...prev])
+    setShowFollowUpModal(false)
+    setFollowUpForm({ activityType: 'Call', date: '', time: '', outcomeGoal: '', reminder: '', notes: '', quickLogOutcome: '' })
+  }
 
   const handleConfirmReassign = () => {
     setReassignState('processing')
@@ -303,7 +338,10 @@ export default function LeadDetail() {
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
             <h3 className="text-sm font-bold text-slate-800 mb-6">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-4">
-              <button className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group">
+              <button
+                onClick={() => setShowFollowUpModal(true)}
+                className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
+              >
                 <ClipboardCheck size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Add Follow-Up</span>
               </button>
@@ -340,6 +378,180 @@ export default function LeadDetail() {
           </div>
         </div>
       </div>
+
+      {/* ==================== FOLLOW-UP MODAL ==================== */}
+      {showFollowUpModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(23, 28, 31, 0.6)', backdropFilter: 'blur(8px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowFollowUpModal(false) } }}
+        >
+          <div className="relative bg-white w-full max-w-[560px] rounded-2xl shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-white px-8 pt-8 pb-4 flex justify-between items-start">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Schedule Follow-Up</h3>
+                <div className="mt-2 inline-flex items-center gap-2 bg-blue-50 text-blue-800 px-3 py-1 rounded-full border border-blue-200">
+                  <span className="text-[10px] font-bold uppercase tracking-wider">For:</span>
+                  <span className="text-[13px] font-semibold">{lead.name}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFollowUpModal(false)}
+                className="text-slate-400 hover:bg-slate-100 rounded-full p-2 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <form onSubmit={handleAddFollowUp} className="px-8 pb-8 space-y-6 max-h-[716px] overflow-y-auto">
+              {/* Activity Type Selector */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Activity Type</label>
+                <div className="grid grid-cols-4 gap-3">
+                  {[
+                    { key: 'Call', icon: Phone },
+                    { key: 'Email', icon: Mail },
+                    { key: 'Meeting', icon: Users },
+                    { key: 'Note', icon: StickyNote },
+                  ].map(({ key, icon: Icon }) => {
+                    const isActive = followUpForm.activityType === key
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setFollowUpForm({ ...followUpForm, activityType: key })}
+                        className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
+                          isActive
+                            ? 'border-blue-600 bg-blue-50 text-blue-600'
+                            : 'border-slate-200 hover:border-blue-300 text-slate-500'
+                        }`}
+                      >
+                        <Icon size={28} className="mb-1" />
+                        <span className="text-[11px] font-bold">{key}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Date & Time Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Date</label>
+                  <div className="relative">
+                    <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="date"
+                      value={followUpForm.date}
+                      onChange={(e) => setFollowUpForm({ ...followUpForm, date: e.target.value })}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 text-[13px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Time</label>
+                  <div className="relative">
+                    <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="time"
+                      value={followUpForm.time}
+                      onChange={(e) => setFollowUpForm({ ...followUpForm, time: e.target.value })}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 text-[13px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Outcome & Reminders */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Outcome Goal</label>
+                  <select
+                    value={followUpForm.outcomeGoal}
+                    onChange={(e) => setFollowUpForm({ ...followUpForm, outcomeGoal: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-[13px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                  >
+                    <option value="">Select outcome...</option>
+                    <option>Schedule Demo</option>
+                    <option>Finalize Pricing</option>
+                    <option>Technical QA</option>
+                    <option>Contract Signature</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Reminder</label>
+                  <select
+                    value={followUpForm.reminder}
+                    onChange={(e) => setFollowUpForm({ ...followUpForm, reminder: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-[13px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                  >
+                    <option value="">No reminder</option>
+                    <option>15 mins before</option>
+                    <option>1 hour before</option>
+                    <option>1 day before</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Notes Textarea */}
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Follow-up Notes</label>
+                <textarea
+                  value={followUpForm.notes}
+                  onChange={(e) => setFollowUpForm({ ...followUpForm, notes: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-[13px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none"
+                  placeholder="What are the key points to cover?"
+                  rows={4}
+                />
+              </div>
+
+              {/* Quick Log Outcome Section */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle size={16} className="text-blue-600" />
+                  <span className="text-[12px] font-bold text-slate-800">Quick Log Outcome</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mb-3">
+                  If this action was already performed, log the result here.
+                </p>
+                <select
+                  value={followUpForm.quickLogOutcome}
+                  onChange={(e) => setFollowUpForm({ ...followUpForm, quickLogOutcome: e.target.value })}
+                  className="w-full px-4 py-2 bg-white rounded-lg border border-slate-200 text-[13px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                >
+                  <option value="">Select previous result (Optional)</option>
+                  <option>Successful Contact</option>
+                  <option>Left Voicemail</option>
+                  <option>No Answer</option>
+                  <option>Wrong Number</option>
+                </select>
+              </div>
+            </form>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 px-8 py-5 flex justify-end gap-3 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setShowFollowUpModal(false)}
+                className="px-6 py-2.5 rounded-lg border border-slate-300 text-[12px] font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                onClick={handleAddFollowUp}
+                className="px-8 py-2.5 rounded-lg bg-blue-600 text-white text-[12px] font-bold shadow-lg shadow-blue-600/20 hover:opacity-90 active:scale-95 transition-all"
+              >
+                Save Follow-Up
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ==================== REASSIGN MODAL ==================== */}
       {showReassign && (
