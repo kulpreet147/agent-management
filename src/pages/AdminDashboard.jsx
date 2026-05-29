@@ -1,26 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Users,
-  Clock,
-  FileCheck,
-  AlertTriangle,
   Search,
-  UserPlus,
-  Eye,
-  PenLine,
-  MoreHorizontal,
-  ChevronLeft,
-  ChevronRight,
-  TrendingUp,
-  BarChart3,
-  AlertCircle
+  SlidersHorizontal,
+  Plus
 } from 'lucide-react'
 import StatCard from '../components/StatCard.jsx'
 import StatusPill from '../components/StatusPill.jsx'
 import {
   adminStats,
-  trainingCompletion,
   recentAgents
 } from '../data/dummy.js'
 
@@ -81,7 +69,7 @@ export default function AdminDashboard() {
 
     </div>
   )
-
+}
 
 function RecentAgentsPanel() {
   return (
@@ -126,7 +114,7 @@ function RecentAgentsPanel() {
                 <td className="px-4 py-4">
                   <div className="w-40">
                     <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-green-500" style={{ width: `${a.progress || 60}%` }} />
+                      <div className="h-full bg-green-500" style={{ width: `${a.onboardingProgress || 60}%` }} />
                     </div>
                   </div>
                 </td>
@@ -141,38 +129,3 @@ function RecentAgentsPanel() {
   )
 }
 
-// function TrainingPanel() {
-//   const t = trainingCompletion
-//   return (
-//     <div className="rounded-xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-5 shadow-card">
-//       <div className="flex items-start justify-between">
-//         <div>
-//           <div className="text-sm font-semibold text-slate-700">Training Completion</div>
-//           <div className="mt-1 text-4xl font-bold text-brand-700 tabular-nums">{t.percent}%</div>
-//           <div className="text-xs text-slate-500 mt-0.5">{t.target}</div>
-//         </div>
-//       </div>
-
-//       <div className="mt-5 space-y-3">
-//         {t.modules.map((m) => (
-//           <div key={m.label}>
-//             <div className="flex items-center justify-between text-xs">
-//               <span className="text-slate-600 font-medium">{m.label}</span>
-//               <span className="font-bold text-slate-800 tabular-nums">{m.percent}%</span>
-//             </div>
-//             <div className="mt-1 h-1.5 bg-slate-200/70 rounded-full overflow-hidden">
-//               <div
-//                 className="h-full bg-brand-600 rounded-full transition-all"
-//                 style={{ width: `${m.percent}%` }}
-//               />
-//             </div>
-//           </div>
-//         ))}
-//       </div>
-
-//       <button className="mt-5 w-full bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold py-2.5 rounded-lg transition">
-//         ASSIGN MODULES
-//       </button>
-//     </div>
-//   )
-// }
