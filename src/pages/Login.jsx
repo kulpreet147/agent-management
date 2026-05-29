@@ -17,6 +17,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [keepActive, setKeepActive] = useState(false)
+  const [loginAsAgent, setLoginAsAgent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -31,7 +32,21 @@ export default function Login() {
 
     setLoading(true)
     try {
-      const session = await auth.login({ email, password })
+      const session = await auth.login({
+        email,
+        password,
+        loginAs: loginAsAgent ? 'agent' : 'admin'
+      })
+
+      if (session.role === 'agent') {
+        const status = Number(session.onboardingStatus || 2)
+        if (status >= 5) navigate('/agent/dashboard')
+        else if (status >= 4) navigate('/agent/onboarding-progress')
+        else if (status >= 3) navigate('/agent/sign-documents')
+        else navigate('/agent/registration')
+        return
+      }
+
       navigate(session.role === 'master_admin' ? '/master' : '/admin')
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.')
@@ -59,19 +74,42 @@ export default function Login() {
 
             <h1 className="mt-5 text-3xl font-bold text-slate-900">Login</h1>
             <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">
-              Enter your enterprise credentials to access the secure administrative control center.
+              Enter your credentials to access the secure management portal.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              <button
+                type="button"
+                onClick={() => setLoginAsAgent((value) => !value)}
+                className={`flex w-full items-center justify-between rounded-xl border p-1 text-sm font-semibold transition ${
+                  loginAsAgent ? 'border-brand-200 bg-brand-50' : 'border-slate-200 bg-slate-50'
+                }`}
+              >
+                <span
+                  className={`flex-1 rounded-lg py-2 text-center ${
+                    !loginAsAgent ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  Admin
+                </span>
+                <span
+                  className={`flex-1 rounded-lg py-2 text-center ${
+                    loginAsAgent ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  Login as Agent
+                </span>
+              </button>
+
               <div>
                 <label className="text-[11px] font-semibold tracking-wide text-slate-600">
-                  WORK EMAIL
+                  {loginAsAgent ? 'AGENT EMAIL' : 'WORK EMAIL'}
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@agentflow.io"
+                  placeholder={loginAsAgent ? 'agent@email.com' : 'name@agentflow.io'}
                   className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm placeholder:text-slate-400 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition"
                 />
               </div>
@@ -98,7 +136,7 @@ export default function Login() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-sm">
+              {/* <div className="flex items-center justify-between text-sm">
                 <label className="inline-flex items-center gap-2 text-slate-600">
                   <input
                     type="checkbox"
@@ -111,7 +149,7 @@ export default function Login() {
                 <a href="#" className="text-brand-600 font-semibold hover:underline">
                   Account Recovery
                 </a>
-              </div>
+              </div> */}
 
               {error && (
                 <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">

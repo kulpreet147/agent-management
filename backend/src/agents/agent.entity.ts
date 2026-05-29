@@ -59,6 +59,24 @@ export class Agent {
   @Column({ default: 'active' })
   status!: string;
 
+  @Column({ name: 'onboarding_status', type: 'int', default: 1 })
+  onboardingStatus!: number;
+
+  @Column({ name: 'invite_token_hash', type: 'varchar', nullable: true })
+  inviteTokenHash!: string | null;
+
+  @Column({ name: 'invite_expires_at', type: 'timestamp', nullable: true })
+  inviteExpiresAt!: Date | null;
+
+  @Column({ name: 'invite_used_at', type: 'timestamp', nullable: true })
+  inviteUsedAt!: Date | null;
+
+  @Column({ name: 'password_hash', type: 'varchar', nullable: true })
+  passwordHash!: string | null;
+
+  @Column({ name: 'activated_at', type: 'timestamp', nullable: true })
+  activatedAt!: Date | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 

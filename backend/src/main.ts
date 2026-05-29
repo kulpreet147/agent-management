@@ -8,18 +8,13 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   const frontendUrl = process.env.FRONTEND_URL ?? 'http://127.0.0.1:5173';
   app.enableCors({
-    origin: (origin, callback) => {
-      const allowed = [
-        frontendUrl,
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
-      ];
-      if (!origin || allowed.includes(origin) || /^https?:\/\/localhost:\d+$/.test(origin) || /^https?:\/\/127\.0\.0\.1:\d+$/.test(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
+    origin: [
+      frontendUrl,
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5174',
+    ],
     credentials: true,
   });
   app.useGlobalPipes(

@@ -40,11 +40,10 @@ export const auditLogs = [
 ]
 
 export const adminStats = [
-  { label: 'Total Agents', value: '2,482', delta: '+10%' },
-  { label: 'Pending', value: '48' },
-  { label: 'Under Review', value: '15' },
-  { label: 'Approved', value: '124' },
-  { label: 'Expiring', value: '03' }
+  { label: 'Total Agents', value: '48', delta: '+4% vs last month' },
+  { label: 'Onboarding In Progress', value: '12' },
+  { label: 'Pending Approvals', value: '5' },
+  { label: 'Licences Expiring', value: '3' }
 ]
 
 export const onboardingPipeline = [

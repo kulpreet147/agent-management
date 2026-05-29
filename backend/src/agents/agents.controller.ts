@@ -4,6 +4,7 @@ import {
   Get,
   NotFoundException,
   Param,
+  Patch,
   Post,
   UploadedFiles,
   UseInterceptors,
@@ -13,7 +14,10 @@ import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { AgentsService } from './agents.service';
+import { ActivateAgentDto } from './dto/activate-agent.dto';
 import { CreateAgentDto } from './dto/create-agent.dto';
+import { SaveAgentSignedDocumentDto } from './dto/save-agent-signed-document.dto';
+import { UpdateAgentOnboardingStatusDto } from './dto/update-agent-onboarding-status.dto';
 
 const uploadDir = join(process.cwd(), 'uploads', 'agents');
 const allowedExtensions = ['.pdf', '.png', '.jpg', '.jpeg', '.doc', '.docx'];
@@ -62,6 +66,35 @@ export class AgentsController {
     @UploadedFiles() files: Record<string, Express.Multer.File[]>,
   ) {
     return this.agentsService.create(createAgentDto, files);
+  }
+
+  @Get('invites/:token')
+  getInvite(@Param('token') token: string) {
+    return this.agentsService.getInvite(token);
+  }
+
+  @Post('invites/:token/activate')
+  activateInvite(
+    @Param('token') token: string,
+    @Body() activateAgentDto: ActivateAgentDto,
+  ) {
+    return this.agentsService.activateInvite(token, activateAgentDto);
+  }
+
+  @Patch(':id/onboarding-status')
+  updateOnboardingStatus(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateAgentOnboardingStatusDto,
+  ) {
+    return this.agentsService.updateOnboardingStatus(id, updateDto.status);
+  }
+
+  @Patch(':id/signed-documents')
+  saveSignedDocument(
+    @Param('id') id: string,
+    @Body() saveDto: SaveAgentSignedDocumentDto,
+  ) {
+    return this.agentsService.saveSignedDocument(id, saveDto);
   }
 
   @Get(':id')
