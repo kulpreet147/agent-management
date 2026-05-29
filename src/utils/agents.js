@@ -67,6 +67,22 @@ export function updateAgentOnboardingStatus(agentId, status) {
   })
 }
 
+export function resendAgentInvite(agentId) {
+  return apiRequest(`/agents/${agentId}/resend-invite`, {
+    method: 'POST'
+  })
+}
+
+export function updateAccountActivationStatus(agentId, status) {
+  return apiRequest(`/agents/${agentId}/account-activation-status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ status })
+  })
+}
+
 export function saveAgentSignedDocument(agentId, document) {
   return apiRequest(`/agents/${agentId}/signed-documents`, {
     method: 'PATCH',
@@ -74,5 +90,29 @@ export function saveAgentSignedDocument(agentId, document) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(document)
+  })
+}
+
+export function getAgentSignedDocuments(agentId) {
+  return apiRequest(`/agents/${agentId}/signed-documents`)
+}
+
+export function reviewAgentDocument(agentId, payload) {
+  return apiRequest(`/agents/${agentId}/document-review`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+}
+
+export function sendMgaPackageEmail(agentId, payload) {
+  return apiRequest(`/agents/${agentId}/send-mga-package-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
   })
 }

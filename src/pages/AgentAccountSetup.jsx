@@ -160,7 +160,7 @@ export default function AgentAccountSetup() {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="h-[88px] border-b border-slate-200 bg-white">
         <div className="mx-auto flex h-full max-w-[920px] items-center justify-between px-6">
-          <div className="text-sm font-bold text-brand-800">Agent Management</div>
+          <div className="text-sm font-bold text-brand-800">Registration</div>
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
             <ShieldCheck size={14} className="text-slate-400" />
             Secure Setup

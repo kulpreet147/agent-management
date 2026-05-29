@@ -19,7 +19,7 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState('')
 
   return (
-    <div className="space-y-6 max-w-[1500px] mx-auto">
+    <div className="space-y-6 max-w-[2200px] mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>

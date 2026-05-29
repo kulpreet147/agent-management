@@ -14,6 +14,8 @@ import { Agent } from './agent.entity';
 import { ActivateAgentDto } from './dto/activate-agent.dto';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { SaveAgentSignedDocumentDto } from './dto/save-agent-signed-document.dto';
+import { ReviewAgentDocumentDto } from './dto/review-agent-document.dto';
+import { SendMgaPackageEmailDto } from './dto/send-mga-package-email.dto';
 import { MailService } from '../common/mail/mail.service';
 
 type AgentFiles = Record<string, Express.Multer.File[]>;
@@ -56,6 +58,7 @@ export class AgentsService implements OnModuleInit {
       documents,
       status: 'invited',
       onboardingStatus: 1,
+      accountActivationStatus: 0,
       inviteTokenHash: this.hashToken(inviteToken),
       inviteExpiresAt,
       inviteUsedAt: null,
@@ -143,11 +146,15 @@ export class AgentsService implements OnModuleInit {
       3: 'registration_complete',
       4: 'documents_signed',
       5: 'dashboard_active',
+      6: 'under_review',
     };
 
     await this.agentsRepository.update(agent.id, {
       onboardingStatus: status,
       status: statusLabelByStep[status] ?? agent.status,
+      ...(status >= 6 && agent.accountActivationStatus !== 1
+        ? { accountActivationStatus: 0 }
+        : {}),
     });
 
     const updatedAgent = await this.agentsRepository.findOneBy({ id });
@@ -214,6 +221,159 @@ export class AgentsService implements OnModuleInit {
       };
       return acc;
     }, {});
+  }
+
+  async resendInvite(id: string) {
+    const agent = await this.agentsRepository.findOneBy({ id });
+    if (!agent) {
+      throw new BadRequestException('Agent not found.');
+    }
+
+    if ((agent.status || '').toLowerCase() !== 'invited') {
+      throw new BadRequestException('Invite can only be resent for invited agents.');
+    }
+
+    const inviteToken = randomBytes(32).toString('hex');
+    const inviteExpiresAt = new Date(
+      Date.now() + INVITE_EXPIRY_MINUTES * 60 * 1000,
+    );
+
+    await this.agentsRepository.update(agent.id, {
+      inviteTokenHash: this.hashToken(inviteToken),
+      inviteExpiresAt,
+      inviteUsedAt: null,
+    });
+
+    const inviteUrl = this.buildInviteUrl(inviteToken);
+    const emailSent = await this.mailService.sendAgentInvite(
+      agent.email,
+      agent.name,
+      inviteUrl,
+    );
+
+    if (!emailSent) {
+      throw new BadRequestException('Unable to send invite email. Please verify SMTP settings.');
+    }
+
+    return {
+      message: 'Invite link sent successfully.',
+      inviteExpiresAt,
+    };
+  }
+
+  async reviewDocument(id: string, reviewDto: ReviewAgentDocumentDto) {
+    const agent = await this.agentsRepository.findOneBy({ id });
+    if (!agent) {
+      throw new BadRequestException('Agent not found.');
+    }
+
+    if (reviewDto.documentType === 'uploaded') {
+      const currentDocuments = (agent.documents || {}) as Record<string, any>;
+      const target = currentDocuments[reviewDto.documentId];
+      if (!target) {
+        throw new BadRequestException('Uploaded document not found.');
+      }
+
+      currentDocuments[reviewDto.documentId] = {
+        ...target,
+        adminReview: {
+          action: reviewDto.action,
+          comment: reviewDto.comment ?? null,
+          reviewedAt: new Date().toISOString(),
+        },
+      };
+
+      await this.agentsRepository.update(agent.id, { documents: currentDocuments });
+      return { message: 'Uploaded document review saved.' };
+    }
+
+    const signedDoc = await this.agentDocumentsRepository.findOne({
+      where: { agentId: agent.id, documentId: reviewDto.documentId },
+    });
+
+    if (!signedDoc) {
+      throw new BadRequestException('Signed document not found.');
+    }
+
+    signedDoc.metadata = {
+      ...(signedDoc.metadata || {}),
+      adminReview: {
+        action: reviewDto.action,
+        comment: reviewDto.comment ?? null,
+        reviewedAt: new Date().toISOString(),
+      },
+    };
+
+    await this.agentDocumentsRepository.save(signedDoc);
+    return { message: 'Signed document review saved.' };
+  }
+
+  async sendMgaPackageEmail(id: string, payload: SendMgaPackageEmailDto) {
+    const agent = await this.agentsRepository.findOneBy({ id });
+    if (!agent) {
+      throw new BadRequestException('Agent not found.');
+    }
+
+    const documentMap = (agent.documents || {}) as Record<string, any>;
+    const fileAttachments = (payload.attachmentDocumentKeys || [])
+      .map((key) => {
+        const document = documentMap[key];
+        if (!document?.path) return null;
+        return {
+          filename: document.originalName || document.fileName || `${key}.dat`,
+          path: document.path,
+        };
+      })
+      .filter(Boolean) as Array<{ filename: string; path: string }>;
+
+    const sent = await this.mailService.sendMgaPackageEmail({
+      to: payload.to,
+      adminEmail: payload.adminEmail,
+      subject: payload.subject,
+      body: payload.body,
+      attachments: payload.attachments,
+      fileAttachments,
+    });
+
+    if (!sent) {
+      throw new BadRequestException('Unable to send MGA email. Please verify SMTP settings.');
+    }
+
+    return { message: 'MGA package email sent successfully.' };
+  }
+
+  async updateAccountActivationStatus(id: string, accountStatus: number) {
+    const agent = await this.agentsRepository.findOneBy({ id });
+    if (!agent) {
+      throw new BadRequestException('Agent not found.');
+    }
+
+    let nextStatusLabel = 'inactive';
+    if (accountStatus === 1) nextStatusLabel = 'active';
+    if (accountStatus === 2) nextStatusLabel = 'expired';
+    if (accountStatus === 0 && agent.onboardingStatus >= 6) nextStatusLabel = 'under_review';
+
+    await this.agentsRepository.update(agent.id, {
+      accountActivationStatus: accountStatus,
+      status: nextStatusLabel,
+      ...(accountStatus === 1 && agent.onboardingStatus < 6
+        ? { onboardingStatus: 6 }
+        : {}),
+    });
+
+    const updatedAgent = await this.agentsRepository.findOneBy({ id });
+
+    if (accountStatus === 1 && updatedAgent) {
+      await this.mailService.sendAgentActivationEmail(
+        updatedAgent.email,
+        updatedAgent.name,
+      );
+    }
+
+    return {
+      message: 'Account activation status updated successfully.',
+      agent: updatedAgent ? this.toSafeAgent(updatedAgent) : null,
+    };
   }
 
   private mapFiles(files: AgentFiles) {
@@ -327,6 +487,7 @@ export class AgentsService implements OnModuleInit {
         documents jsonb NOT NULL DEFAULT '{}'::jsonb,
         status varchar NOT NULL DEFAULT 'active',
         "onboarding_status" integer NOT NULL DEFAULT 1,
+        "account_activation_status" integer NOT NULL DEFAULT 0,
         "invite_token_hash" varchar NULL,
         "invite_expires_at" timestamp NULL,
         "invite_used_at" timestamp NULL,
@@ -341,6 +502,7 @@ export class AgentsService implements OnModuleInit {
       ALTER TABLE agents
       ADD COLUMN IF NOT EXISTS "invite_token_hash" varchar NULL,
       ADD COLUMN IF NOT EXISTS "onboarding_status" integer NOT NULL DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS "account_activation_status" integer NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS "invite_expires_at" timestamp NULL,
       ADD COLUMN IF NOT EXISTS "invite_used_at" timestamp NULL,
       ADD COLUMN IF NOT EXISTS "password_hash" varchar NULL,
