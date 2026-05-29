@@ -12,17 +12,14 @@ import MasterSettings from './pages/master/Settings.jsx'
 import AgentRecordCreation from './pages/admin/AgentRecordCreation.jsx'
 import Agents from './pages/admin/Agents.jsx'
 import LeadManagement from './pages/admin/LeadManagement.jsx'
+import ClientManagement from './pages/admin/ClientManagement.jsx'
+import PolicyManagement from './pages/admin/PolicyManagement.jsx'
 import LeadDetail from './pages/admin/LeadDetail.jsx'
 import LeadNeedAnalysis from './pages/admin/LeadNeedAnalysis.jsx'
 import LeadReassign from './pages/admin/LeadReassign.jsx'
 import LeadRecordCreation from './pages/admin/LeadRecordCreation.jsx'
 import AgentDetails from './pages/admin/AgentDetails.jsx'
-import Agreements from './pages/admin/Agreements.jsx'
-import MGACContracts from './pages/admin/MGACContracts.jsx'
-import Training from './pages/admin/Training.jsx'
-import Compliance from './pages/admin/Compliance.jsx'
-import Notifications from './pages/admin/Notifications.jsx'
-import Reports from './pages/admin/Reports.jsx'
+import AgentMGAPackage from './pages/admin/AgentMGAPackage.jsx'
 import AgentRegistrationForm from './pages/agent/AgentRegistrationForm.jsx'
 import AgentDocumentSigning from './pages/agent/AgentDocumentSigning.jsx'
 import AgentWelcome from './pages/agent/AgentWelcome.jsx'
@@ -187,11 +184,44 @@ export default function App() {
       />
 
       <Route
+        path="/admin/agents/:agentId/mga-package"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <AgentMGAPackage />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
+
+      <Route
         path="/admin/leads"
         element={
           <Protected>
             <DashboardLayout variant="admin">
               <LeadManagement />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/admin/clients"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <ClientManagement />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/admin/policies"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <PolicyManagement />
             </DashboardLayout>
           </Protected>
         }
@@ -240,73 +270,6 @@ export default function App() {
           </Protected>
         }
       />
-
-      <Route
-        path="/admin/agreements"
-        element={
-          <Protected>
-            <DashboardLayout variant="admin">
-              <Agreements />
-            </DashboardLayout>
-          </Protected>
-        }
-      />
-
-      <Route
-        path="/admin/mga-contracts"
-        element={
-          <Protected>
-            <DashboardLayout variant="admin">
-              <MGACContracts />
-            </DashboardLayout>
-          </Protected>
-        }
-      />
-
-      <Route
-        path="/admin/training"
-        element={
-          <Protected>
-            <DashboardLayout variant="admin">
-              <Training />
-            </DashboardLayout>
-          </Protected>
-        }
-      />
-
-      <Route
-        path="/admin/compliance"
-        element={
-          <Protected>
-            <DashboardLayout variant="admin">
-              <Compliance />
-            </DashboardLayout>
-          </Protected>
-        }
-      />
-
-      <Route
-        path="/admin/notifications"
-        element={
-          <Protected>
-            <DashboardLayout variant="admin">
-              <Notifications />
-            </DashboardLayout>
-          </Protected>
-        }
-      />
-
-      <Route
-        path="/admin/reports"
-        element={
-          <Protected>
-            <DashboardLayout variant="admin">
-              <Reports />
-            </DashboardLayout>
-          </Protected>
-        }
-      />
-
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
