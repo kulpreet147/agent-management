@@ -6,15 +6,11 @@ import {
   Settings,
   Bell,
   Search,
-  FileText,
   ShieldCheck,
-  GraduationCap,
-  ClipboardCheck,
-  BellRing,
-  BarChart3,
   LogOut,
   TrendingUp,
-  Activity
+  Activity,
+  BriefcaseBusiness
 } from 'lucide-react'
 
 import { auth } from '../utils/auth.js'
@@ -31,19 +27,11 @@ const masterNav = [
 
 const adminNav = [
   { label: 'Dashboard', icon: LayoutDashboard, active: true, to: '/admin' },
-  { label: 'Agents', icon: Users, to: '/admin/agents' },
+  { label: 'Agent Management', icon: Users, to: '/admin/agents' },
   { label: 'Lead Management', icon: TrendingUp, to: '/admin/leads' },
+  { label: 'Client Management', icon: BriefcaseBusiness, to: '/admin/clients' },
+  { label: 'Policy Management', icon: ShieldCheck, to: '/admin/policies' },
   { label: 'Analytics', icon: Activity, to: '/admin/analytics' },
-  { label: 'Agreements', icon: FileText, to: '/admin/agreements' },
-  {
-    label: 'MGA Contracts',
-    icon: ShieldCheck,
-    to: '/admin/mga-contracts'
-  },
-  { label: 'Training', icon: GraduationCap, to: '/admin/training' },
-  { label: 'Compliance', icon: ClipboardCheck, to: '/admin/compliance' },
-  { label: 'Notifications', icon: BellRing, to: '/admin/notifications' },
-  { label: 'Reports', icon: BarChart3, to: '/admin/reports' }
 ]
 
 

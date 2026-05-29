@@ -1,11 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport, Transporter } from 'nodemailer';
+import { Attachment } from 'nodemailer/lib/mailer';
 
 type AgentInviteTemplate = {
   subject: string;
   text: string;
   html: string;
+};
+
+type MgaPackagePayload = {
+  to: string[];
+  adminEmail?: string;
+  subject: string;
+  body: string;
+  attachments?: string[];
+  fileAttachments?: Attachment[];
 };
 
 @Injectable()
@@ -56,6 +66,87 @@ export class MailService {
       const message = error instanceof Error ? error.message : 'Unknown SMTP error';
       this.logger.error(`Unable to send agent invite email: ${message}`);
       this.logger.warn(`Agent invite link for ${agentEmail}: ${inviteUrl}`);
+      return false;
+    }
+  }
+
+  async sendMgaPackageEmail(payload: MgaPackagePayload) {
+    if (!this.transporter) {
+      this.logger.warn('SMTP transporter unavailable for MGA package email.');
+      return false;
+    }
+
+    const smtpFrom =
+      this.configService.get<string>('SMTP_FROM') ??
+      this.configService.get<string>('SMTP_USER');
+    const from = payload.adminEmail
+      ? `${payload.adminEmail} via AgentFlow <${smtpFrom ?? 'bentsys.dev@gmail.com'}>`
+      : (smtpFrom ?? 'bentsys.dev@gmail.com');
+    const bodyWithAttachments =
+      payload.attachments && payload.attachments.length > 0
+        ? `${payload.body}\n\nAttachments:\n- ${payload.attachments.join('\n- ')}`
+        : payload.body;
+
+    try {
+      await this.transporter.sendMail({
+        from,
+        replyTo: payload.adminEmail ?? undefined,
+        to: payload.to.join(', '),
+        subject: payload.subject,
+        text: bodyWithAttachments,
+        html: `<pre style="font-family:Arial,Helvetica,sans-serif;white-space:pre-wrap">${this.escapeHtml(bodyWithAttachments)}</pre>`,
+        attachments: payload.fileAttachments ?? [],
+      });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown SMTP error';
+      this.logger.error(`Unable to send MGA package email: ${message}`);
+      return false;
+    }
+  }
+
+  async sendAgentActivationEmail(agentEmail: string, agentName: string) {
+    if (!this.transporter) {
+      this.logger.warn(`SMTP transporter unavailable for activation email to ${agentEmail}.`);
+      return false;
+    }
+
+    const from =
+      this.configService.get<string>('SMTP_FROM') ??
+      this.configService.get<string>('SMTP_USER') ??
+      'bentsys.dev@gmail.com';
+
+    const safeName = this.escapeHtml(agentName || 'Agent');
+    const subject = 'Your Agent Account Is Now Active';
+    const text = [
+      `Hello ${agentName || 'Agent'},`,
+      '',
+      'Great news. Your account has been activated by the admin team.',
+      'You can now access your portal and start working with full access.',
+      '',
+      'Welcome aboard,',
+      'Agent Management Team',
+    ].join('\n');
+
+    try {
+      await this.transporter.sendMail({
+        from,
+        to: agentEmail,
+        subject,
+        text,
+        html: `
+          <div style="font-family:Arial,Helvetica,sans-serif;color:#0f172a;line-height:1.6">
+            <h2 style="margin:0 0 12px">Hello ${safeName},</h2>
+            <p style="margin:0 0 10px">Great news. Your account has been activated by the admin team.</p>
+            <p style="margin:0 0 14px">You can now access your portal and start working with full access.</p>
+            <p style="margin:0">Welcome aboard,<br/>Agent Management Team</p>
+          </div>
+        `,
+      });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown SMTP error';
+      this.logger.error(`Unable to send activation email: ${message}`);
       return false;
     }
   }

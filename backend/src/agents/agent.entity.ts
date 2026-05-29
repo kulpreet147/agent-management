@@ -62,6 +62,9 @@ export class Agent {
   @Column({ name: 'onboarding_status', type: 'int', default: 1 })
   onboardingStatus!: number;
 
+  @Column({ name: 'account_activation_status', type: 'int', default: 0 })
+  accountActivationStatus!: number;
+
   @Column({ name: 'invite_token_hash', type: 'varchar', nullable: true })
   inviteTokenHash!: string | null;
 

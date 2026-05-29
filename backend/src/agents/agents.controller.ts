@@ -17,6 +17,9 @@ import { AgentsService } from './agents.service';
 import { ActivateAgentDto } from './dto/activate-agent.dto';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { SaveAgentSignedDocumentDto } from './dto/save-agent-signed-document.dto';
+import { ReviewAgentDocumentDto } from './dto/review-agent-document.dto';
+import { SendMgaPackageEmailDto } from './dto/send-mga-package-email.dto';
+import { UpdateAccountActivationStatusDto } from './dto/update-account-activation-status.dto';
 import { UpdateAgentOnboardingStatusDto } from './dto/update-agent-onboarding-status.dto';
 
 const uploadDir = join(process.cwd(), 'uploads', 'agents');
@@ -81,6 +84,11 @@ export class AgentsController {
     return this.agentsService.activateInvite(token, activateAgentDto);
   }
 
+  @Post(':id/resend-invite')
+  resendInvite(@Param('id') id: string) {
+    return this.agentsService.resendInvite(id);
+  }
+
   @Patch(':id/onboarding-status')
   updateOnboardingStatus(
     @Param('id') id: string,
@@ -95,6 +103,35 @@ export class AgentsController {
     @Body() saveDto: SaveAgentSignedDocumentDto,
   ) {
     return this.agentsService.saveSignedDocument(id, saveDto);
+  }
+
+  @Patch(':id/account-activation-status')
+  updateAccountActivationStatus(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateAccountActivationStatusDto,
+  ) {
+    return this.agentsService.updateAccountActivationStatus(id, updateDto.status);
+  }
+
+  @Get(':id/signed-documents')
+  getSignedDocuments(@Param('id') id: string) {
+    return this.agentsService.findSignedDocumentsByAgentId(id);
+  }
+
+  @Patch(':id/document-review')
+  reviewDocument(
+    @Param('id') id: string,
+    @Body() reviewDto: ReviewAgentDocumentDto,
+  ) {
+    return this.agentsService.reviewDocument(id, reviewDto);
+  }
+
+  @Post(':id/send-mga-package-email')
+  sendMgaPackageEmail(
+    @Param('id') id: string,
+    @Body() payload: SendMgaPackageEmailDto,
+  ) {
+    return this.agentsService.sendMgaPackageEmail(id, payload);
   }
 
   @Get(':id')
