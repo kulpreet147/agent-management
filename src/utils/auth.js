@@ -31,6 +31,34 @@ export const auth = {
     window.localStorage.removeItem(KEY)
     return session
   },
+
+  async requestPasswordReset({ email, loginAs = 'admin' }) {
+    const role = loginAs === 'agent' ? 'agent' : 'admin'
+    return apiRequest('/auth/password-reset', {
+      method: 'POST',
+      skipAuth: true,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, loginAs: role })
+    })
+  },
+
+  async validatePasswordResetToken(token) {
+    return apiRequest(`/auth/password-reset/${token}`, { skipAuth: true })
+  },
+
+  async resetPassword({ token, password }) {
+    return apiRequest(`/auth/password-reset/${token}`, {
+      method: 'PATCH',
+      skipAuth: true,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ password })
+    })
+  },
+
   logout() {
     getStorage().removeItem(KEY)
     window.localStorage.removeItem(KEY)

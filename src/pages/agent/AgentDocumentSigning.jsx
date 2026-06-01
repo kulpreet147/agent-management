@@ -47,19 +47,19 @@ const DOCUMENTS = [
     content: [
       {
         section: '1. Professional Standards',
-        text: 'All advisors must maintain the highest standards of professional integrity and ethics. This includes honest communication with clients, transparent reporting of conflicts of interest, and adherence to all applicable regulations and industry best practices. Violation of these standards may result in immediate termination and legal action.'
+        text: `All advisors are expected to maintain the highest standards of professionalism, integrity, and ethical conduct while representing the organization. Advisors must always act honestly, provide accurate information, and place the interests of clients above personal gain. Any recommendation, communication, or advice provided to clients should be clear, transparent, and based on sound professional judgment. Advisors are expected to maintain appropriate professional qualifications and stay informed about industry developments, regulatory requirements, and company policies. Respectful behavior toward clients, colleagues, and business partners is mandatory at all times. Advisors must avoid conflicts of interest and immediately disclose any situation that could influence their objectivity or decision-making. Professional conduct extends to all forms of communication, including in-person meetings, phone calls, emails, messaging platforms, and social media. Any behavior that damages the reputation of the organization or violates ethical standards may result in disciplinary action. The company reserves the right to investigate complaints and take appropriate corrective measures, including suspension or termination of contracts, where necessary.`
       },
       {
         section: '2. Client Confidentiality',
-        text: 'Client information must be treated as confidential and protected with appropriate security measures. Advisors must not share client data with third parties without explicit written consent. All electronic communications must be encrypted and comply with data protection regulations.'
+        text: `Protecting client information is a fundamental responsibility of every advisor. All personal, financial, and business information obtained during the course of providing services must be treated as strictly confidential. Advisors may only access client information when required to perform authorized duties and must not disclose, share, sell, or misuse such information for personal benefit. Client records should be stored securely and protected against unauthorized access, loss, theft, or disclosure. Electronic data must be safeguarded using approved security measures, including strong passwords, secure networks, and encryption where applicable. Confidential information should only be shared with authorized personnel who have a legitimate business need to access it. Advisors must comply with all applicable privacy and data protection laws and immediately report any suspected data breach or security incident. Confidentiality obligations continue even after an advisor's employment or contractual relationship ends. Failure to protect client information may result in disciplinary action, legal consequences, financial penalties, and damage to the trust that clients place in the organization.`
       },
       {
         section: '3. Anti-Discrimination Policy',
-        text: 'We are committed to creating an inclusive environment free from discrimination based on race, color, religion, gender, national origin, age, disability, or any other protected characteristic. Any violations of this policy will be subject to immediate investigation and appropriate disciplinary action.'
+        text: `The organization is committed to maintaining a workplace and business environment that promotes equality, dignity, respect, and inclusion for all individuals. Discrimination, harassment, or unfair treatment based on race, color, religion, gender, age, disability, marital status, national origin, sexual orientation, or any other protected characteristic is strictly prohibited. Advisors are expected to treat clients, coworkers, vendors, and partners fairly and professionally regardless of their background or personal characteristics. Decisions related to hiring, promotions, assignments, compensation, training, and business opportunities must be based solely on qualifications, performance, and legitimate business considerations. Harassment, offensive language, inappropriate jokes, intimidation, or exclusionary behavior will not be tolerated. The organization encourages individuals to report any concerns regarding discrimination or harassment without fear of retaliation. All complaints will be investigated promptly, fairly, and confidentially to the extent possible. Violations of this policy may result in disciplinary measures, including warnings, suspension, termination of employment, or other corrective actions deemed appropriate by management.`
       },
       {
         section: '4. Compliance & Reporting',
-        text: 'All advisors must comply with internal policies and external regulations. Any suspected violations or ethical concerns must be reported immediately to the compliance department. Retaliation against those reporting violations in good faith is strictly prohibited.'
+        text: `All advisors are responsible for complying with applicable laws, regulations, industry standards, and internal company policies. Compliance is essential to maintaining trust, protecting clients, and ensuring the long-term success of the organization. Advisors must understand and follow the procedures relevant to their roles and participate in any required compliance training programs. Any suspected violation of company policy, unethical behavior, fraud, misconduct, security concern, or regulatory breach must be reported immediately through the appropriate reporting channels. Reports should be made in good faith and supported by accurate information whenever possible. The organization strictly prohibits retaliation against any individual who reports concerns honestly or participates in an investigation. All reported matters will be reviewed and investigated promptly and objectively. Advisors are expected to cooperate fully with compliance reviews, audits, and investigations. Failure to comply with reporting requirements or attempts to conceal misconduct may result in disciplinary action. By following compliance requirements and reporting concerns responsibly, advisors contribute to a culture of accountability, transparency, and ethical business practices throughout the organization.`
       }
     ]
   },
@@ -154,7 +154,7 @@ const DocumentSigningPage = () => {
     Boolean(documentDrafts.code_of_conduct?.agree) &&
     Boolean(documentDrafts.privacy_policy?.agree);
   const canSubmitCurrentDocument = Boolean(advisorSignature && bothAcceptanceChecked);
-  
+
   // Real-time signature preview
   const liveSignaturePreview = typeSignature.trim() || '';
 
@@ -359,13 +359,12 @@ const DocumentSigningPage = () => {
                   onClick={() => {
                     setActiveDoc(index);
                   }}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-150 text-left ${
-                    isActive
+                  className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-150 text-left ${isActive
                       ? 'border-l-4 border-blue-700 bg-blue-50 text-blue-700'
                       : isSigned
-                      ? 'hover:bg-slate-50 text-green-700 bg-green-50/50'
-                      : 'hover:bg-slate-50 text-slate-600'
-                  }`}
+                        ? 'hover:bg-slate-50 text-green-700 bg-green-50/50'
+                        : 'hover:bg-slate-50 text-slate-600'
+                    }`}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="text-[11px] font-bold truncate">{doc.name}</div>
@@ -399,8 +398,8 @@ const DocumentSigningPage = () => {
         {/* Right Panel - Document Content */}
         <section className="flex-1 flex flex-col bg-slate-100 overflow-hidden">
           {/* Document Preview */}
-          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-            <div className="mx-auto max-w-2xl bg-white rounded-sm shadow-lg p-12 min-h-fit border border-slate-200">
+          <div className="flex-1 overflow-y-auto px-6 pt-6 pb-3 custom-scrollbar">
+            <div className="mx-auto max-w-2xl bg-white rounded-sm shadow-lg p-10 min-h-[calc(100vh-250px)] border border-slate-200">
               {/* Header */}
               <div className="mb-8 flex justify-between text-[8px] font-bold text-slate-400">
                 <span>LEGAL DOCUMENT</span>
@@ -413,7 +412,7 @@ const DocumentSigningPage = () => {
               </h1>
 
               {/* Content */}
-              <div className="max-h-[360px] space-y-6 overflow-y-auto pr-2 text-slate-700 text-sm leading-relaxed custom-scrollbar">
+              <div className="max-h-[calc(100vh-430px)] space-y-6 overflow-y-auto pr-2 text-slate-700 text-sm leading-relaxed custom-scrollbar">
                 {currentDocument.content.map((paragraph, idx) => (
                   <div key={idx}>
                     <h3 className="font-bold text-slate-900 mb-2">{paragraph.section}</h3>
@@ -424,48 +423,47 @@ const DocumentSigningPage = () => {
 
               {/* Signature Section in Document */}
               {requiresSignature && (
-              <div className="mt-16 pt-8 border-t-2 border-slate-300">
-                <div className="flex justify-between items-end">
-                  {/* Company Signature */}
-                  <div className="space-y-3">
-                    <p className="text-xs font-bold text-slate-900">Authorized Signatory</p>
-                    <div className="w-40 h-10 bg-slate-100 rounded flex items-center justify-center text-[9px] italic text-slate-500">
-                      Michael Sterling
+                <div className="mt-16 pt-8 border-t-2 border-slate-300">
+                  <div className="flex justify-between items-end">
+                    {/* Company Signature */}
+                    <div className="space-y-3">
+                      <p className="text-xs font-bold text-slate-900">Authorized Signatory</p>
+                      <div className="w-40 h-10 bg-slate-100 rounded flex items-center justify-center text-[9px] italic text-slate-500">
+                        Michael Sterling
+                      </div>
+                      <p className="text-[9px] text-slate-600">COO, Agent Management</p>
                     </div>
-                    <p className="text-[9px] text-slate-600">COO, Agent Management</p>
-                  </div>
 
-                  {/* Advisor Signature Preview */}
-                  <div className="space-y-3 text-right">
-                    <p className="text-xs font-bold text-slate-900">Advisor Signature</p>
-                    <div className="w-56 h-20 border-2 border-dashed border-blue-300 rounded-lg flex items-center justify-center relative bg-blue-50/30 overflow-hidden">
-                      {signedDocuments[currentDocument.id] ? (
-                        <div className="text-center">
-                          <div
-                            className={`text-2xl font-bold text-blue-700 ${
-                              signedDocuments[currentDocument.id].type === 'type'
-                                ? "font-['Dancing_Script']"
-                                : 'font-bold'
-                            }`}
-                          >
-                            {signedDocuments[currentDocument.id].signature}
+                    {/* Advisor Signature Preview */}
+                    <div className="space-y-3 text-right">
+                      <p className="text-xs font-bold text-slate-900">Advisor Signature</p>
+                      <div className="w-56 h-20 border-2 border-dashed border-blue-300 rounded-lg flex items-center justify-center relative bg-blue-50/30 overflow-hidden">
+                        {signedDocuments[currentDocument.id] ? (
+                          <div className="text-center">
+                            <div
+                              className={`text-2xl font-bold text-blue-700 ${signedDocuments[currentDocument.id].type === 'type'
+                                  ? "font-['Dancing_Script']"
+                                  : 'font-bold'
+                                }`}
+                            >
+                              {signedDocuments[currentDocument.id].signature}
+                            </div>
+                            <div className="text-[8px] text-green-600 font-semibold mt-1">✓ SIGNED</div>
                           </div>
-                          <div className="text-[8px] text-green-600 font-semibold mt-1">✓ SIGNED</div>
-                        </div>
-                      ) : liveSignaturePreview ? (
-                        <div className="text-2xl font-['Dancing_Script'] text-blue-700 font-bold italic">
-                          {liveSignaturePreview}
-                        </div>
-                      ) : (
-                        <span className="text-[10px] opacity-40 uppercase tracking-widest font-bold">
-                          Sign Below
-                        </span>
-                      )}
+                        ) : liveSignaturePreview ? (
+                          <div className="text-2xl font-['Dancing_Script'] text-blue-700 font-bold italic">
+                            {liveSignaturePreview}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] opacity-40 uppercase tracking-widest font-bold">
+                            Sign Below
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[9px] text-slate-600">Your Signature</p>
                     </div>
-                    <p className="text-[9px] text-slate-600">Your Signature</p>
                   </div>
                 </div>
-              </div>
               )}
             </div>
           </div>
@@ -477,24 +475,23 @@ const DocumentSigningPage = () => {
               className="shrink-0 border-t border-slate-200 bg-white p-5 shadow-lg"
             >
               <div className="max-w-3xl mx-auto">
-                {requiresSignature && (
-                <div className="flex gap-3 mb-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateCurrentDraft({ signatureType: 'type' });
-                    }}
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-bold transition-all ${
-                      signatureType === 'type'
-                        ? 'bg-blue-700 text-white'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
-                  >
-                    <Keyboard size={13} />
-                    Type
-                  </button>
-                </div>
-                )}
+                {/* {requiresSignature && (
+                  <div className="flex gap-3 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateCurrentDraft({ signatureType: 'type' });
+                      }}
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[11px] font-bold transition-all ${signatureType === 'type'
+                          ? 'bg-blue-700 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                    >
+                      <Keyboard size={13} />
+                      Type
+                    </button>
+                  </div>
+                )} */}
 
                 {/* Type Input */}
                 {requiresSignature && signatureType === 'type' && (
@@ -512,18 +509,18 @@ const DocumentSigningPage = () => {
                 {/* Actions */}
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_200px] gap-4 items-start">
                   {requiresAcceptance && (
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="legal-consent"
-                      checked={agree}
-                      onChange={(e) => updateCurrentDraft({ agree: e.target.checked })}
-                      className="mt-1 w-4 h-4 border-slate-300 rounded cursor-pointer accent-blue-700"
-                    />
-                    <label htmlFor="legal-consent" className="text-[10px] text-slate-600 leading-relaxed">
-                      {currentDocument.acceptanceText}
-                    </label>
-                  </div>
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="legal-consent"
+                        checked={agree}
+                        onChange={(e) => updateCurrentDraft({ agree: e.target.checked })}
+                        className="mt-1 w-4 h-4 border-slate-300 rounded cursor-pointer accent-blue-700"
+                      />
+                      <label htmlFor="legal-consent" className="text-[10px] mt-1 text-slate-600 leading-relaxed">
+                        {currentDocument.acceptanceText}
+                      </label>
+                    </div>
                   )}
                   {!requiresAcceptance && (
                     <div className="text-[10px] text-slate-500 leading-relaxed">

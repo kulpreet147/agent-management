@@ -58,7 +58,7 @@ const statusClass = {
 export default function AgentLeadManagement() {
   const navigate = useNavigate()
   const session = auth.get()
-  const agentName = session?.name || 'Sarah Johnson'
+  const agentName = session?.name || 'Agent'
   const initials = agentName
     .split(' ')
     .map((part) => part[0])
@@ -74,7 +74,7 @@ export default function AgentLeadManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-[#eef3f8] text-slate-950">
+    <div className="min-h-screen bg-[#eef3f8] text-slate-950 max-w-[2200px] mx-auto">
       <div className="flex h-screen overflow-hidden">
         <AgentSidebar agentName={agentName} initials={initials} />
 
@@ -91,14 +91,18 @@ export default function AgentLeadManagement() {
             <div className="ml-auto flex items-center gap-4 text-slate-500">
               <Bell size={15} />
               <CircleHelp size={15} />
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+              <button
+                type="button"
+                onClick={() => navigate('/agent/profile')}
+                className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
+              >
                 {initials}
-              </div>
+              </button>
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="mx-auto max-w-7xl space-y-6">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-5">
+            <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-[11px] font-semibold text-slate-500">Leads &gt; My Leads</div>

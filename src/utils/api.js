@@ -1,15 +1,16 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
 
 export async function apiRequest(path, options = {}) {
+  const { skipAuth = false, ...requestOptions } = options
   const session = getSession()
-  const headers = new Headers(options.headers || {})
+  const headers = new Headers(requestOptions.headers || {})
 
-  if (session?.token) {
+  if (!skipAuth && session?.token) {
     headers.set('Authorization', `Bearer ${session.token}`)
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
+    ...requestOptions,
     headers
   })
 

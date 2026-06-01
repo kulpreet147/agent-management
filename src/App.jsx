@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login.jsx";
+import PasswordReset from "./pages/PasswordReset.jsx";
 import AgentAccountSetup from "./pages/AgentAccountSetup.jsx";
 import MasterDashboard from "./pages/MasterDashboard.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
@@ -28,6 +29,7 @@ import AgentDashboard from "./pages/agent/AgentDashboard.jsx";
 import AgentLeadManagement from "./pages/agent/AgentLeadManagement.jsx";
 import AgentLeadDetail from "./pages/agent/AgentLeadDetail.jsx";
 import AgentActionItems from "./pages/agent/AgentActionItems.jsx";
+import AgentProfile from "./pages/agent/AgentProfile.jsx";
 import Analytics from "./pages/admin/Analytics.jsx";
 
 function Protected({ children }) {
@@ -66,6 +68,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/recover/:token" element={<PasswordReset />} />
       <Route path="/agent/account-setup" element={<AgentAccountSetup />} />
       <Route
         path="/agent/account-setup/:inviteToken"
@@ -132,6 +135,14 @@ export default function App() {
         element={
           <AgentProtected>
             <AgentActionItems />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/profile"
+        element={
+          <AgentProtected>
+            <AgentProfile />
           </AgentProtected>
         }
       />

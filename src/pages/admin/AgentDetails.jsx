@@ -4,6 +4,7 @@ import { Eye, Check, RotateCcw, XCircle, ArrowRight } from 'lucide-react'
 import {
   getAgent,
   getAgentSignedDocuments,
+  rejectAgentDocument,
   reviewAgentDocument,
   updateAgentOnboardingStatus,
 } from '../../utils/agents.js'
@@ -109,11 +110,18 @@ export default function AgentDetails() {
     if (!agentId) return
     setSavingDocumentId(`${row.type}:${row.id}`)
     try {
-      await reviewAgentDocument(agentId, {
-        documentType: row.type,
-        documentId: row.id,
-        action,
-      })
+      if (action === 'rejected') {
+        await rejectAgentDocument(agentId, {
+          documentType: row.type,
+          documentId: row.id,
+        })
+      } else {
+        await reviewAgentDocument(agentId, {
+          documentType: row.type,
+          documentId: row.id,
+          action,
+        })
+      }
 
       setSignedDocuments((prev) => ({
         ...prev,
