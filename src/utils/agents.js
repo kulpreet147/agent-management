@@ -107,6 +107,16 @@ export function reviewAgentDocument(agentId, payload) {
   })
 }
 
+export function rejectAgentDocument(agentId, payload) {
+  return apiRequest(`/agents/${agentId}/reject-document`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+}
+
 export function sendMgaPackageEmail(agentId, payload) {
   return apiRequest(`/agents/${agentId}/send-mga-package-email`, {
     method: 'POST',
@@ -114,5 +124,42 @@ export function sendMgaPackageEmail(agentId, payload) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
+  })
+}
+
+export function getAgentProfile(agentId) {
+  return apiRequest(`/agents/${agentId}/profile`).catch(() => apiRequest(`/agents/${agentId}`))
+}
+
+export function updateAgentProfile(agentId, payload) {
+  if (!(payload instanceof FormData)) {
+    throw new Error('Profile update requires FormData payload.')
+  }
+
+  payload.set('agentId', String(agentId))
+
+  return apiRequest('/agents/UpdateProfile', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export function updateAgentRegistrationDetails(agentId, details) {
+  const formData = new FormData()
+  formData.set('agentId', String(agentId))
+  formData.set(
+    'profile',
+    JSON.stringify({
+      personal: {
+        city: details.city || '',
+        residence: details.residence || '',
+        postalCode: details.postalCode || '',
+      },
+    }),
+  )
+
+  return apiRequest('/agents/UpdateProfile', {
+    method: 'POST',
+    body: formData,
   })
 }

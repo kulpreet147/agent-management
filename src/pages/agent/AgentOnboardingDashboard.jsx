@@ -21,11 +21,6 @@ const AgentOnboardingDashboard = () => {
   ];
 
   const progressPercentage = 60;
-  const userProfile = {
-    name: 'Sarah Johnson',
-    title: 'Agent In-Onboarding',
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBR5eJUZQ1qnuqCnvpQeYDBnrsHH2A_sheRKKd1EMUFicQ6GbGuDssQ530Tjm0ULbrP3RLpIJFENWWdAyhKTWVj1Ctt6BwYI0MG6L068axz-qFB0ILYd4fKyNe7hBrpSgMZTi817nm1Kb_G129kznUBPQPQ9FutA0MjcYl58vFJZ-eRePKnTZwd-jhQRsMWyimmnq7DQ88WiOZfn-XzzhxLX4r0rheCI9HkXc24oK8pKCg3y1eMGn-TgaPO2rf7N8ZsWPsFiMbUfehK',
-  };
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -52,6 +47,7 @@ const AgentOnboardingDashboard = () => {
     }
   };
   const session = auth.get()
+  const displayName = session?.name || 'Agent'
   const navigate = useNavigate()
   const [submitting, setSubmitting] = useState(false)
 
@@ -78,7 +74,7 @@ const AgentOnboardingDashboard = () => {
           {/* Welcome Header */}
           <div className="text-center space-y-1 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900">
-              Welcome, {userProfile.name.split(' ')[0]} 👋
+              Welcome, {displayName.split(' ')[0]} 👋
             </h2>
             <p className="text-sm text-gray-600">
               Complete your onboarding to get started.
@@ -107,7 +103,7 @@ const AgentOnboardingDashboard = () => {
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 transform ${step.completed
                         ? 'bg-blue-600 text-white scale-100 shadow-lg'
                         : step.active
-                          ? 'border-3 border-blue-600 bg-white text-blue-600'
+                          ? 'border-2 border-blue-600 bg-white text-blue-600'
                           : 'bg-gray-100 text-gray-400'
                         }`}
                     >
@@ -116,7 +112,7 @@ const AgentOnboardingDashboard = () => {
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       ) : step.active ? (
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                        step.id
                       ) : (
                         step.id
                       )}

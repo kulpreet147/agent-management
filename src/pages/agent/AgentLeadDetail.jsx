@@ -18,7 +18,7 @@ export default function AgentLeadDetail() {
   const { leadId } = useParams()
   const navigate = useNavigate()
   const session = auth.get()
-  const agentName = session?.name || 'Sarah Johnson'
+  const agentName = session?.name || 'Agent'
   const initials = (agentName.split(' ').map((p) => p[0]).join('').slice(0, 2)).toUpperCase()
   const lead = useLead(leadId)
 
@@ -109,9 +109,13 @@ export default function AgentLeadDetail() {
             <div className="ml-auto flex items-center gap-4 text-slate-500">
               <Bell size={15} />
               <CircleHelp size={15} />
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+              <button
+                type="button"
+                onClick={() => navigate('/agent/profile')}
+                className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
+              >
                 {initials}
-              </div>
+              </button>
             </div>
           </header>
 

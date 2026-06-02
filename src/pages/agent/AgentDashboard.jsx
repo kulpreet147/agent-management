@@ -6,13 +6,16 @@ import {
   FileText,
   Search,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
 import { auth } from '../../utils/auth.js'
 import AgentSidebar from '../../components/AgentSidebar.jsx'
+import { getAgentSignedDocuments } from '../../utils/agents.js'
 
-const documents = [
-  { name: 'Advisor Contract', updated: 'Signed today', status: 'Approved', action: 'View' },
-  { name: 'Code of Conduct', updated: 'Signed today', status: 'Approved', action: 'Download' },
-  { name: 'Privacy Agreement', updated: 'Signed today', status: 'Approved', action: 'View' }
+const documentCatalog = [
+  { id: 'advisor_contract', name: 'Advisor Contract' },
+  { id: 'code_of_conduct', name: 'Code of Conduct' },
+  { id: 'privacy_policy', name: 'Privacy Agreement' },
 ]
 
 const nextTasks = [
@@ -22,17 +25,64 @@ const nextTasks = [
 ]
 
 export default function AgentDashboard() {
+  const navigate = useNavigate()
   const session = auth.get()
-  const agentName = session?.name || 'Sarah Johnson'
+  const agentName = session?.name || 'Agent'
   const initials = agentName
     .split(' ')
     .map((part) => part[0])
     .join('')
     .slice(0, 2)
     .toUpperCase()
+  const [signedDocs, setSignedDocs] = useState({})
+
+  useEffect(() => {
+    if (!session?.id) return
+    getAgentSignedDocuments(session.id)
+      .then((data) => setSignedDocs(data || {}))
+      .catch(() => setSignedDocs({}))
+  }, [session?.id])
+
+  const documents = useMemo(() => {
+    return documentCatalog.map((doc) => {
+      const signed = signedDocs?.[doc.id]
+      const reviewAction = signed?.metadata?.adminReview?.action || null
+
+      let status = 'Pending Signature'
+      if (signed?.submittedAt) status = 'Under Review'
+      if (reviewAction === 'approved') status = 'Approved'
+      if (reviewAction === 'rejected') status = 'Rejected'
+      if (reviewAction === 'revision_requested') status = 'Revision Requested'
+
+      const updated = signed?.submittedAt
+        ? new Date(signed.submittedAt).toLocaleDateString()
+        : 'Not signed yet'
+
+      return {
+        id: doc.id,
+        name: doc.name,
+        updated,
+        status,
+        action: signed?.submittedAt ? 'View' : 'Pending',
+      }
+    })
+  }, [signedDocs])
+
+  const approvedCount = documents.filter((d) => d.status === 'Approved').length
+  const rejectedCount = documents.filter((d) => d.status === 'Rejected').length
+  const underReviewCount = documents.filter((d) => d.status === 'Under Review').length
+
+  const overallReviewStatus =
+    rejectedCount > 0
+      ? 'Rejected'
+      : approvedCount === documents.length
+        ? 'Approved'
+        : underReviewCount > 0
+          ? 'Under Review'
+          : 'Pending'
 
   return (
-    <div className="min-h-screen bg-[#eef3f8] text-slate-950">
+    <div className="min-h-screen bg-[#eef3f8] text-slate-1500">
       <div className="flex h-screen overflow-hidden">
         <AgentSidebar agentName={agentName} initials={initials} />
 
@@ -49,9 +99,13 @@ export default function AgentDashboard() {
             <div className="ml-auto flex items-center gap-4 text-slate-500">
               <Bell size={15} />
               <CircleHelp size={15} />
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+              <button
+                type="button"
+                onClick={() => navigate('/agent/profile')}
+                className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
+              >
                 {initials}
-              </div>
+              </button>
             </div>
           </header>
 
@@ -64,7 +118,7 @@ export default function AgentDashboard() {
 
               <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <Metric icon={CheckCircle2} label="Onboarding Status" value="Active" tone="emerald" />
-                <Metric icon={FileText} label="Signed Documents" value="3 Files" tone="blue" />
+                <Metric icon={FileText} label="Signed Documents" value={`${Object.keys(signedDocs || {}).length} Files`} tone="blue" />
                 <Metric icon={CalendarClock} label="Next Step" value="Training" tone="amber" />
               </section>
 
@@ -72,10 +126,18 @@ export default function AgentDashboard() {
                 <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
                   <div>
                     <h2 className="text-sm font-bold">Document Review</h2>
-                    <p className="mt-0.5 text-[10px] text-slate-500">Your submitted documents are approved and ready.</p>
+                    <p className="mt-0.5 text-[10px] text-slate-500">Track per-document review status from admin actions.</p>
                   </div>
-                  <span className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-bold uppercase text-emerald-700">
-                    Approved
+                  <span className={`rounded px-2 py-1 text-[10px] font-bold uppercase ${
+                    overallReviewStatus === 'Approved'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : overallReviewStatus === 'Rejected'
+                        ? 'bg-rose-50 text-rose-700'
+                        : overallReviewStatus === 'Under Review'
+                          ? 'bg-amber-50 text-amber-700'
+                          : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    {overallReviewStatus}
                   </span>
                 </div>
 
@@ -105,12 +167,25 @@ export default function AgentDashboard() {
                           </td>
                           <td className="px-5 py-4 text-slate-600">{document.updated}</td>
                           <td className="px-5 py-4">
-                            <span className="rounded bg-emerald-50 px-2 py-1 text-[9px] font-bold uppercase text-emerald-700">
+                            <span className={`rounded px-2 py-1 text-[9px] font-bold uppercase ${
+                              document.status === 'Approved'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : document.status === 'Rejected'
+                                  ? 'bg-rose-50 text-rose-700'
+                                  : document.status === 'Revision Requested'
+                                    ? 'bg-orange-50 text-orange-700'
+                                    : document.status === 'Under Review'
+                                      ? 'bg-amber-50 text-amber-700'
+                                      : 'bg-slate-100 text-slate-700'
+                            }`}>
                               {document.status}
                             </span>
                           </td>
                           <td className="px-5 py-4 text-right">
-                            <button className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-50">
+                            <button
+                              disabled={document.action === 'Pending'}
+                              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
                               {document.action}
                             </button>
                           </td>

@@ -17,14 +17,14 @@ export default function StatCard({ label, value, delta, tone = 'blue', urgent = 
 
   if (compact) {
     return (
-      <div className={`rounded-xl border bg-white p-3 shadow-sm overflow-hidden ${urgent ? 'border-red-200' : 'border-slate-200'}`}>
+      <div className={`rounded-xl border bg-white p-4 min-h-[84px] shadow-sm overflow-hidden ${urgent ? 'border-red-200' : 'border-slate-200'}`}>
         <div className="flex items-center justify-between">
-          <div className={`h-9 w-9 rounded-lg ${t.bg} ${t.text} grid place-items-center`}> 
-            <Icon size={18} />
+          <div className={`h-10 w-10 rounded-lg ${t.bg} ${t.text} grid place-items-center`}>
+            <Icon size={19} />
           </div>
           <div className="text-right">
-            <div className="text-sm font-semibold text-slate-900 tabular-nums">{value}</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">{label}</div>
+            <div className="text-lg font-bold text-slate-900 tabular-nums">{value}</div>
+            <div className="text-xs text-slate-500 mt-0.5">{label}</div>
           </div>
         </div>
       </div>

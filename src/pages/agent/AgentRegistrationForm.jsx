@@ -1,19 +1,28 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Bell, CircleHelp, FileText, LockKeyhole, Shield, Upload } from 'lucide-react'
+import { ArrowRight, Bell, CircleHelp, Shield } from 'lucide-react'
 import { auth } from '../../utils/auth.js'
-import { updateAgentOnboardingStatus } from '../../utils/agents.js'
+import { updateAgentOnboardingStatus, updateAgentRegistrationDetails } from '../../utils/agents.js'
 
 export default function AgentRegistrationForm() {
   const session = auth.get()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
-  const [creditReport, setCreditReport] = useState('')
+  const [registrationDetails, setRegistrationDetails] = useState({
+    city: '',
+    residence: 'Owned',
+    postalCode: '',
+  })
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (!registrationDetails.city.trim() || !registrationDetails.postalCode.trim()) {
+      window.alert('Please fill City and Postal Code.')
+      return
+    }
     setLoading(true)
     try {
+      await updateAgentRegistrationDetails(session.id, registrationDetails)
       await updateAgentOnboardingStatus(session.id, 3)
       auth.update({ onboardingStatus: 3 })
       navigate('/agent/sign-documents')
@@ -31,59 +40,49 @@ export default function AgentRegistrationForm() {
           <div className="mb-5 text-center">
             <h1 className="text-xl font-bold tracking-tight">Complete Your Registration</h1>
             <p className="mt-1 text-[11px] text-slate-500">
-              Provide your details to complete your professional agent profile for the platform.
+              Provide only the remaining personal details required to continue onboarding.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-card">
             <div className="p-5">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                <Field label="Full Name">
-                  <input className={inputClass} defaultValue={session?.name || 'Alexander Sterling'} />
-                </Field>
-                <Field label="Email Address">
-                  <input className={inputClass} defaultValue={session?.email || 'alex.sterling@agency-portal.com'} />
-                </Field>
-                <Field label="Phone Number">
-                  <input className={inputClass} defaultValue="+1 (555) 000-0000" />
-                </Field>
-                <Field label="Licence Type">
-                  <div className="relative">
-                    <input className={`${inputClass} pr-8`} defaultValue="Principal Broker (Class A)" />
-                    <LockKeyhole size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                  </div>
-                </Field>
+              <div className="mb-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+                Basic profile and document details were already provided by admin.
               </div>
 
-              <Field label="Identification Document (Passport/Driver's Licence)">
-                <label className="mt-1 flex h-[124px] cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 text-center hover:border-brand-300 hover:bg-brand-50">
-                  <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-50 text-brand-700">
-                    <Upload size={17} />
-                  </div>
-                  <div className="mt-2 text-[11px] font-bold text-slate-700">Click or drag file to upload</div>
-                  <div className="mt-0.5 text-[10px] text-slate-500">PDF, JPG, or PNG (Max 10MB)</div>
-                  <input type="file" className="hidden" />
-                </label>
-              </Field>
-
-              <div className="mt-3 grid grid-cols-[1fr_1.45fr_90px] gap-3">
-                <Field label="Credit Score">
-                  <input className={inputClass} defaultValue="e.g. 750" />
+              <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                <Field label="City">
+                  <input
+                    className={inputClass}
+                    value={registrationDetails.city}
+                    onChange={(event) =>
+                      setRegistrationDetails((prev) => ({ ...prev, city: event.target.value }))
+                    }
+                    placeholder="e.g. Toronto"
+                  />
                 </Field>
-                <Field label="Credit Report Upload">
-                  <label className="flex h-8 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 bg-white text-[11px] font-semibold text-slate-700 hover:bg-slate-50">
-                    <FileText size={12} />
-                    Attach Report
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={(event) => setCreditReport(event.target.files?.[0]?.name || '')}
-                    />
-                  </label>
+                <Field label="Residence">
+                  <select
+                    className={inputClass}
+                    value={registrationDetails.residence}
+                    onChange={(event) =>
+                      setRegistrationDetails((prev) => ({ ...prev, residence: event.target.value }))
+                    }
+                  >
+                    <option value="Owned">Owned</option>
+                    <option value="Rental">Rental</option>
+                  </select>
                 </Field>
-                <div className="self-end truncate rounded-md border border-slate-300 bg-slate-50 px-2 py-2 text-center text-[10px] font-semibold text-slate-500">
-                  {creditReport || 'No file selected'}
-                </div>
+                <Field label="Postal Code">
+                  <input
+                    className={inputClass}
+                    value={registrationDetails.postalCode}
+                    onChange={(event) =>
+                      setRegistrationDetails((prev) => ({ ...prev, postalCode: event.target.value }))
+                    }
+                    placeholder="e.g. M5V 2L1"
+                  />
+                </Field>
               </div>
             </div>
 
@@ -120,7 +119,7 @@ export default function AgentRegistrationForm() {
   )
 }
 
-export function AgentHeader({ initials = 'SJ', name = 'Sarah Johnson', subtitle = 'Agent In-Onboarding' }) {
+export function AgentHeader({ initials = 'AG', name = 'Agent', subtitle = 'Agent In-Onboarding' }) {
   return (
     <header className="h-11 border-b border-slate-200 bg-white">
       <div className="flex h-full items-center px-8">
