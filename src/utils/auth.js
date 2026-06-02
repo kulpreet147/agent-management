@@ -27,6 +27,14 @@ export const auth = {
       loggedInAt: new Date().toISOString()
     }
 
+    const isBlocked =
+      session.role === 'admin' &&
+      Boolean(data.user.isBlocked || data.user.blocked || data.user.status === 'blocked')
+
+    if (isBlocked) {
+      throw new Error('Your access is denied by master admin.')
+    }
+
     getStorage().setItem(KEY, JSON.stringify(session))
     window.localStorage.removeItem(KEY)
     return session

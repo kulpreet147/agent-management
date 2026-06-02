@@ -1,12 +1,11 @@
-﻿import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Search, SlidersHorizontal, Plus } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import StatCard from '../components/StatCard.jsx'
 import StatusPill from '../components/StatusPill.jsx'
 import { getAgents } from '../utils/agents.js'
 import { auth } from '../utils/auth.js'
+import { dashboardModuleCounts } from '../data/dummy.js'
 
-const STAT_TONES = ['indigo', 'amber', 'slate', 'emerald']
+const STAT_TONES = ['indigo', 'amber', 'emerald', 'slate']
 const ONBOARDING_STEPS = 6
 
 function getDisplayStatus(agent) {
@@ -48,9 +47,7 @@ function toInitials(name) {
 }
 
 export default function AdminDashboard() {
-  const navigate = useNavigate()
   const session = auth.get()
-  const [searchTerm, setSearchTerm] = useState('')
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -76,53 +73,19 @@ export default function AdminDashboard() {
     }
   }, [])
 
-  const filteredAgents = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase()
-    if (!q) return agents
-
-    return agents.filter((agent) => {
-      const haystack = [agent?.name, agent?.email, agent?.agentId, agent?.phone]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(q)
-    })
-  }, [agents, searchTerm])
-
   const stats = useMemo(() => {
-    const now = new Date()
-    const in30 = new Date()
-    in30.setDate(now.getDate() + 30)
-
-    const totalAgents = filteredAgents.length
-    const onboardingInProgress = filteredAgents.filter((agent) => {
-      const activation = Number(agent?.accountActivationStatus)
-      const step = Number(agent?.onboardingStatus || 1)
-      return activation !== 1 && activation !== 2 && step > 1 && step < 6
-    }).length
-
-    const pendingApprovals = filteredAgents.filter((agent) => {
-      const activation = Number(agent?.accountActivationStatus)
-      const step = Number(agent?.onboardingStatus || 1)
-      const status = String(agent?.status || '').toLowerCase()
-      return activation === 0 && (step >= 6 || status === 'under_review')
-    }).length
-
-    const licencesExpiring = filteredAgents.filter((agent) => {
-      const expiry = parseLicenceExpiry(agent)
-      return expiry && expiry >= now && expiry <= in30
-    }).length
+    const totalAgents = agents.length
 
     return [
       { label: 'Total Agents', value: totalAgents, tone: STAT_TONES[0] },
-      { label: 'Onboarding In Progress', value: onboardingInProgress, tone: STAT_TONES[1] },
-      { label: 'Pending Approvals', value: pendingApprovals, tone: STAT_TONES[2] },
-      { label: 'Licences Expiring', value: licencesExpiring, tone: STAT_TONES[3] },
+      { label: 'Total Leads', value: dashboardModuleCounts.totalLeads, tone: STAT_TONES[1] },
+      { label: 'Total Clients', value: dashboardModuleCounts.totalClients, tone: STAT_TONES[2] },
+      { label: 'Policies', value: dashboardModuleCounts.totalPolicies, tone: STAT_TONES[3] },
     ]
-  }, [filteredAgents])
+  }, [agents])
 
   const recentAgents = useMemo(() => {
-    return [...filteredAgents]
+    return [...agents]
       .sort((a, b) => new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime())
       .slice(0, 5)
       .map((agent) => ({
@@ -135,33 +98,15 @@ export default function AdminDashboard() {
         licenceExpiry: parseLicenceExpiry(agent),
         initials: toInitials(agent.name),
       }))
-  }, [filteredAgents])
+  }, [agents])
 
   return (
     <div className="space-y-6 w-full">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col items-start gap-2">
         <div>
           <div className="text-sm text-slate-500">Agent Management</div>
           <h1 className="text-2xl font-bold text-slate-900 mt-2">Good Morning, {session?.name || 'Admin'}</h1>
           <p className="text-sm text-slate-500 mt-1">Here's what's happening with your agent network today.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search agents, emails..."
-              className="w-72 bg-white border border-slate-200 rounded-lg pl-10 pr-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none shadow-sm"
-            />
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          </div>
-          <button
-            onClick={() => navigate('/admin/agent-record-creation')}
-            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm transition"
-          >
-            <Plus size={16} />
-            Add New Agent
-          </button>
         </div>
       </div>
 
@@ -173,7 +118,7 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="xl:col-span-2 space-y-6">
-          <RecentAgentsPanel agents={recentAgents} total={filteredAgents.length} loading={loading} error={error} />
+          <RecentAgentsPanel agents={recentAgents} total={agents.length} loading={loading} error={error} />
         </div>
       </div>
     </div>
@@ -184,9 +129,13 @@ function RecentAgentsPanel({ agents, total, loading, error }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-bold text-slate-900 text-lg">Recent Agents <span className="text-sm text-slate-500">· {total} Total</span></h2>
+        <h2 className="font-bold text-slate-900 text-lg">
+          Recent Agents <span className="text-sm text-slate-500">· {total} Total</span>
+        </h2>
         <div className="flex items-center gap-3">
-          <button className="px-3 py-2 text-sm bg-white border border-slate-200 rounded-md">Filter</button>
+          <button className="px-3 py-2 text-sm bg-white border border-slate-200 rounded-md">
+            Filter
+          </button>
         </div>
       </div>
 
@@ -243,4 +192,3 @@ function RecentAgentsPanel({ agents, total, loading, error }) {
     </div>
   )
 }
-

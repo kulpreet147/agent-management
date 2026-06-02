@@ -1,9 +1,12 @@
+import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import StatCard from '../components/StatCard.jsx'
 import StatusPill from '../components/StatusPill.jsx'
 import { masterStats, auditLogs } from '../data/dummy.js'
 
 export default function MasterDashboard() {
+  const navigate = useNavigate()
+
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto">
       {/* Header */}
@@ -14,7 +17,10 @@ export default function MasterDashboard() {
             Real-time monitoring of administrative operations and agent lifecycle.
           </p>
         </div>
-        <button className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm shadow-brand-600/20 transition">
+        <button
+          onClick={() => navigate('/master/admin-management/new')}
+          className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm shadow-brand-600/20 transition"
+        >
           <Plus size={16} />
           New Administrator
         </button>
