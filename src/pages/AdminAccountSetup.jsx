@@ -60,8 +60,10 @@ export default function AdminAccountSetup() {
       }
 
       try {
-        const admin = await getAccountInvite('admin', inviteToken)
+        const response = await getAccountInvite('admin', inviteToken)
         if (!mounted) return
+
+        const admin = response?.admin || response?.user || response
 
         const blocked = Boolean(admin?.isBlocked || admin?.blocked || admin?.status === 'blocked')
         if (!admin || blocked) {
@@ -190,6 +192,7 @@ export default function AdminAccountSetup() {
                 <input
                   value={invite.admin?.email || ''}
                   disabled
+                  readOnly
                   className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-600 outline-none"
                 />
               </div>

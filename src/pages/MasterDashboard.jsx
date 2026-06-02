@@ -8,26 +8,24 @@ export default function MasterDashboard() {
   const navigate = useNavigate()
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto">
-      {/* Header */}
+    <div className="flex h-full min-h-0 flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">System Overview</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="mt-1 text-sm text-slate-500">
             Real-time monitoring of administrative operations and agent lifecycle.
           </p>
         </div>
         <button
           onClick={() => navigate('/master/admin-management/new')}
-          className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm shadow-brand-600/20 transition"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-600/20 transition hover:bg-brand-700"
         >
           <Plus size={16} />
           New Administrator
         </button>
       </div>
 
-      {/* Stat grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {masterStats.map((s, i) => (
           <StatCard
             key={s.label}
@@ -40,33 +38,32 @@ export default function MasterDashboard() {
         ))}
       </div>
 
-      {/* Audit log */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-card">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="mt-6 min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <h2 className="font-bold text-slate-900">Global System Audit Logs</h2>
-          <button className="text-sm text-brand-600 font-semibold hover:underline">
+          <button className="text-sm font-semibold text-brand-600 hover:underline">
             View All Logs
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="h-full overflow-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50/50">
-                <th className="text-left font-semibold px-6 py-3">Timestamp</th>
-                <th className="text-left font-semibold px-6 py-3">Administrator</th>
-                <th className="text-left font-semibold px-6 py-3">Action Type</th>
-                <th className="text-left font-semibold px-6 py-3">Entity Affected</th>
-                <th className="text-left font-semibold px-6 py-3">Status</th>
+              <tr className="bg-slate-50/50 text-[11px] uppercase tracking-wider text-slate-500">
+                <th className="px-6 py-3 text-left font-semibold">Timestamp</th>
+                <th className="px-6 py-3 text-left font-semibold">Administrator</th>
+                <th className="px-6 py-3 text-left font-semibold">Action Type</th>
+                <th className="px-6 py-3 text-left font-semibold">Entity Affected</th>
+                <th className="px-6 py-3 text-left font-semibold">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {auditLogs.map((log, i) => (
-                <tr key={i} className="hover:bg-slate-50/60 transition">
-                  <td className="px-6 py-3.5 text-slate-600 tabular-nums">{log.timestamp}</td>
+                <tr key={i} className="transition hover:bg-slate-50/60">
+                  <td className="px-6 py-3.5 tabular-nums text-slate-600">{log.timestamp}</td>
                   <td className="px-6 py-3.5">
                     <div className="flex items-center gap-2.5">
-                      <div className="h-7 w-7 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 grid place-items-center text-white text-[10px] font-bold">
+                      <div className="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-[10px] font-bold text-white">
                         {log.admin.initials}
                       </div>
                       <span className="font-medium text-slate-800">{log.admin.name}</span>

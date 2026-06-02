@@ -18,6 +18,7 @@ export const auth = {
 
     const session = {
       id: data.user.id,
+      publicId: data.user.publicId,
       email: data.user.email,
       role: data.user.role,
       name: data.user.name,

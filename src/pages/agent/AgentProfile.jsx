@@ -18,7 +18,7 @@ function formatUsCaPhone(value) {
 function resolveMediaUrl(url) {
   if (!url) return "";
   if (/^https?:\/\//i.test(url) || url.startsWith("data:")) return url;
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:3000/api";
   const origin = apiBase.replace(/\/api\/?$/, "");
   return `${origin}${url.startsWith("/") ? url : `/${url}`}`;
 }

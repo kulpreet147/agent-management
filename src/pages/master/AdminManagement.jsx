@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, ShieldCheck, ShieldOff, UserPlus, Copy, Mail } from 'lucide-react'
+import { Search, ShieldCheck, ShieldOff, UserPlus, Mail, Phone, MapPin } from 'lucide-react'
 import StatCard from '../../components/StatCard.jsx'
-import StatusPill from '../../components/StatusPill.jsx'
 import { listAccounts, setAccountBlocked } from '../../utils/admins.js'
+import { formatAccountId } from '../../utils/accountId.js'
+
+function formatUsCaPhone(phone) {
+  const digits = String(phone || '').replace(/\D/g, '')
+  const normalized = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+  if (normalized.length !== 10) return phone || 'No phone provided'
+  return `+1 (${normalized.slice(0, 3)}) ${normalized.slice(3, 6)}-${normalized.slice(6)}`
+}
 
 export default function AdminManagement() {
   const navigate = useNavigate()
@@ -47,6 +54,7 @@ export default function AdminManagement() {
         admin.phone,
         admin.address,
         admin.zipcode,
+        admin.publicId,
       ]
         .filter(Boolean)
         .join(' ')
@@ -58,9 +66,9 @@ export default function AdminManagement() {
 
   const stats = useMemo(() => {
     const total = admins.length
-    const active = admins.filter((admin) => admin.inviteStatus === 'active' && !admin.isBlocked).length
-    const blocked = admins.filter((admin) => admin.isBlocked).length
-    const invited = admins.filter((admin) => admin.inviteStatus === 'invited').length
+    const active = admins.filter((admin) => (admin.adminStatus || (admin.isActive ? 'active' : 'pending')) === 'active').length
+    const blocked = admins.filter((admin) => (admin.adminStatus || (admin.isBlocked ? 'blocked' : 'pending')) === 'blocked').length
+    const invited = admins.filter((admin) => (admin.adminStatus || 'pending') === 'pending').length
 
     return [
       { label: 'Total Admins', value: total, tone: 'blue' },
@@ -69,17 +77,6 @@ export default function AdminManagement() {
       { label: 'Blocked', value: blocked, tone: 'rose' },
     ]
   }, [admins])
-
-  const copyInvite = async (link) => {
-    try {
-      await navigator.clipboard.writeText(link)
-      setMessage('Invite link copied.')
-      window.setTimeout(() => setMessage(''), 2500)
-    } catch {
-      setMessage('Could not copy link. Please copy it manually.')
-      window.setTimeout(() => setMessage(''), 2500)
-    }
-  }
 
   const toggleBlock = (admin) => {
     setAccountBlocked('admin', admin.id, !admin.isBlocked)
@@ -144,108 +141,118 @@ export default function AdminManagement() {
           </div>
         )}
 
-        <div className="mt-6 min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200">
-          <div className="h-full overflow-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-4">Admin</th>
-                  <th className="px-4 py-4">Contact</th>
-                  <th className="px-4 py-4">Invite</th>
-                  <th className="px-4 py-4">Status</th>
-                  <th className="px-4 py-4">Access</th>
-                  <th className="px-4 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan="6" className="px-4 py-10 text-center text-sm text-slate-500">
-                      Loading admins...
-                    </td>
-                  </tr>
-                ) : filteredAdmins.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="px-4 py-10 text-center text-sm text-slate-500">
-                      No admins found.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAdmins.map((admin) => (
-                    <tr key={admin.id} className="hover:bg-slate-50 transition">
-                      <td className="px-4 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-sm font-semibold text-white">
+        <div className="mt-6 min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/40">
+          <div className="h-full overflow-auto p-4">
+            {loading ? (
+              <div className="flex h-full min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white text-sm text-slate-500">
+                Loading admins...
+              </div>
+            ) : filteredAdmins.length === 0 ? (
+              <div className="flex h-full min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white text-sm text-slate-500">
+                No admins found.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+                {filteredAdmins.map((admin) => {
+                  const fullName = `${admin.firstName || ''} ${admin.lastName || ''}`.trim() || admin.name || 'Admin User'
+                  const displayId = formatAccountId('AD', admin.publicId) || admin.displayId || admin.id
+                  const isBlocked = Boolean(admin.isBlocked)
+                  const adminStatus = admin.adminStatus || (isBlocked ? 'blocked' : admin.isActive ? 'active' : 'pending')
+                  const isPending = adminStatus === 'pending'
+                  const statusLabel =
+                    adminStatus === 'blocked' ? 'Blocked' : adminStatus === 'active' ? 'Active' : 'Pending'
+
+                  return (
+                    <div
+                      key={admin.id}
+                      className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-xs font-semibold text-white shadow-sm">
                             {(admin.firstName?.[0] || 'A') + (admin.lastName?.[0] || '')}
                           </div>
-                          <div>
-                            <div className="font-semibold text-slate-900">
-                              {admin.firstName} {admin.lastName}
-                            </div>
-                            <div className="text-xs text-slate-500">ID: {admin.id}</div>
+                          <div className="min-w-0">
+                            <h3 className="truncate text-[13px] font-semibold text-slate-900">{fullName}</h3>
+                            <p className="mt-0.5 text-[10px] font-medium text-slate-500">ID: {displayId}</p>
+                          
                           </div>
                         </div>
-                      </td>
-                      <td className="px-4 py-5">
-                        <div className="space-y-1 text-slate-700">
-                          <div className="flex items-center gap-2">
-                            <Mail size={14} className="text-slate-400" />
-                            <span>{admin.email}</span>
-                          </div>
-                          <div className="text-xs text-slate-500">{admin.phone || 'No phone provided'}</div>
-                          <div className="text-xs text-slate-500">{admin.address || 'No address provided'}</div>
-                          <div className="text-xs text-slate-500">{admin.zipcode || 'No zipcode provided'}</div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-5">
-                        {admin.inviteLink ? (
-                          <button
-                            type="button"
-                            onClick={() => copyInvite(admin.inviteLink)}
-                            className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-                          >
-                            <Copy size={14} />
-                            Copy Link
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-400">Activated</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-5">
-                        <StatusPill status={admin.isBlocked ? 'Critical' : admin.inviteStatus === 'invited' ? 'Processing' : 'Success'} />
-                      </td>
-                      <td className="px-4 py-5">
-                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${admin.isBlocked ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
-                          {admin.isBlocked ? 'Blocked' : 'Allowed'}
+
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${adminStatus === 'blocked'
+                              ? 'bg-red-50 text-red-700'
+                              : adminStatus === 'active'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-amber-50 text-amber-700'
+                            }`}
+                        >
+                          {statusLabel}
                         </span>
-                      </td>
-                      <td className="px-4 py-5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link
-                            to="/master/admin-management/new"
-                            className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-                          >
-                            Invite Again
-                          </Link>
+                      </div>
+
+                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Contact</p>
+                          <div className="mt-1.5 space-y-1.5 text-sm font-semibold text-slate-800">
+                            <div className="flex items-start gap-2 break-all">
+                              <Mail size={12} className="mt-1 shrink-0 text-slate-400" />
+                              <span className="text-[11px] leading-5">{admin.email}</span>
+                            </div>
+                            <div className="flex items-start gap-2 break-all">
+                              <Phone size={12} className="mt-1 shrink-0 text-slate-400" />
+                              <span className="text-[11px] leading-5">{formatUsCaPhone(admin.phone)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Location</p>
+                          <div className="mt-1.5 space-y-1.5 text-sm font-semibold text-slate-800">
+                            <div className="flex items-start gap-2 break-all">
+                              <MapPin size={12} className="mt-1 shrink-0 text-slate-400" />
+                              <span className="text-[11px] leading-5">{admin.address || 'No address provided'}</span>
+                            </div>
+                            <p className="pl-5 text-[11px] leading-5">{admin.zipcode || 'No zipcode provided'}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2">
+                        <div className="text-[11px] text-slate-500">
+                          {adminStatus === 'blocked'
+                            ? 'Blocked by master admin'
+                            : adminStatus === 'active'
+                              ? 'Admin account active'
+                              : 'Invite pending activation'}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isPending ? (
+                            <Link
+                              to="/master/admin-management/new"
+                              className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-700 transition hover:bg-slate-200"
+                            >
+                              Invite Again
+                            </Link>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => toggleBlock(admin)}
-                            className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold ${
-                              admin.isBlocked
+                            className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[10px] font-semibold transition ${isBlocked
                                 ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                                 : 'bg-red-50 text-red-700 hover:bg-red-100'
-                            }`}
+                              }`}
                           >
-                            {admin.isBlocked ? <ShieldCheck size={14} /> : <ShieldOff size={14} />}
-                            {admin.isBlocked ? 'Unblock' : 'Block'}
+                            {isBlocked ? <ShieldCheck size={14} /> : <ShieldOff size={14} />}
+                            {isBlocked ? 'Unblock' : 'Block'}
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

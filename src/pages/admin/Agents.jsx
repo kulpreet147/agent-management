@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getAgents, resendAgentInvite } from '../../utils/agents.js'
 import { Eye, FilePlus, Search, Plus } from 'lucide-react'
 import StatCard from '../../components/StatCard.jsx'
+import { formatAccountId } from '../../utils/accountId.js'
 
 const ONBOARDING_STEPS = 6
 
@@ -131,6 +132,7 @@ export default function Agents() {
         agent?.email,
         agent?.agentId,
         agent?.insuranceCompany,
+        agent?.publicId,
       ]
         .filter(Boolean)
         .join(' ')
@@ -390,7 +392,9 @@ export default function Agents() {
                           </div>
                           <div>
                             <div className="font-semibold text-slate-900">{agent.name}</div>
-                            <div className="text-xs text-slate-500">ID: {agent.agentId || 'N/A'}</div>
+                            <div className="text-xs text-slate-500">
+                              ID: {formatAccountId('AG', agent.publicId) || agent.displayId || 'N/A'}
+                            </div>
                           </div>
                         </div>
                       </td>
