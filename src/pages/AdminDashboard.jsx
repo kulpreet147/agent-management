@@ -150,15 +150,11 @@ export default function AdminDashboard() {
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search agents, IDs, or documents..."
+              placeholder="Search agents, emails..."
               className="w-72 bg-white border border-slate-200 rounded-lg pl-10 pr-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none shadow-sm"
             />
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           </div>
-          <button className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 text-sm font-semibold px-3.5 py-2.5 rounded-lg transition">
-            <SlidersHorizontal size={15} />
-            Filters
-          </button>
           <button
             onClick={() => navigate('/admin/agent-record-creation')}
             className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm transition"
