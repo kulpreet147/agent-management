@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Shield,
@@ -19,7 +19,21 @@ export default function Login() {
   const [keepActive, setKeepActive] = useState(false)
   const [loginAsAgent, setLoginAsAgent] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [sendingRecovery, setSendingRecovery] = useState(false)
+  const [recoverySent, setRecoverySent] = useState(false)
+  const [recoveryMessage, setRecoveryMessage] = useState('')
+  const [resendCooldown, setResendCooldown] = useState(0)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return undefined
+
+    const timer = window.setInterval(() => {
+      setResendCooldown((value) => (value > 0 ? value - 1 : 0))
+    }, 1000)
+
+    return () => window.clearInterval(timer)
+  }, [resendCooldown])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -52,6 +66,35 @@ export default function Login() {
       setError(err.message || 'Login failed. Please try again.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handlePasswordRecovery = async () => {
+    setError('')
+    setRecoveryMessage('')
+
+    if (resendCooldown > 0) {
+      return
+    }
+
+    if (!email) {
+      setError('Please enter your registered email first.')
+      return
+    }
+
+    setSendingRecovery(true)
+    try {
+      const response = await auth.requestPasswordReset({
+        email,
+        loginAs: loginAsAgent ? 'agent' : 'admin'
+      })
+      setRecoverySent(true)
+      setResendCooldown(60)
+      setRecoveryMessage(response.message || 'Recovery link sent. Please check your inbox.')
+    } catch (err) {
+      setError(err.message || 'Unable to send recovery link. Please try again.')
+    } finally {
+      setSendingRecovery(false)
     }
   }
 
@@ -136,20 +179,37 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* <div className="flex items-center justify-between text-sm">
-                <label className="inline-flex items-center gap-2 text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={keepActive}
-                    onChange={(e) => setKeepActive(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                  />
-                  Keep session active
-                </label>
-                <a href="#" className="text-brand-600 font-semibold hover:underline">
-                  Account Recovery
-                </a>
-              </div> */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <button
+                    type="button"
+                    onClick={handlePasswordRecovery}
+                    disabled={sendingRecovery || resendCooldown > 0}
+                    className="text-brand-600 font-semibold hover:underline disabled:opacity-50"
+                  >
+                    {sendingRecovery
+                      ? 'Sending recovery link...'
+                      : resendCooldown > 0
+                      ? `Resend in ${resendCooldown}s`
+                      : recoverySent
+                      ? 'Resend recovery link'
+                      : 'Account Recovery'}
+                  </button>
+                  {sendingRecovery ? (
+                    <span className="text-slate-500">Sending link...</span>
+                  ) : recoverySent ? (
+                    <span className="text-slate-500">
+                      Link sent. Check your email.
+                      {resendCooldown > 0 ? ` You can resend in ${resendCooldown}s.` : ''}
+                    </span>
+                  ) : null}
+                </div>
+                {recoveryMessage && (
+                  <div className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                    {recoveryMessage}
+                  </div>
+                )}
+              </div>
 
               {error && (
                 <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">

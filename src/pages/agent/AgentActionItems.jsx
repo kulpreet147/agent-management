@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Bell,
   Search,
@@ -71,8 +72,9 @@ const dates = ['Yesterday', 'Today', 'Tomorrow', 'This Week']
 const weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 export default function AgentActionItems() {
+  const navigate = useNavigate()
   const session = auth.get()
-  const agentName = session?.name || 'Sarah Johnson'
+  const agentName = session?.name || 'Agent'
   const initials = agentName
     .split(' ')
     .map((part) => part[0])
@@ -143,9 +145,13 @@ export default function AgentActionItems() {
                 <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
               </div>
               <CircleHelp size={15} />
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+              <button
+                type="button"
+                onClick={() => navigate('/agent/profile')}
+                className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
+              >
                 {initials}
-              </div>
+              </button>
             </div>
           </header>
 

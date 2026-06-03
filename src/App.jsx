@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login.jsx";
+import PasswordReset from "./pages/PasswordReset.jsx";
+import AdminAccountSetup from "./pages/AdminAccountSetup.jsx";
 import AgentAccountSetup from "./pages/AgentAccountSetup.jsx";
 import MasterDashboard from "./pages/MasterDashboard.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
@@ -7,6 +9,7 @@ import DashboardLayout from "./layouts/DashboardLayout.jsx";
 import { auth } from "./utils/auth.js";
 
 import AdminManagement from "./pages/master/AdminManagement.jsx";
+import AdminCreate from "./pages/master/AdminCreate.jsx";
 import MasterSettings from "./pages/master/Settings.jsx";
 
 import AgentRecordCreation from "./pages/admin/AgentRecordCreation.jsx";
@@ -29,6 +32,7 @@ import AgentLeadManagement from "./pages/agent/AgentLeadManagement.jsx";
 import AgentLeadDetail from "./pages/agent/AgentLeadDetail.jsx";
 import AgentActionItems from "./pages/agent/AgentActionItems.jsx";
 import NeedAnalysisForm from "./components/NeedAnalysisForm.jsx";
+import AgentProfile from "./pages/agent/AgentProfile.jsx";
 import Analytics from "./pages/admin/Analytics.jsx";
 
 function Protected({ children }) {
@@ -67,6 +71,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/recover/:token" element={<PasswordReset />} />
+      <Route path="/admin/account-setup/:inviteToken" element={<AdminAccountSetup />} />
       <Route path="/agent/account-setup" element={<AgentAccountSetup />} />
       <Route
         path="/agent/account-setup/:inviteToken"
@@ -144,6 +150,14 @@ export default function App() {
           </AgentProtected>
         }
       />
+      <Route
+        path="/agent/profile"
+        element={
+          <AgentProtected>
+            <AgentProfile />
+          </AgentProtected>
+        }
+      />
       <Route path="/" element={<RoleRoute />} />
 
       <Route
@@ -163,6 +177,17 @@ export default function App() {
           <Protected>
             <DashboardLayout variant="master">
               <AdminManagement />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/master/admin-management/new"
+        element={
+          <Protected>
+            <DashboardLayout variant="master">
+              <AdminCreate />
             </DashboardLayout>
           </Protected>
         }

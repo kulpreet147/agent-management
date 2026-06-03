@@ -923,13 +923,6 @@ export default function AgentRecordCreation() {
             </button>
 
             <div className="flex items-center gap-3">
-              {/* Field count indicator */}
-              {Object.keys(errors).length > 0 && (
-                <span className="text-xs font-semibold text-red-500 bg-red-50 border border-red-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                  <AlertCircle size={12} />
-                  {Object.keys(errors).length} field{Object.keys(errors).length > 1 ? 's' : ''} need attention
-                </span>
-              )}
               <button
                 type="submit"
                 disabled={submitting}
