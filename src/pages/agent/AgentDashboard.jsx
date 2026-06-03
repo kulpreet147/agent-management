@@ -87,13 +87,13 @@ export default function AgentDashboard() {
         <AgentSidebar agentName={agentName} initials={initials} />
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-6">
-            <div className="text-base font-bold">Agent Dashboard</div>
+     <header className="flex h-14 shrink-0 items-center border-b border-slate-200 bg-white px-6">
+            <div className="text-sm font-bold">Agent Dashboard</div>
             <div className="relative ml-8 w-72">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 placeholder="Search documents, training..."
-                className="h-9 w-full rounded-md border border-slate-300 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:bg-white"
+                className="h-8 w-full rounded-md border border-slate-300 bg-slate-50 pl-9 pr-3 text-[11px] outline-none focus:border-brand-500 focus:bg-white"
               />
             </div>
             <div className="ml-auto flex items-center gap-4 text-slate-500">
