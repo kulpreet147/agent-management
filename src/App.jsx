@@ -23,6 +23,7 @@ import LeadReassign from "./pages/admin/LeadReassign.jsx";
 import LeadRecordCreation from "./pages/admin/LeadRecordCreation.jsx";
 import AgentDetails from "./pages/admin/AgentDetails.jsx";
 import AgentMGAPackage from "./pages/admin/AgentMGAPackage.jsx";
+import AgentProfileView from "./pages/admin/AgentProfileView.jsx";
 import AgentRegistrationForm from "./pages/agent/AgentRegistrationForm.jsx";
 import AgentDocumentSigning from "./pages/agent/AgentDocumentSigning.jsx";
 import AgentWelcome from "./pages/agent/AgentWelcome.jsx";
@@ -243,6 +244,17 @@ export default function App() {
           <Protected>
             <DashboardLayout variant="admin">
               <AgentDetails />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/admin/agents/:agentId/profile"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <AgentProfileView />
             </DashboardLayout>
           </Protected>
         }

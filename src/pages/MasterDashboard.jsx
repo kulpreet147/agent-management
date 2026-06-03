@@ -16,13 +16,6 @@ export default function MasterDashboard() {
             Real-time monitoring of administrative operations and agent lifecycle.
           </p>
         </div>
-        <button
-          onClick={() => navigate('/master/admin-management/new')}
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-600/20 transition hover:bg-brand-700"
-        >
-          <Plus size={16} />
-          New Administrator
-        </button>
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { auth } from "../../utils/auth.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
+import CommonHeader from "../../components/CommonHeader.jsx";
 import { getAgent, getAgentProfile, updateAgentProfile } from "../../utils/agents.js";
 
 function normalizePhoneDigits(value) {
@@ -506,8 +507,9 @@ export default function AgentProfile() {
     <div className="min-h-screen bg-[#0f1117]">
       <div className="flex h-screen overflow-hidden">
         <AgentSidebar agentName={agentName} initials={initials} />
-        <div style={{ ...css.page, flex: 1 }}>
-          <div style={css.main}>
+        <div style={{ ...css.page, flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <CommonHeader title="My Profile" compact />
+          <div style={{ ...css.main, height: "auto", minHeight: 0 }}>
             <div style={css.pageHeader}>
               <div>
                 <div style={css.pageTitle}>My Profile</div>

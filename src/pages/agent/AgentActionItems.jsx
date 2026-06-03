@@ -1,8 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
-  Bell,
-  Search,
   Phone,
   Mail,
   FileText,
@@ -17,10 +14,10 @@ import {
   ChevronDown,
   TrendingUp,
   Plus,
-  CircleHelp,
 } from 'lucide-react'
 import { auth } from '../../utils/auth.js'
 import AgentSidebar from '../../components/AgentSidebar.jsx'
+import CommonHeader from '../../components/CommonHeader.jsx'
 
 const todayTasks = [
   {
@@ -72,7 +69,6 @@ const dates = ['Yesterday', 'Today', 'Tomorrow', 'This Week']
 const weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 export default function AgentActionItems() {
-  const navigate = useNavigate()
   const session = auth.get()
   const agentName = session?.name || 'Agent'
   const initials = agentName
@@ -90,6 +86,7 @@ export default function AgentActionItems() {
   const [followUps, setFollowUps] = useState(defaultFollowUps)
   const [overdueOpen, setOverdueOpen] = useState(false)
   const [completedTasks, setCompletedTasks] = useState({})
+  const [headerSearch, setHeaderSearch] = useState('')
 
   const selectedDateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`
   const filteredFollowUps = followUps.filter((f) => f.date === selectedDateStr)
@@ -128,32 +125,13 @@ export default function AgentActionItems() {
         <AgentSidebar agentName={agentName} initials={initials} />
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#f6fafe]">
-          <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
-            <div className="flex items-center gap-8">
-              <div className="text-sm font-bold">My Action Items</div>
-              <div className="flex items-center rounded-full border border-slate-200 bg-slate-50 px-4 py-1.5">
-                <Search size={14} className="mr-2 text-slate-400" />
-                <input
-                  placeholder="Search tasks or leads..."
-                  className="w-64 bg-transparent text-[11px] outline-none"
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-4 text-slate-500">
-              <div className="relative">
-                <Bell size={15} />
-                <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
-              </div>
-              <CircleHelp size={15} />
-              <button
-                type="button"
-                onClick={() => navigate('/agent/profile')}
-                className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
-              >
-                {initials}
-              </button>
-            </div>
-          </header>
+          <CommonHeader
+            title="My Action Items"
+            searchValue={headerSearch}
+            onSearchChange={setHeaderSearch}
+            searchPlaceholder="Search tasks or leads..."
+            compact
+          />
 
           <div className="flex-1 overflow-y-auto p-6">
             <div className="mx-auto max-w-7xl space-y-6">

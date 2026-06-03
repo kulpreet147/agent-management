@@ -4,8 +4,6 @@ import {
   LayoutDashboard,
   Users,
   Settings,
-  Bell,
-  Search,
   ShieldCheck,
   LogOut,
   TrendingUp,
@@ -14,6 +12,7 @@ import {
 } from 'lucide-react'
 
 import { auth } from '../utils/auth.js'
+import CommonHeader from '../components/CommonHeader.jsx'
 
 const masterNav = [
   { label: 'Dashboard', icon: LayoutDashboard, active: true, to: '/master' },
@@ -115,46 +114,12 @@ export default function DashboardLayout({ variant = 'master', children }) {
 
       {/* MAIN */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        {/* Topbar */}
-        <header className="h-16 shrink-0 bg-white border-b border-slate-200 flex items-center px-6 gap-4">
-          {/* {variant === 'admin' && (
-            <div className="relative flex-1 max-w-md">
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                placeholder="Search agents, policies, or contracts..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-slate-400 focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-100 outline-none transition"
-              />
-            </div>
-          )} */}
-          <div className="ml-auto flex items-center gap-3">
-            <IconBtn>
-              <Bell size={17} />
-              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-            </IconBtn>
-            <IconBtn>
-              <Settings size={17} />
-            </IconBtn>
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 grid place-items-center text-white text-xs font-bold cursor-pointer">
-              {(session?.name || 'U').slice(0, 2).toUpperCase()}
-            </div>
-          </div>
-        </header>
+        <CommonHeader />
 
         <main className="flex-1 min-h-0 overflow-hidden overflow-x-hidden bg-slate-100 p-4 lg:p-5">
           {children}
         </main>
       </div>
     </div>
-  )
-}
-
-function IconBtn({ children }) {
-  return (
-    <button className="relative h-9 w-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 grid place-items-center transition">
-      {children}
-    </button>
   )
 }

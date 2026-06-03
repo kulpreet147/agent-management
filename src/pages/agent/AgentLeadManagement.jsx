@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell,
-  Search,
   Users,
   Flame,
   CheckCircle,
@@ -13,11 +12,11 @@ import {
   Zap,
   Calendar,
   ChevronRight,
-  CircleHelp,
   RefreshCw,
 } from "lucide-react";
 import { auth } from "../../utils/auth.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
+import CommonHeader from "../../components/CommonHeader.jsx";
 import {
   getLeads,
   getTodayFollowUps,
@@ -124,28 +123,12 @@ export default function AgentLeadManagement() {
       <div className="flex h-screen overflow-hidden">
         <AgentSidebar agentName={agentName} initials={initials} />
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-6">
-            <div className="text-base font-bold">Lead Management</div>
-            <div className="relative ml-8 w-72">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search leads by name, email or phone..."
-                className="h-9 w-full rounded-md border border-slate-300 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:bg-white"
-              />
-            </div>
-            <div className="ml-auto flex items-center gap-4 text-slate-500">
-              <Bell size={17} />
-              <CircleHelp size={17} />
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white">
-                {initials}
-              </div>
-            </div>
-          </header>
+          <CommonHeader
+            title="Lead Management"
+            searchValue={searchTerm}
+            onSearchChange={setSearchTerm}
+            searchPlaceholder="Search leads by name, email or phone..."
+          />
 
           <div className="flex-1 overflow-y-auto p-4 lg:p-5">
             <div className="space-y-6">
