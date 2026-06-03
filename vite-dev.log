@@ -1,50 +1,10 @@
 
 > agentflow@0.1.0 dev
-> vite --host 127.0.0.1
+> vite
 
-Port 5173 is in use, trying another one...
 
-  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m532[22m[2m[0m ms[22m
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m1514[22m[2m[0m ms[22m
 
-  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5174[22m/[39m
-[2m4:47:25 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m4:47:32 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m4:56:33 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
-[2m4:56:38 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/admin/Agents.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
-[2m4:56:57 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m4:57:21 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m4:58:06 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m4:58:13 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m4:58:22 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m4:58:28 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:02:05 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:02:07 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:02:08 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:02:11 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:04:14 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:08:58 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:09:06 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:12:33 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:12:41 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:12:46 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:12:49 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:12:52 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:12:59 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:15:30 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:15:40 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:20:40 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx[22m
-[2m5:20:56 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:21:12 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:21:17 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:21:38 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDocumentSigning.jsx, /src/index.css[22m
-[2m5:32:47 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/pages/agent/AgentDashboard.jsx, /src/index.css[22m
-[2m5:40:26 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
-[2m5:40:27 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
-[2m5:40:30 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
-[2m5:40:35 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
-[2m5:40:37 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
-[2m5:40:39 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
-[2m5:40:57 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
-[2m5:41:49 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
-[2m5:42:08 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
-[2m5:42:11 PM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/pages/agent/AgentRegistrationForm.jsx, /src/pages/agent/AgentOnboardingDashboard.jsx, /src/pages/agent/AgentDashboard.jsx, /src/pages/Login.jsx, /src/pages/agent/AgentWelcome.jsx, /src/pages/agent/AgentDocumentSigning.jsx, /src/layouts/DashboardLayout.jsx, /src/pages/admin/AgentDetails.jsx, /src/pages/AgentAccountSetup.jsx, /src/pages/admin/Agents.jsx, /src/pages/admin/AgentRecordCreation.jsx[22m
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.2.58:[1m5173[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 const LEAD_FALLBACK = {
+  leadId: 'LM-8422',
   id: '#LM-8422',
   name: 'Sarah Miller',
   phone: '+1 (555) 0456',

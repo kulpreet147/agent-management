@@ -1,13 +1,10 @@
-import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   Flame,
   Info,
   Brain,
-  ShieldCheck,
-  Heart,
-  Umbrella,
   ClipboardList,
   Pencil,
   Settings,
@@ -34,11 +31,141 @@ import {
   Users,
   StickyNote
 } from 'lucide-react'
+import { addFollowUp, reassignAgent, addNote, getLead, getFollowUps, getActivityLog, updateLeadStatus } from '../../utils/leads.js'
+import QuoteModal from '../../components/QuoteModal.jsx'
+
+const formatTimeAgo = (dateString) => {
+  if (!dateString) return 'Unknown'
+  const date = new Date(dateString)
+  const now = new Date()
+  const seconds = Math.floor((now - date) / 1000)
+  if (seconds < 60) return 'Just now'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+  return `${Math.floor(seconds / 86400)}d ago`
+}
+
+const formatDetails = (action, details) => {
+  if (!details || typeof details !== 'object') return null
+  const d = { ...details }
+  switch (action) {
+    case 'lead_created':
+      return null
+    case 'status_changed':
+      if (d.fromStatus && d.toStatus) {
+        return `Changed from "${d.fromStatus}" to "${d.toStatus}"`
+      }
+      return d.toStatus ? `Status changed to "${d.toStatus}"` : null
+    case 'follow_up_added':
+      return d.type ? `Follow-up type: ${d.type}` : null
+    case 'follow_up_completed':
+      return d.outcome ? `Outcome: ${d.outcome}` : null
+    case 'follow_up_skipped':
+      return d.reason ? `Reason: ${d.reason}` : null
+    case 'note_added':
+      return d.content ? `"${d.content}"` : null
+    case 'agent_reassigned':
+      return d.reason ? `Reason: ${d.reason}` : null
+    case 'lead_created_from_excel':
+      return null
+    case 'need_analysis_saved':
+      return null
+    case 'need_analysis_sent_to_client':
+      return d.clientEmail ? `Sent to ${d.clientEmail}${d.delivered === false ? ' (delivery failed)' : ''}` : null
+    case 'need_analysis_deleted':
+      return null
+    case 'quote_run':
+      return d.carrierCount ? `Found ${d.carrierCount} quotes` : null
+    case 'quote_selected':
+      return d.carrier && d.premium ? `${d.carrier} at CHF ${d.premium}/mo` : null
+    case 'quote_deleted':
+      return null
+    case 'quote_emailed_to_client':
+      return d.clientEmail ? `Sent to ${d.clientEmail}${d.delivered === false ? ' (delivery failed)' : ''}` : null
+    case 'converted':
+      return null
+    default:
+      const nonMeta = Object.fromEntries(Object.entries(d).filter(([k]) => !['fromStatus', 'toStatus'].includes(k)))
+      if (Object.keys(nonMeta).length === 0) return null
+      return JSON.stringify(nonMeta)
+  }
+}
+
+const actionLabels = {
+  lead_created: 'Lead Created',
+  status_changed: 'Status Changed',
+  follow_up_added: 'Follow-Up Scheduled',
+  follow_up_completed: 'Follow-Up Completed',
+  follow_up_skipped: 'Follow-Up Skipped',
+  note_added: 'Note Added',
+  agent_reassigned: 'Agent Reassigned',
+  lead_created_from_excel: 'Imported from Excel',
+  need_analysis_saved: 'Need Analysis Updated',
+  need_analysis_sent_to_client: 'Need Analysis Sent',
+  need_analysis_deleted: 'Need Analysis Deleted',
+  quote_run: 'Quote Run',
+  quote_selected: 'Quote Selected',
+  quote_deleted: 'Quote Deleted',
+  quote_emailed_to_client: 'Quote Sent to Client',
+  converted: 'Lead Converted',
+}
 
 export default function LeadDetail() {
   const navigate = useNavigate()
-  const { state } = useLocation()
-  const lead = state?.lead
+  const location = useLocation()
+  const { leadId } = useParams()
+  const passedLead = location.state?.lead
+  const [lead, setLead] = useState(passedLead || null)
+  const [loading, setLoading] = useState(!leadId)
+  const [apiLead, setApiLead] = useState(null)
+  const [followUpsList, setFollowUpsList] = useState([])
+  const [activityLog, setActivityLog] = useState([])
+  const [leadStatus, setLeadStatus] = useState('new')
+  const [showQuoteModal, setShowQuoteModal] = useState(false)
+
+  useEffect(() => {
+    if (!leadId) {
+      navigate('/admin/leads', { replace: true })
+      return
+    }
+    setLoading(true)
+    Promise.all([
+      getLead(leadId).catch(() => null),
+      getFollowUps(leadId).catch(() => []),
+      getActivityLog(leadId).catch(() => ({ logs: [] })),
+    ])
+      .then(([apiData, followUps, activityData]) => {
+        if (apiData) {
+          setApiLead(apiData)
+          setLead({
+            id: apiData.id,
+            leadId: apiData.leadId,
+            uuid: apiData.id,
+            name: `${apiData.firstName} ${apiData.lastName}`,
+            phone: apiData.phone,
+            email: apiData.email,
+            dateOfBirth: apiData.dateOfBirth,
+            maritalStatus: apiData.maritalStatus,
+            residencyStatus: apiData.residencyStatus,
+            occupation: apiData.occupation,
+            employer: apiData.employer,
+            address: apiData.address,
+            productInterest: apiData.productInterest,
+            leadSource: apiData.leadSource,
+            status: apiData.status ? apiData.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'New',
+            priority: apiData.leadPriority ? apiData.leadPriority.charAt(0).toUpperCase() + apiData.leadPriority.slice(1) : 'Cold',
+            createdAt: apiData.createdAt,
+            updatedAt: apiData.updatedAt,
+            assignments: apiData.assignments,
+          })
+          setFollowUpsList(Array.isArray(followUps) ? followUps : [])
+          setActivityLog(Array.isArray(activityData?.logs) ? activityData.logs : [])
+          setLeadStatus(apiData.status || 'new')
+        }
+      })
+      .catch(() => navigate('/admin/leads', { replace: true }))
+      .finally(() => setLoading(false))
+  }, [leadId, navigate])
 
   const [activeTab, setActiveTab] = useState(0)
   const [showReassign, setShowReassign] = useState(false)
@@ -50,6 +177,67 @@ export default function LeadDetail() {
   })
   const [newFollowUps, setNewFollowUps] = useState([])
 
+  const handleQuoteSaved = (log) => {
+    setActivityLog((prev) => [log, ...prev])
+    setShowQuoteModal(false)
+  }
+
+  const handleMarkConverted = async () => {
+    if (!lead) return
+    if (lead.status?.toLowerCase?.() === 'converted') {
+      alert('This lead is already converted.')
+      return
+    }
+    if (!window.confirm(`Mark "${lead.name}" as converted? This will change their status to Converted.`)) return
+    try {
+      await updateLeadStatus(lead.id, 'converted', 'Marked as converted from Quick Actions')
+      const updatedLead = await getLead(lead.id)
+      setLead({
+        ...updatedLead,
+        name: `${updatedLead.firstName} ${updatedLead.lastName}`,
+        status: updatedLead.status ? updatedLead.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'New',
+        priority: updatedLead.leadPriority ? updatedLead.leadPriority.charAt(0).toUpperCase() + updatedLead.leadPriority.slice(1) : 'Cold',
+      })
+      setLeadStatus(updatedLead.status)
+      const activity = await getActivityLog(lead.id).catch(() => ({ logs: [] }))
+      setActivityLog(Array.isArray(activity?.logs) ? activity.logs : [])
+      alert(`${lead.name} marked as converted.`)
+    } catch (err) {
+      alert(err.message || 'Failed to mark as converted')
+    }
+  }
+
+  const handleAddNoteAdmin = async () => {
+    const content = window.prompt('Add a note about this lead:')
+    if (!content?.trim()) return
+    try {
+      const result = await addNote(lead.id, { content: content.trim() })
+      if (result?.log) {
+        setActivityLog((prev) => [result.log, ...prev])
+      } else {
+        setActivityLog((prev) => [
+          {
+            action: 'note_added',
+            details: { content: content.trim() },
+            performedAt: new Date().toISOString(),
+          },
+          ...prev,
+        ])
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to add note')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <RefreshCw size={20} className="animate-spin text-blue-600 mr-2" />
+        <p className="text-slate-500 text-sm">Loading lead details...</p>
+      </div>
+    )
+  }
+
   if (!lead) {
     navigate('/admin/leads', { replace: true })
     return null
@@ -58,17 +246,35 @@ export default function LeadDetail() {
   const tabs = [
     { label: 'Basic Info', icon: Info, to: null },
     { label: 'Need Analysis', icon: Brain, to: 'need-analysis' },
-    { label: 'Existing Insurance', icon: ShieldCheck, to: null },
-    { label: 'Family Details', icon: Heart, to: null },
-    { label: 'Coverage Needs', icon: Umbrella, to: null },
     { label: 'Activity Log', icon: ClipboardList, to: null }
   ]
 
-  const staticFollowups = [
-    { date: 'Oct 26, 2023', time: '10:30 AM', action: 'Inbound Call', actionIcon: Phone, actionColor: 'text-blue-600', outcome: 'Scheduled Demo', outcomeStyle: 'bg-green-100 text-green-800', agent: 'Marcus R.' },
-    { date: 'Oct 25, 2023', time: '02:15 PM', action: 'Brochure Sent', actionIcon: Mail, actionColor: 'text-slate-500', outcome: 'Opened', outcomeStyle: 'bg-blue-100 text-blue-800', agent: 'Marcus R.' },
-    { date: 'Oct 24, 2023', time: '09:00 AM', action: 'System SMS', actionIcon: MessageSquare, actionColor: 'text-slate-400', outcome: 'Delivered', outcomeStyle: 'bg-slate-200 text-slate-600', agent: 'Automated' }
-  ]
+  const formatActivityDate = (d) => {
+    if (!d) return 'N/A'
+    const date = new Date(d)
+    return {
+      date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    }
+  }
+
+  const realFollowUps = followUpsList.map((f) => {
+    const dt = formatActivityDate(f.createdAt || f.scheduledAt)
+    const scheduled = formatActivityDate(f.scheduledAt)
+    return {
+      date: dt.date,
+      time: dt.time,
+      scheduledDate: scheduled.date,
+      scheduledTime: scheduled.time,
+      action: f.type ? f.type.charAt(0).toUpperCase() + f.type.slice(1) : 'Task',
+      actionIcon: f.type === 'call' ? Phone : f.type === 'email' ? Mail : f.type === 'meeting' ? Users : StickyNote,
+      actionColor: 'text-blue-600',
+      outcome: f.notes || f.status || 'Pending',
+      outcomeStyle: f.status === 'completed' ? 'bg-green-100 text-green-800' : f.status === 'missed' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800',
+      agent: f.agentName || 'Agent',
+    }
+  })
+
   const followups = [...newFollowUps.map((f) => ({
     date: f.date,
     time: f.time,
@@ -78,14 +284,16 @@ export default function LeadDetail() {
     outcome: f.outcomeGoal || 'Pending',
     outcomeStyle: f.outcomeGoal ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800',
     agent: 'Current User',
-  })), ...staticFollowups]
+  })), ...realFollowUps]
 
   const priorityStyle =
     lead.priority === 'Hot' ? 'bg-red-100 text-red-700 border-red-200' :
     lead.priority === 'Warm' ? 'bg-orange-100 text-orange-700 border-orange-200' :
     'bg-blue-100 text-blue-700 border-blue-200'
 
-  const handleAddFollowUp = (e) => {
+  const getLeadUuid = () => lead?.uuid || leadId
+
+  const handleAddFollowUp = async (e) => {
     e.preventDefault()
     const entry = {
       activityType: followUpForm.activityType,
@@ -96,19 +304,57 @@ export default function LeadDetail() {
       quickLogOutcome: followUpForm.quickLogOutcome,
     }
     setNewFollowUps((prev) => [entry, ...prev])
+
+    const uuid = getLeadUuid()
+    if (uuid) {
+      try {
+        const typeMap = { Call: 'call', Email: 'email', Meeting: 'meeting', Note: 'task' }
+        const scheduledAt = followUpForm.date
+          ? `${followUpForm.date}T${followUpForm.time || '12:00'}`
+          : new Date().toISOString()
+        await addFollowUp(uuid, {
+          type: typeMap[followUpForm.activityType] || 'task',
+          scheduledAt,
+          notes: followUpForm.notes,
+        })
+        const updated = await getFollowUps(uuid).catch(() => [])
+        setFollowUpsList(Array.isArray(updated) ? updated : [])
+        setNewFollowUps([])
+      } catch (err) {
+        console.error('Failed to persist follow-up:', err)
+        alert(err.message || 'Failed to save follow-up. Please try again.')
+        setNewFollowUps((prev) => prev.slice(1))
+      }
+    }
+
     setShowFollowUpModal(false)
     setFollowUpForm({ activityType: 'Call', date: '', time: '', outcomeGoal: '', reminder: '', notes: '', quickLogOutcome: '' })
   }
 
-  const handleConfirmReassign = () => {
+  const handleConfirmReassign = async () => {
     setReassignState('processing')
-    setTimeout(() => {
+    try {
+      const uuid = getLeadUuid()
+      if (uuid) {
+        const apiData = apiLead || (await getLead(uuid).catch(() => null))
+        const currentAssignment = apiData?.assignments?.find(a => a.isActive)
+        const newAgent = document.querySelector('select')?.value
+        const newSplit = document.querySelector('input[type="number"]')?.value
+        const reason = document.querySelector('textarea')?.value
+        if (currentAssignment && newAgent && newAgent !== 'Choose an agent...') {
+          await reassignAgent(uuid, newAgent, Number(newSplit) || 100, reason)
+        }
+      }
       setReassignState('success')
       setTimeout(() => {
         setShowReassign(false)
         setTimeout(() => setReassignState('idle'), 300)
       }, 800)
-    }, 1500)
+    } catch (err) {
+      console.error('Reassign failed:', err)
+      alert(err.message || 'Reassign failed')
+      setReassignState('idle')
+    }
   }
 
   return (
@@ -126,7 +372,7 @@ export default function LeadDetail() {
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-bold text-slate-900">{lead.name}</h2>
             <span className="px-3 py-1 bg-amber-50 text-amber-700 text-[11px] font-bold rounded-full uppercase tracking-tight border border-amber-200">
-              {lead.status === 'In Progress' ? 'In Progress' : lead.status}
+              Status: {lead.status === 'In Progress' ? 'In Progress' : lead.status}
             </span>
             <span className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-tight flex items-center gap-1 border ${priorityStyle}`}>
               <Flame size={14} />
@@ -153,28 +399,33 @@ export default function LeadDetail() {
       <section className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
         <div className="grid grid-cols-5 gap-8">
           <div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Lead ID</p>
-            <p className="text-base font-bold text-blue-600">{lead.id}</p>
+            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-2">Lead ID</p>
+            <p className="text-base font-bold text-blue-600">{lead.leadId}</p>
           </div>
           <div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Phone</p>
-            <p className="text-sm font-semibold text-slate-800">{lead.phone}</p>
+            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-2">Phone</p>
+            <p className="text-base font-semibold text-slate-800">{lead.phone}</p>
           </div>
           <div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Email</p>
-            <p className="text-sm font-semibold text-slate-800">{lead.email || 'j.smith@provider.com'}</p>
+            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-2">Email</p>
+            <p className="text-base font-semibold text-slate-800 break-all">{lead.email || 'N/A'}</p>
           </div>
           <div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Assigned Agents</p>
-            <div className="flex -space-x-2 mt-1">
-              <div className="w-6 h-6 rounded-full border-2 border-white bg-purple-500 flex items-center justify-center text-white text-[8px] font-bold">SJ</div>
-              <div className="w-6 h-6 rounded-full border-2 border-white bg-cyan-500 flex items-center justify-center text-white text-[8px] font-bold">MC</div>
-              <div className="w-6 h-6 rounded-full border-2 border-white bg-slate-300 flex items-center justify-center text-[8px] font-bold text-slate-600">+1</div>
+            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-2">Assigned Agents</p>
+            <div className="flex items-center -space-x-2 mt-1">
+              {(apiLead?.assignments || lead.assignments || []).filter(a => a.isActive).slice(0, 3).map((a, i) => (
+                <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold">
+                  {(a.agentId || a.agentName || 'A').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+                </div>
+              ))}
+              {(!(apiLead?.assignments?.length) && !lead.assignments?.length) && (
+                <span className="text-sm text-slate-500 font-medium">Unassigned</span>
+              )}
             </div>
           </div>
           <div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Created Date</p>
-            <p className="text-sm font-semibold text-slate-800">Oct 24, 2023</p>
+            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-2">Created Date</p>
+            <p className="text-base font-semibold text-slate-800">{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : (apiLead?.createdAt ? new Date(apiLead.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A')}</p>
           </div>
         </div>
       </section>
@@ -188,7 +439,7 @@ export default function LeadDetail() {
             <button
               key={tab.label}
               type="button"
-              onClick={() => tab.to ? navigate(`/admin/leads/${lead.id.replace('#', '')}/${tab.to}`, { state: { lead } }) : setActiveTab(i)}
+              onClick={() => tab.to ? navigate(`/admin/leads/${lead.id}/${tab.to}`, { state: { lead } }) : setActiveTab(i)}
               className={`pb-4 px-1 flex items-center gap-2 whitespace-nowrap text-sm font-semibold transition-colors ${
                 isActive ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-blue-600'
               }`}
@@ -200,6 +451,9 @@ export default function LeadDetail() {
         })}
       </nav>
 
+      {/* ==================== TAB: BASIC INFO (default) ==================== */}
+      {activeTab === 0 && (
+      <div>
       {/* Main Lead Info Grid */}
       <div className="grid grid-cols-12 gap-8">
         {/* Left: Customer Details */}
@@ -215,27 +469,27 @@ export default function LeadDetail() {
             </div>
             <div>
               <p className="text-xs text-slate-500 font-bold uppercase mb-1">Date of Birth</p>
-              <p className="text-sm text-slate-800">May 12, 1985 (38 years)</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Gender</p>
-              <p className="text-sm text-slate-800">Male</p>
+              <p className="text-sm text-slate-800">{apiLead?.dateOfBirth ? new Date(apiLead.dateOfBirth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500 font-bold uppercase mb-1">Marital Status</p>
-              <p className="text-sm text-slate-800">Married</p>
+              <p className="text-sm text-slate-800">{apiLead?.maritalStatus || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Residency Status</p>
+              <p className="text-sm text-slate-800">{apiLead?.residencyStatus || 'N/A'}</p>
             </div>
             <div className="col-span-2">
               <p className="text-xs text-slate-500 font-bold uppercase mb-1">Residential Address</p>
-              <p className="text-sm text-slate-800">4522 Oakwood Drive, Ste 400, Austin, TX 78701</p>
+              <p className="text-sm text-slate-800">{apiLead?.address || 'N/A'}</p>
             </div>
             <div>
               <p className="text-xs text-slate-500 font-bold uppercase mb-1">Occupation</p>
-              <p className="text-sm text-slate-800">Software Engineering Manager</p>
+              <p className="text-sm text-slate-800">{apiLead?.occupation || 'N/A'}</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Annual Income</p>
-              <p className="text-sm text-slate-800">$165,000 - $180,000</p>
+              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Employer</p>
+              <p className="text-sm text-slate-800">{apiLead?.employer || 'N/A'}</p>
             </div>
           </div>
         </div>
@@ -250,9 +504,19 @@ export default function LeadDetail() {
             <div>
               <p className="text-xs text-slate-500 font-bold uppercase mb-3">Interested Products</p>
               <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-200">Term Life Insurance</span>
-                <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-200">Critical Illness</span>
-                <span className="px-3 py-1 bg-slate-200 text-slate-600 text-xs font-bold rounded-full">+2 More</span>
+                {(() => {
+                  const pi = apiLead?.productInterest || lead.productInterest
+                  if (pi && typeof pi === 'object') {
+                    const products = Object.entries(pi).filter(([,v]) => v).map(([k]) => k)
+                    if (products.length === 0) {
+                      return <span className="text-xs text-slate-500">No products selected</span>
+                    }
+                    return products.map((p, i) => (
+                      <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-200">{p}</span>
+                    ))
+                  }
+                  return <span className="text-xs text-slate-500">N/A</span>
+                })()}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-8">
@@ -260,17 +524,15 @@ export default function LeadDetail() {
                 <p className="text-xs text-slate-500 font-bold uppercase mb-1">Lead Source</p>
                 <div className="flex items-center gap-2">
                   <Globe size={18} className="text-orange-600" />
-                  <p className="text-sm text-slate-800">Web Campaign - Google Ads</p>
+                  <p className="text-sm text-slate-800">{apiLead?.leadSource || lead.leadSource || 'N/A'}</p>
                 </div>
               </div>
               <div>
                 <p className="text-xs text-slate-500 font-bold uppercase mb-1">Commission Split</p>
-                <p className="text-sm text-slate-800">Agent A (60%) / Agency (40%)</p>
+                <p className="text-sm text-slate-800">
+                  {(lead.assignments || apiLead?.assignments || []).filter(a => a.isActive).map(a => `${a.agentName || a.agentId} (${a.commissionShare}%)`).join(' / ') || 'N/A'}
+                </p>
               </div>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Campaign ID</p>
-              <p className="text-sm text-slate-800 font-mono">CMP-2023-TX-FALL</p>
             </div>
             <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
               <div className="flex items-center gap-3">
@@ -279,7 +541,9 @@ export default function LeadDetail() {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase text-slate-500">Primary Handling Agent</p>
-                  <p className="text-sm font-semibold text-slate-800">Marcus Richardson (Senior Partner)</p>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {(lead.assignments || apiLead?.assignments || []).filter(a => a.isActive)[0]?.agentName || (lead.assignments || apiLead?.assignments || []).filter(a => a.isActive)[0]?.agentId || 'Unassigned'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -298,36 +562,45 @@ export default function LeadDetail() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
-                  <th className="px-6 py-3">Date & Time</th>
+                  <th className="px-6 py-3">Recorded</th>
                   <th className="px-6 py-3">Action</th>
                   <th className="px-6 py-3">Outcome</th>
                   <th className="px-6 py-3">Agent</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {followups.map((f, i) => {
-                  const ActionIcon = f.actionIcon
-                  return (
-                    <tr key={i} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-semibold text-slate-800">{f.date}</p>
-                        <p className="text-[11px] text-slate-500">{f.time}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <ActionIcon size={16} className={f.actionColor} />
-                          <span className="text-sm text-slate-700">{f.action}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${f.outcomeStyle}`}>
-                          {f.outcome}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-700">{f.agent}</td>
-                    </tr>
-                  )
-                })}
+                {followups.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="px-6 py-8 text-center text-sm text-slate-500">No follow-ups recorded yet.</td>
+                  </tr>
+                ) : (
+                  followups.map((f, i) => {
+                    const ActionIcon = f.actionIcon
+                    return (
+                      <tr key={i} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-semibold text-slate-800">{f.date}</p>
+                          <p className="text-[11px] text-slate-500">{f.time}</p>
+                          {f.scheduledDate && f.scheduledDate !== f.date && (
+                            <p className="text-[10px] text-blue-500 mt-0.5">Scheduled: {f.scheduledDate}</p>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <ActionIcon size={16} className={f.actionColor} />
+                            <span className="text-sm text-slate-700">{f.action}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${f.outcomeStyle}`}>
+                            {f.outcome}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{f.agent}</td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -345,17 +618,36 @@ export default function LeadDetail() {
                 <ClipboardCheck size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Add Follow-Up</span>
               </button>
-              <button className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group">
+              <button
+                onClick={() => navigate(`/admin/leads/${leadId}/need-analysis`, { state: { lead } })}
+                className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
+              >
                 <FileText size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Create Report</span>
+                <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Need Analysis</span>
               </button>
-              <button className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group">
+              <button
+                onClick={() => setShowQuoteModal(true)}
+                className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
+              >
                 <Calculator size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Run Quote</span>
               </button>
-              <button className="flex flex-col items-center justify-center p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-md">
+              <button
+                onClick={handleAddNoteAdmin}
+                className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
+              >
+                <StickyNote size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Add Note</span>
+              </button>
+              <button
+                onClick={handleMarkConverted}
+                disabled={lead?.status?.toLowerCase?.() === 'converted'}
+                className="flex flex-col items-center justify-center p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <Star size={28} className="mb-2" />
-                <span className="text-xs font-semibold">Mark Converted</span>
+                <span className="text-xs font-semibold">
+                  {lead?.status?.toLowerCase?.() === 'converted' ? 'Converted' : 'Mark Converted'}
+                </span>
               </button>
             </div>
           </div>
@@ -378,6 +670,37 @@ export default function LeadDetail() {
           </div>
         </div>
       </div>
+      </div>
+      )}
+
+      {/* ==================== TAB: ACTIVITY LOG ==================== */}
+      {activeTab === 2 && (
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200">
+          <h3 className="text-sm font-bold text-slate-800">Activity Log</h3>
+        </div>
+        <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
+          {activityLog.length === 0 ? (
+            <p className="px-6 py-8 text-center text-sm text-slate-500">No activity recorded yet.</p>
+          ) : (
+            activityLog.map((log, i) => {
+              const detailText = formatDetails(log.action, log.details)
+              return (
+                <div key={i} className="px-6 py-4 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-800">{actionLabels[log.action] || log.action}</span>
+                    <span className="text-[11px] text-slate-500">{formatTimeAgo(log.performedAt)}</span>
+                  </div>
+                  {detailText && (
+                    <p className="text-xs text-slate-600 mt-1">{detailText}</p>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
+      )}
 
       {/* ==================== FOLLOW-UP MODAL ==================== */}
       {showFollowUpModal && (
@@ -582,16 +905,18 @@ export default function LeadDetail() {
                 <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden border border-blue-200/50">
-                      <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-bold">SM</div>
+                      <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-bold">
+                        {((lead.assignments || apiLead?.assignments || []).find(a => a.isActive)?.agentId || 'A').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+                      </div>
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">Sarah Miller</p>
-                      <p className="text-xs text-slate-500">Senior Account Executive</p>
+                      <p className="text-sm font-semibold text-slate-900">{(lead.assignments || apiLead?.assignments || []).find(a => a.isActive)?.agentName || (lead.assignments || apiLead?.assignments || []).find(a => a.isActive)?.agentId || 'Unassigned'}</p>
+                      <p className="text-xs text-slate-500">Active Agent</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-semibold text-slate-500 uppercase">COMMISSION</p>
-                    <p className="text-base font-bold text-blue-600">15%</p>
+                    <p className="text-base font-bold text-blue-600">{(lead.assignments || apiLead?.assignments || []).find(a => a.isActive)?.commissionShare || 0}%</p>
                   </div>
                 </div>
               </section>
@@ -605,9 +930,11 @@ export default function LeadDetail() {
                     <UserPlus size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <select className="w-full bg-white border border-slate-200 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none">
                       <option disabled selected>Choose an agent...</option>
-                      <option>David Chen (Mid-Market)</option>
-                      <option>Elena Rodriguez (Enterprise)</option>
-                      <option>Marcus Thorne (Strategic)</option>
+                      <option>John Doe</option>
+                      <option>Alice Smith</option>
+                      <option>Sarah Jenkins</option>
+                      <option>Michael Chen</option>
+                      <option>Emma Wilson</option>
                     </select>
                     <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
@@ -616,14 +943,14 @@ export default function LeadDetail() {
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-slate-600">Current Agent Split %</label>
                     <div className="relative">
-                      <input className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" type="number" defaultValue={5} />
+                      <input className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" type="number" defaultValue={(lead.assignments || apiLead?.assignments || []).find(a => a.isActive)?.commissionShare || 0} />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-slate-600">New Agent Split %</label>
                     <div className="relative">
-                      <input className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" type="number" defaultValue={10} />
+                      <input className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" type="number" defaultValue={100} />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
                     </div>
                   </div>
@@ -655,7 +982,7 @@ export default function LeadDetail() {
                     <input type="checkbox" defaultChecked className="peer h-5 w-5 cursor-pointer appearance-none rounded border border-slate-300 checked:bg-blue-600 checked:border-blue-600 transition-all" />
                     <CheckCircle size={12} className="absolute text-white opacity-0 peer-checked:opacity-100 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
-                  <span className="text-sm text-slate-700 group-hover:text-blue-600 transition-colors">Notify current agent (Sarah Miller)</span>
+                  <span className="text-sm text-slate-700 group-hover:text-blue-600 transition-colors">Notify current agent</span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer group">
                   <div className="relative flex items-center">
@@ -675,8 +1002,8 @@ export default function LeadDetail() {
                       <History size={14} className="text-slate-500" />
                     </div>
                     <div className="text-sm">
-                      <p className="text-slate-800"><span className="font-semibold">Sarah Miller</span> was assigned this lead</p>
-                      <p className="text-slate-500 text-xs">Oct 12, 2023 &bull; System Automatic Allocation</p>
+                      <p className="text-slate-800"><span className="font-semibold">{(lead.assignments || apiLead?.assignments || []).find(a => a.isActive)?.agentName || (lead.assignments || apiLead?.assignments || []).find(a => a.isActive)?.agentId || 'Agent'}</span> was assigned this lead</p>
+                      <p className="text-slate-500 text-xs">{apiLead?.createdAt ? new Date(apiLead.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'} &bull; Manual Assignment</p>
                     </div>
                   </div>
                   <div className="flex gap-4">
@@ -684,8 +1011,8 @@ export default function LeadDetail() {
                       <Package size={14} className="text-slate-500" />
                     </div>
                     <div className="text-sm">
-                      <p className="text-slate-800">Lead created in <span className="font-semibold">Unassigned Pool</span></p>
-                      <p className="text-slate-500 text-xs">Oct 11, 2023 &bull; Marketing Webform</p>
+                      <p className="text-slate-800">Lead created in <span className="font-semibold">System</span></p>
+                      <p className="text-slate-500 text-xs">{apiLead?.createdAt ? new Date(apiLead.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'} &bull; {(apiLead?.leadSource || 'Web')}</p>
                     </div>
                   </div>
                 </div>
@@ -724,6 +1051,14 @@ export default function LeadDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {showQuoteModal && lead && (
+        <QuoteModal
+          lead={{ ...lead, id: lead.id || leadId }}
+          onClose={() => setShowQuoteModal(false)}
+          onQuoteSaved={handleQuoteSaved}
+        />
       )}
     </div>
   )

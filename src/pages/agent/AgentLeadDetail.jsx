@@ -1,90 +1,389 @@
-import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
-  Bell, Search, CircleHelp, ChevronRight, ArrowLeft,
-  Wallet, CreditCard, DollarSign, RefreshCw, BarChart3,
-  FileText, Mail, Phone, Calendar, Clock, Plus, X
-} from 'lucide-react'
-import { auth } from '../../utils/auth.js'
-import AgentSidebar from '../../components/AgentSidebar.jsx'
-import { useLead, updateLeadStatus, addFollowUp } from '../../stores/leadStore.js'
+  Bell,
+  Search,
+  CircleHelp,
+  ChevronRight,
+  ArrowLeft,
+  Wallet,
+  CreditCard,
+  DollarSign,
+  RefreshCw,
+  BarChart3,
+  FileText,
+  Mail,
+  Phone,
+  Calendar,
+  Clock,
+  Plus,
+  X,
+  ClipboardCheck,
+  Calculator,
+  Star,
+} from "lucide-react";
+import { auth } from "../../utils/auth.js";
+import AgentSidebar from "../../components/AgentSidebar.jsx";
+import QuoteModal from "../../components/QuoteModal.jsx";
+import {
+  getLead,
+  addFollowUp,
+  updateLeadStatus,
+  getFollowUps,
+  getActivityLog,
+  addNote,
+} from "../../utils/leads.js";
+import { getNeedAnalysis, saveNeedAnalysis } from "../../utils/leads.js";
 
 const actionTypes = [
-  'DISCOVERY', 'CONTACTED', 'CREATING NEED ANALYSIS',
-  'QUOTE PRESENTED', 'CLOSED', 'IN PROGRESS',
-]
+  { value: "call", label: "Call" },
+  { value: "email", label: "Email" },
+  { value: "meeting", label: "Meeting" },
+  { value: "task", label: "Task" },
+  { value: "other", label: "Other" },
+];
+
+const statusOptions = [
+  { value: "new", label: "New" },
+  { value: "contacted", label: "Contacted" },
+  { value: "follow_up", label: "Follow Up" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "converted", label: "Converted" },
+  { value: "closed_lost", label: "Closed/Lost" },
+];
 
 export default function AgentLeadDetail() {
-  const { leadId } = useParams()
-  const navigate = useNavigate()
-  const session = auth.get()
-  const agentName = session?.name || 'Agent'
-  const initials = (agentName.split(' ').map((p) => p[0]).join('').slice(0, 2)).toUpperCase()
-  const lead = useLead(leadId)
+  const { leadId } = useParams();
+  const navigate = useNavigate();
+  const session = auth.get();
+  const agentName = session?.name || "Agent";
+  const initials = agentName
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
-  const [activeTab, setActiveTab] = useState('need-analysis')
-  const [leadStatus, setLeadStatus] = useState(lead?.status || 'IN PROGRESS')
-  const [showFollowUpModal, setShowFollowUpModal] = useState(false)
+  const [lead, setLead] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [leadStatus, setLeadStatus] = useState("new");
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [followUpForm, setFollowUpForm] = useState({
-    type: 'CONTACTED', date: '', time: '', note: '', reminder: '',
-  })
-  const [localFollowUps, setLocalFollowUps] = useState(lead?.followUps || [])
+    type: "call",
+    date: "",
+    time: "",
+    note: "",
+  });
+  const [followUpSubmitting, setFollowUpSubmitting] = useState(false);
+  const [followUps, setFollowUps] = useState([]);
+  const [activityLog, setActivityLog] = useState([]);
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+
+  useEffect(() => {
+    if (!leadId) {
+      navigate("/agent/leads", { replace: true });
+      return;
+    }
+    setLoading(true);
+    Promise.all([
+      getLead(leadId),
+      getFollowUps(leadId).catch(() => []),
+      getActivityLog(leadId).catch(() => ({ logs: [] })),
+    ])
+      .then(([leadData, followUpData, activityData]) => {
+        setLead(leadData);
+        setLeadStatus(leadData.status || "new");
+        setFollowUps(Array.isArray(followUpData) ? followUpData : []);
+        setActivityLog(activityData?.logs || []);
+      })
+      .catch(() => navigate("/agent/leads", { replace: true }))
+      .finally(() => setLoading(false));
+  }, [leadId, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#eef3f8]">
+        <div className="text-center">
+          <RefreshCw
+            size={24}
+            className="animate-spin text-blue-600 mx-auto mb-2"
+          />
+          <p className="text-sm text-slate-500">Loading lead details...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!lead) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#eef3f8]">
         <div className="text-center">
           <p className="text-lg font-bold text-slate-700">Lead not found</p>
-          <button onClick={() => navigate('/agent/leads')} className="mt-4 text-brand-700 underline text-sm">
+          <button
+            onClick={() => navigate("/agent/leads")}
+            className="mt-4 text-blue-700 underline text-sm"
+          >
             Back to Leads
           </button>
         </div>
       </div>
-    )
+    );
   }
 
   const tabs = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'need-analysis', label: 'Need Analysis' },
-    { key: 'documents', label: 'Documents' },
-    { key: 'timeline', label: 'Timeline' },
-  ]
+    { key: "overview", label: "Overview" },
+    { key: "need-analysis", label: "Need Analysis" },
+    { key: "documents", label: "Documents" },
+    { key: "timeline", label: "Activity Log" },
+  ];
 
-  const handleUpdateStatus = () => {
-    updateLeadStatus(lead.name, leadStatus)
-  }
+  const toTitleCase = (s) =>
+    s ? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
 
-  const handleAddFollowUp = (e) => {
-    e.preventDefault()
-    const entry = {
-      type: followUpForm.type,
-      date: followUpForm.date || new Date().toISOString().split('T')[0],
-      time: followUpForm.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      note: followUpForm.note,
-      reminder: followUpForm.reminder,
+  const formatDetails = (action, details) => {
+    if (!details) return null;
+    if (typeof details === "string") return details;
+
+    switch (action) {
+      case "need_analysis_updated":
+        if (details.summary) return details.summary;
+        if (details.fields) {
+          const sections = new Set();
+          const sectionMap = {
+            ownHouse: "Assets",
+            houseValue: "Assets",
+            mortgageRemaining: "Assets",
+            rrsp: "Assets",
+            tfsa: "Assets",
+            outstandingMortgage: "Liabilities",
+            lineOfCredit: "Liabilities",
+            creditCardDebt: "Liabilities",
+            annualIncomePrimary: "Income",
+            annualIncomeSpouse: "Income",
+            totalHouseholdIncome: "Income",
+            lifeInsurance: "Insurance",
+            criticalIllness: "Insurance",
+            disability: "Insurance",
+            groupInsurance: "Insurance",
+            spouseName: "Family",
+            spouseDOB: "Family",
+            children: "Family",
+            desiredCoverage: "Coverage",
+            budgetMonthly: "Coverage",
+            coverageNotes: "Coverage",
+          };
+          details.fields.forEach((f) => {
+            if (sectionMap[f]) sections.add(sectionMap[f]);
+          });
+          return `Updated ${details.fields.length} fields across ${sections.size} sections`;
+        }
+        return "Need analysis updated";
+
+      case "need_analysis_sent_to_client":
+        if (details.summary) return details.summary;
+        if (details.clientEmail) {
+          return `Need analysis report sent to ${details.clientEmail}${details.reportId ? ` (Report ID: ${details.reportId})` : ""}`;
+        }
+        return "Need analysis report sent to client";
+
+      case "need_analysis_deleted":
+        return "Need analysis deleted";
+
+      case "follow_up_created":
+        return `Scheduled ${details.type || "follow-up"} for ${details.scheduledAt ? new Date(details.scheduledAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "unknown date"}`;
+
+      case "follow_up_completed":
+        return `Follow-up completed${details.outcome ? ` — ${details.outcome}` : ""}`;
+
+      case "lead_created":
+        return `Lead created — ${details.leadId || ""}`;
+
+      case "lead_assigned":
+        return `Assigned to ${details.agentId || "agent"}${details.commissionShare ? ` (${details.commissionShare}% commission)` : ""}`;
+
+      case "lead_reassigned":
+        return `Reassigned from ${details.fromAgent || "agent"} to ${details.toAgent || "agent"}`;
+
+      case "status_changed":
+        return `Status changed from ${details.fromStatus || details.from || "unknown"} to ${details.toStatus || details.to || "unknown"}`;
+
+      case "note_added":
+        return details.content || "Note added";
+
+      case "quote_run":
+        if (details.summary) return details.summary;
+        return `Quote search — ${details.count || 0} offers from PrimAI`;
+
+      case "quote_selected":
+        if (details.summary) return details.summary;
+        if (details.quoteId) {
+          return `Selected quote ${details.quoteId} — ${details.carrier || ""} at ${details.premium || ""} ${details.currency || ""}/mo`;
+        }
+        return "Quote selected";
+
+      case "quote_deleted":
+        if (details.summary) return details.summary;
+        return "Quote deleted";
+
+      case "quote_emailed_to_client":
+        if (details.summary) return details.summary;
+        if (details.quoteId) {
+          return `Quote ${details.quoteId} emailed to ${details.clientEmail || "client"} (${details.carrier || ""} at ${details.premium || ""} ${details.currency || ""}/mo)`;
+        }
+        return "Quote emailed to client";
+
+      default:
+        return JSON.stringify(details);
     }
-    setLocalFollowUps((prev) => [...prev, entry])
-    setLeadStatus(followUpForm.type)
-    addFollowUp(lead.name, entry)
-    updateLeadStatus(lead.name, followUpForm.type)
-    setShowFollowUpModal(false)
-    setFollowUpForm({ type: 'CONTACTED', date: '', time: '', note: '', reminder: '' })
-  }
+  };
+
+  const leadName =
+    `${lead.firstName || ""} ${lead.lastName || ""}`.trim() || "Unknown Lead";
+  const leadInitials = leadName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const products = lead.productInterest
+    ? Object.entries(lead.productInterest)
+        .filter(([, v]) => v)
+        .map(([k]) => k)
+        .join(", ")
+    : "-";
+
+  const handleUpdateStatus = async () => {
+    if (leadStatus === lead.status) {
+      alert("Status is already set to this value.");
+      return;
+    }
+    setStatusUpdating(true);
+    try {
+      await updateLeadStatus(leadId, leadStatus, "Updated by agent");
+      const updatedLead = await getLead(leadId);
+      setLead(updatedLead);
+      setLeadStatus(updatedLead.status);
+      const activity = await getActivityLog(leadId).catch(() => ({ logs: [] }));
+      setActivityLog(activity?.logs || []);
+    } catch (err) {
+      alert(err.message || "Failed to update status");
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
+  const handleAddFollowUp = async (e) => {
+    e.preventDefault();
+    if (!followUpForm.date) {
+      alert("Please select a date");
+      return;
+    }
+    setFollowUpSubmitting(true);
+    try {
+      const scheduledAt =
+        followUpForm.date && followUpForm.time
+          ? `${followUpForm.date}T${followUpForm.time}`
+          : followUpForm.date;
+
+      await addFollowUp(leadId, {
+        type: followUpForm.type,
+        scheduledAt,
+        notes: followUpForm.note,
+      });
+      const updatedFollowUps = await getFollowUps(leadId).catch(() => []);
+      setFollowUps(Array.isArray(updatedFollowUps) ? updatedFollowUps : []);
+      setShowFollowUpModal(false);
+      setFollowUpForm({ type: "call", date: "", time: "", note: "" });
+    } catch (err) {
+      alert(err.message || "Failed to add follow-up");
+    } finally {
+      setFollowUpSubmitting(false);
+    }
+  };
+
+  const handleAddNote = async () => {
+    const note = prompt("Enter a note:");
+    if (!note) return;
+    try {
+      await addNote(leadId, note, "general");
+      const activity = await getActivityLog(leadId).catch(() => ({ logs: [] }));
+      setActivityLog(activity?.logs || []);
+    } catch (err) {
+      alert(err.message || "Failed to add note");
+    }
+  };
+
+  const handleMarkConverted = async () => {
+    if (lead.status === "converted") {
+      alert("This lead is already marked as converted.");
+      return;
+    }
+    if (!window.confirm("Mark this lead as converted?")) return;
+    try {
+      await updateLeadStatus(leadId, "converted", "Marked converted by agent");
+      const updatedLead = await getLead(leadId);
+      setLead(updatedLead);
+      setLeadStatus(updatedLead.status);
+      const activity = await getActivityLog(leadId).catch(() => ({ logs: [] }));
+      setActivityLog(activity?.logs || []);
+    } catch (err) {
+      alert(err.message || "Failed to mark as converted");
+    }
+  };
+
+  const handleRunQuote = () => {
+    setShowQuoteModal(true);
+  };
+
+  const handleQuoteSaved = (log) => {
+    setActivityLog((prev) => [log, ...prev]);
+    setShowQuoteModal(false);
+  };
+
+  const handleOpenNeedAnalysis = async () => {
+    try {
+      const analysis = await getNeedAnalysis(leadId).catch(() => null);
+      if (analysis && analysis.id) {
+        navigate(`/agent/leads/${leadId}/need-analysis`, { state: { lead } });
+      } else {
+        if (window.confirm("No Need Analysis found. Create one now?")) {
+          await saveNeedAnalysis(leadId, {});
+          navigate(`/agent/leads/${leadId}/need-analysis`, { state: { lead } });
+        }
+      }
+    } catch (err) {
+      alert(err.message || "Failed to open Need Analysis");
+    }
+  };
+
+  const formatDate = (d) =>
+    d
+      ? new Date(d).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })
+      : "N/A";
+  const formatDateTime = (d) => {
+    if (!d) return "N/A";
+    const date = new Date(d);
+    return `${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} ${date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
+  };
 
   const getStatusStyle = (s) => {
     const map = {
-      'IN PROGRESS': 'bg-indigo-100 text-indigo-800 border-indigo-200',
-      'DISCOVERY': 'bg-purple-100 text-purple-800 border-purple-200',
-      'CONTACTED': 'bg-blue-100 text-blue-800 border-blue-200',
-      'CREATING NEED ANALYSIS': 'bg-amber-100 text-amber-800 border-amber-200',
-      'QUOTE PRESENTED': 'bg-orange-100 text-orange-800 border-orange-200',
-      'CLOSED': 'bg-green-100 text-green-800 border-green-200',
-      'NEW LEAD': 'bg-slate-100 text-slate-700 border-slate-200',
-      'CONVERTED': 'bg-green-100 text-green-700 border-green-200',
-      'QUALIFYING': 'bg-indigo-100 text-indigo-700 border-indigo-200',
-    }
-    return map[s] || 'bg-slate-100 text-slate-700 border-slate-200'
-  }
+      new: "bg-slate-100 text-slate-700 border-slate-200",
+      assigned: "bg-blue-100 text-blue-700 border-blue-200",
+      contacted: "bg-amber-100 text-amber-700 border-amber-200",
+      follow_up: "bg-purple-100 text-purple-700 border-purple-200",
+      in_progress: "bg-indigo-100 text-indigo-700 border-indigo-200",
+      converted: "bg-green-100 text-green-700 border-green-200",
+      closed_lost: "bg-red-100 text-red-700 border-red-200",
+    };
+    return map[s] || "bg-slate-100 text-slate-700 border-slate-200";
+  };
 
   return (
     <div className="min-h-screen bg-[#f6fafe] text-slate-950">
@@ -92,264 +391,275 @@ export default function AgentLeadDetail() {
         <AgentSidebar agentName={agentName} initials={initials} />
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="flex h-14 shrink-0 items-center border-b border-slate-200 bg-white px-6">
+          <header className="flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-6">
             <div className="flex items-center gap-3">
-              <button onClick={() => navigate('/agent/leads')} className="p-1 rounded hover:bg-slate-100 transition-colors">
+              <button
+                onClick={() => navigate("/agent/leads")}
+                className="p-1 rounded hover:bg-slate-100 transition-colors"
+              >
                 <ArrowLeft size={18} className="text-slate-500" />
               </button>
-              <span className="text-sm font-bold">Lead Detail</span>
-            </div>
-            <div className="relative ml-8 w-72">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                placeholder="Search leads, tasks, or files..."
-                className="h-8 w-full rounded-md border border-slate-300 bg-slate-50 pl-9 pr-3 text-[11px] outline-none focus:border-brand-500 focus:bg-white"
-              />
+              <span className="text-base font-bold">Lead Detail</span>
             </div>
             <div className="ml-auto flex items-center gap-4 text-slate-500">
-              <Bell size={15} />
-              <CircleHelp size={15} />
-              <button
-                type="button"
-                onClick={() => navigate('/agent/profile')}
-                className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
-              >
+              <Bell size={17} />
+              <CircleHelp size={17} />
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white">
                 {initials}
-              </button>
+              </div>
             </div>
           </header>
 
           <div className="flex-1 overflow-y-auto p-6">
             <div className="mx-auto max-w-7xl">
-              {/* Breadcrumb + Lead Header */}
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <nav className="flex items-center gap-2 text-[12px] text-slate-400 mb-1">
-                    <button onClick={() => navigate('/agent/leads')} className="hover:text-brand-700">My Leads</button>
+                  <nav className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+                    <button
+                      onClick={() => navigate("/agent/leads")}
+                      className="hover:text-blue-700"
+                    >
+                      My Leads
+                    </button>
                     <ChevronRight size={12} />
-                    <span className="text-slate-700 font-semibold">{lead.name}</span>
+                    <span className="text-slate-700 font-semibold">
+                      {leadName}
+                    </span>
                   </nav>
                   <h2 className="text-xl font-bold flex items-center gap-3">
-                    {lead.name}
-                    <span className={`px-3 py-0.5 rounded-full text-[11px] font-bold uppercase border ${getStatusStyle(leadStatus)}`}>
-                      {leadStatus}
+                    {leadName}
+                    <span
+                      className={`px-3 py-0.5 rounded-full text-xs font-bold uppercase border ${getStatusStyle(leadStatus)}`}
+                    >
+                      {toTitleCase(leadStatus)}
                     </span>
                   </h2>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] text-slate-400 uppercase font-bold">Lead Score</p>
-                  <p className="text-2xl font-bold text-brand-700">84/100</p>
+                  <p className="text-xs text-slate-400 uppercase font-bold">
+                    Lead ID
+                  </p>
+                  <p className="text-sm font-bold text-blue-700">
+                    {lead.leadId || lead.id?.slice(0, 8)}
+                  </p>
                 </div>
               </div>
 
-              {/* Tabs + Status Indicators */}
-              <div className="border-b border-slate-200 mb-6 flex items-center justify-between">
+              <div className="border-b border-slate-200 mb-6">
                 <div className="flex gap-6">
                   {tabs.map((tab) => (
                     <button
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key)}
-                      className={`pb-3 text-[13px] font-semibold transition-colors ${
+                      className={`pb-3 text-sm font-semibold transition-colors ${
                         activeTab === tab.key
-                          ? 'text-brand-700 border-b-2 border-brand-700'
-                          : 'text-slate-400 hover:text-slate-700'
+                          ? "text-blue-700 border-b-2 border-blue-700"
+                          : "text-slate-400 hover:text-slate-700"
                       }`}
                     >
                       {tab.label}
                     </button>
                   ))}
                 </div>
-                <div className="flex gap-3 pb-3">
-                  <span className="flex items-center gap-1 px-3 py-1 bg-green-50 text-green-700 rounded-full text-[11px] font-bold border border-green-200">
-                    <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
-                    Assets: Complete
-                  </span>
-                  <span className="flex items-center gap-1 px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-[11px] font-bold border border-amber-200">
-                    <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />
-                    Liabilities: Partial
-                  </span>
-                  <span className="flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-400 rounded-full text-[11px] font-bold border border-slate-200">
-                    <span className="w-3 h-3 rounded-full bg-slate-300 inline-block" />
-                    Income: Not Provided
-                  </span>
-                </div>
               </div>
 
-              {/* Grid Content */}
               <div className="grid grid-cols-12 gap-6">
-                {/* Left: Main Content */}
                 <div className="col-span-8 space-y-6">
-                  {activeTab === 'need-analysis' && (
-                    <>
-                      {/* Assets Section */}
-                      <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-green-500" />
-                        <div className="flex items-center justify-between mb-6">
-                          <h3 className="text-base font-bold flex items-center gap-2">
-                            <Wallet size={20} className="text-green-600" />
-                            Assets
-                          </h3>
-                          <button className="text-[12px] font-bold text-brand-700 flex items-center gap-1 hover:underline">
-                            <Plus size={14} /> Edit Section
-                          </button>
+                  {activeTab === "overview" && (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
+                      <h3 className="text-sm font-bold text-slate-800">
+                        Customer Information
+                      </h3>
+                      <div className="grid grid-cols-2 gap-6">
+                        <Field label="Phone" value={lead.phone} />
+                        <Field label="Email" value={lead.email} />
+                        <Field
+                          label="Date of Birth"
+                          value={
+                            lead.dateOfBirth
+                              ? formatDate(lead.dateOfBirth)
+                              : null
+                          }
+                        />
+                        <Field
+                          label="Marital Status"
+                          value={lead.maritalStatus}
+                        />
+                        <Field
+                          label="Residency Status"
+                          value={lead.residencyStatus}
+                        />
+                        <Field label="Occupation" value={lead.occupation} />
+                        <Field label="Employer" value={lead.employer} />
+                        <Field label="Lead Source" value={lead.leadSource} />
+                        <Field
+                          label="Lead Priority"
+                          value={toTitleCase(lead.leadPriority)}
+                        />
+                        <Field label="Products" value={products} />
+                        <div className="col-span-2">
+                          <Field label="Address" value={lead.address} />
                         </div>
-                        <div className="grid grid-cols-2 gap-8">
-                          <div className="space-y-5">
-                            <div>
-                              <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Primary Residence</p>
-                              <div className="flex items-center gap-2">
-                                <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-[11px] font-bold">YES</span>
-                                <span className="text-[13px]">Estimated Value: $850,000</span>
+                        {lead.healthIssues && (
+                          <div className="col-span-2">
+                            <Field
+                              label="Health Issues"
+                              value={lead.healthIssues}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "need-analysis" && (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
+                      <FileText
+                        size={32}
+                        className="text-blue-400 mx-auto mb-3"
+                      />
+                      <p className="text-slate-700 text-sm font-semibold mb-1">
+                        Need Analysis
+                      </p>
+                      <p className="text-slate-400 text-[12px] mb-4">
+                        Fill in the client's financial profile, assets,
+                        liabilities, insurance needs, and family details.
+                      </p>
+                      <button
+                        onClick={() =>
+                          navigate(`/agent/leads/${leadId}/need-analysis`, {
+                            state: { lead },
+                          })
+                        }
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Open Need Analysis
+                      </button>
+                    </div>
+                  )}
+
+                  {activeTab === "documents" && (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
+                      <FileText
+                        size={32}
+                        className="text-slate-300 mx-auto mb-3"
+                      />
+                      <p className="text-slate-400 text-sm">
+                        Document management coming soon.
+                      </p>
+                    </div>
+                  )}
+
+                  {activeTab === "timeline" && (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                      <h3 className="text-sm font-bold text-slate-800 mb-4">
+                        Activity Log
+                      </h3>
+                      {activityLog.length === 0 ? (
+                        <p className="text-sm text-slate-400 text-center py-4">
+                          No activity recorded yet.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {activityLog.map((log) => (
+                            <div
+                              key={log.id}
+                              className="flex gap-3 p-3 bg-slate-50 rounded-lg"
+                            >
+                              <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0" />
+                              <div>
+                                <p className="text-sm font-semibold text-slate-800 capitalize">
+                                  {log.action.replace(/_/g, " ")}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {formatDateTime(log.performedAt)}
+                                </p>
+                                {log.details && (
+                                  <p className="text-xs text-slate-600 mt-1">
+                                    {formatDetails(log.action, log.details)}
+                                  </p>
+                                )}
                               </div>
                             </div>
-                            <div>
-                              <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Liquid Savings</p>
-                              <p className="text-lg font-bold">$124,500.00</p>
-                            </div>
-                          </div>
-                          <div className="space-y-5 border-l border-slate-200 pl-8">
-                            <div>
-                              <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Kids' Investments (RESP/Trusts)</p>
-                              <p className="text-[13px]">$45,000.00 Across 2 Accounts</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Other Assets</p>
-                              <p className="text-[13px] italic text-slate-400">None listed</p>
-                            </div>
-                          </div>
+                          ))}
                         </div>
-                      </section>
-
-                      {/* Liabilities Section */}
-                      <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
-                        <div className="flex items-center justify-between mb-6">
-                          <h3 className="text-base font-bold flex items-center gap-2">
-                            <CreditCard size={20} className="text-amber-600" />
-                            Liabilities
-                          </h3>
-                          <button className="text-[12px] font-bold text-brand-700 flex items-center gap-1 hover:underline">
-                            <Plus size={14} /> Add Liability
-                          </button>
-                        </div>
-                        <table className="w-full text-left text-[13px]">
-                          <thead className="bg-slate-50">
-                            <tr>
-                              <th className="p-3 text-[10px] text-slate-400 uppercase font-bold">Type</th>
-                              <th className="p-3 text-[10px] text-slate-400 uppercase font-bold">Lender</th>
-                              <th className="p-3 text-[10px] text-slate-400 uppercase font-bold">Remaining</th>
-                              <th className="p-3 text-[10px] text-slate-400 uppercase font-bold">Rate</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            <tr>
-                              <td className="p-3 font-bold">Mortgage</td>
-                              <td className="p-3">TD Bank</td>
-                              <td className="p-3">$412,000.00</td>
-                              <td className="p-3">3.45%</td>
-                            </tr>
-                            <tr>
-                              <td className="p-3 font-bold">Line of Credit</td>
-                              <td className="p-3">Scotiabank</td>
-                              <td className="p-3 text-amber-600 font-bold">Pending Update</td>
-                              <td className="p-3">—</td>
-                            </tr>
-                            <tr className="bg-red-50/30">
-                              <td className="p-3 font-bold">Credit Card Debt</td>
-                              <td className="p-3">Amex / Visa</td>
-                              <td className="p-3">$14,200.00</td>
-                              <td className="p-3">19.99%</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </section>
-
-                      {/* Income Section */}
-                      <section className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 relative overflow-hidden opacity-60 grayscale-[0.5]">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-slate-300" />
-                        <div className="flex items-center justify-between mb-6">
-                          <h3 className="text-base font-bold flex items-center gap-2">
-                            <DollarSign size={20} className="text-slate-400" />
-                            Income Details
-                          </h3>
-                          <button className="bg-brand-700 text-white px-4 py-2 rounded-lg text-[11px] font-bold hover:bg-brand-800 transition-colors">
-                            Request Data via Portal
-                          </button>
-                        </div>
-                        <div className="flex flex-col items-center justify-center py-8 text-center bg-slate-50/50 rounded-lg border border-dashed border-slate-300">
-                          <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center mb-3">
-                            <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                            </svg>
-                          </div>
-                          <p className="text-base font-bold">Income Verification Required</p>
-                          <p className="text-[12px] text-slate-400 px-12 mt-1">
-                            Self and Spouse income data has not been provided or verified yet.
-                          </p>
-                        </div>
-                      </section>
-                    </>
-                  )}
-
-                  {activeTab === 'overview' && (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
-                      <p className="text-slate-400 text-sm">Overview content coming soon.</p>
-                    </div>
-                  )}
-
-                  {activeTab === 'documents' && (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
-                      <p className="text-slate-400 text-sm">Documents content coming soon.</p>
-                    </div>
-                  )}
-
-                  {activeTab === 'timeline' && (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
-                      <p className="text-slate-400 text-sm">Timeline content coming soon.</p>
-                    </div>
-                  )}
-
-                  {/* Follow-Up History */}
-                  <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-slate-800">Follow-Up History</h3>
-                      {localFollowUps.length > 0 && (
-                        <span className="text-[10px] text-slate-400">{localFollowUps.length} entries</span>
                       )}
                     </div>
-                    {localFollowUps.length === 0 ? (
+                  )}
+
+                  <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-slate-800">
+                        Follow-Up History
+                      </h3>
+                      <span className="text-xs text-slate-400">
+                        {followUps.length} entries
+                      </span>
+                    </div>
+                    {followUps.length === 0 ? (
                       <div className="p-6 text-center">
-                        <p className="text-[12px] text-slate-400">No follow-ups recorded yet.</p>
+                        <p className="text-sm text-slate-400">
+                          No follow-ups recorded yet.
+                        </p>
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                        <table className="w-full text-left text-sm">
                           <thead>
-                            <tr className="bg-slate-50 text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                            <tr className="bg-slate-50 text-xs font-bold uppercase text-slate-400 tracking-wider">
                               <th className="px-6 py-3">Type</th>
-                              <th className="px-6 py-3">Date & Time</th>
+                              <th className="px-6 py-3">Recorded</th>
+                              <th className="px-6 py-3">Status</th>
                               <th className="px-6 py-3">Note</th>
-                              <th className="px-6 py-3">Reminder</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {localFollowUps.map((f, i) => (
-                              <tr key={i} className="hover:bg-slate-50 transition-colors">
+                            {followUps.map((f) => (
+                              <tr
+                                key={f.id}
+                                className="hover:bg-slate-50 transition-colors"
+                              >
                                 <td className="px-6 py-4">
-                                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${getStatusStyle(f.type)}`}>
+                                  <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-blue-50 text-blue-700 capitalize">
                                     {f.type}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4">
-                                  <div className="flex items-center gap-2 text-[13px]">
-                                    <Calendar size={14} className="text-slate-400" />
-                                    {f.date}
-                                    <Clock size={14} className="text-slate-400 ml-1" />
-                                    {f.time}
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <Calendar
+                                      size={14}
+                                      className="text-slate-400"
+                                    />
+                                    {formatDateTime(
+                                      f.createdAt || f.scheduledAt,
+                                    )}
                                   </div>
+                                  {f.scheduledAt &&
+                                    formatDateTime(
+                                      f.createdAt || f.scheduledAt,
+                                    ) !== formatDateTime(f.scheduledAt) && (
+                                      <p className="text-xs text-blue-500 mt-0.5">
+                                        Scheduled:{" "}
+                                        {formatDateTime(f.scheduledAt)}
+                                      </p>
+                                    )}
                                 </td>
-                                <td className="px-6 py-4 text-[13px] text-slate-600">{f.note || '—'}</td>
-                                <td className="px-6 py-4 text-[13px] text-slate-600">{f.reminder || '—'}</td>
+                                <td className="px-6 py-4">
+                                  <span
+                                    className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${
+                                      f.status === "completed"
+                                        ? "bg-green-100 text-green-700"
+                                        : f.status === "missed"
+                                          ? "bg-red-100 text-red-700"
+                                          : "bg-amber-100 text-amber-700"
+                                    }`}
+                                  >
+                                    {f.status}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-slate-600 max-w-[200px] truncate">
+                                  {f.notes || "—"}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -359,98 +669,163 @@ export default function AgentLeadDetail() {
                   </section>
                 </div>
 
-                {/* Right: Action Panel */}
                 <aside className="col-span-4 space-y-6">
-                  {/* Action Center */}
-                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="p-4 bg-slate-50 border-b border-slate-200">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Action Center</h4>
-                    </div>
-                    <div className="p-4 space-y-3">
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h3 className="text-sm font-bold text-slate-800 mb-6">
+                      Quick Actions
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
                       <button
                         onClick={() => setShowFollowUpModal(true)}
-                        className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-brand-50 border border-slate-200 rounded-lg transition-all group"
+                        className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
                       >
-                        <div className="flex items-center gap-3">
-                          <RefreshCw size={18} className="text-brand-700 group-hover:scale-110 transition-transform" />
-                          <span className="font-bold text-[13px]">Add Follow-Up</span>
-                        </div>
-                        <ChevronRight size={16} className="text-slate-300" />
+                        <ClipboardCheck
+                          size={28}
+                          className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform"
+                        />
+                        <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">
+                          Add Follow-Up
+                        </span>
                       </button>
-                      <button className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-brand-50 border border-slate-200 rounded-lg transition-all group">
-                        <div className="flex items-center gap-3">
-                          <BarChart3 size={18} className="text-brand-700 group-hover:scale-110 transition-transform" />
-                          <span className="font-bold text-[13px]">Create Analysis Report</span>
-                        </div>
-                        <ChevronRight size={16} className="text-slate-300" />
+                      <button
+                        onClick={handleOpenNeedAnalysis}
+                        className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
+                      >
+                        <FileText
+                          size={28}
+                          className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform"
+                        />
+                        <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">
+                          Need Analysis
+                        </span>
                       </button>
-                      <button className="w-full flex items-center justify-between p-3 bg-brand-700 text-white border border-brand-700 rounded-lg shadow-sm hover:brightness-110 transition-all group">
-                        <div className="flex items-center gap-3">
-                          <FileText size={18} className="group-hover:rotate-12 transition-transform" />
-                          <span className="font-bold text-[13px]">Run Quote</span>
-                        </div>
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
+                      <button
+                        onClick={handleAddNote}
+                        className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
+                      >
+                        <Plus
+                          size={28}
+                          className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform"
+                        />
+                        <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">
+                          Add Note
+                        </span>
                       </button>
+                      <button
+                        onClick={handleRunQuote}
+                        className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
+                      >
+                        <Calculator
+                          size={28}
+                          className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform"
+                        />
+                        <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">
+                          Run Quote
+                        </span>
+                      </button>
+                      <button
+                        onClick={handleMarkConverted}
+                        disabled={lead?.status === "converted"}
+                        className="col-span-2 flex flex-col items-center justify-center p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed group"
+                      >
+                        <Star
+                          size={28}
+                          className="mb-2 group-hover:scale-110 transition-transform"
+                        />
+                        <span className="text-xs font-semibold">
+                          {lead?.status === "converted"
+                            ? "Already Converted"
+                            : "Mark Converted"}
+                        </span>
+                      </button>
+                    </div>
 
-                      <hr className="border-slate-200 my-4" />
-
-                      <div className="space-y-3">
-                        <p className="text-[10px] text-slate-400 uppercase font-bold">Status Pipeline</p>
-                        <select
-                          value={leadStatus}
-                          onChange={(e) => setLeadStatus(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg text-[13px] focus:ring-brand-500 focus:border-brand-500 py-2.5 px-3 outline-none"
-                        >
-                          {actionTypes.map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={handleUpdateStatus}
-                          className="w-full py-2.5 bg-slate-900 text-white rounded-lg font-bold text-[12px] hover:bg-black transition-colors"
-                        >
-                          Update Status
-                        </button>
-                      </div>
+                    <div className="mt-5 pt-5 border-t border-slate-200 space-y-3">
+                      <p className="text-xs text-slate-400 uppercase font-bold">
+                        Update Status
+                      </p>
+                      <select
+                        value={leadStatus}
+                        onChange={(e) => setLeadStatus(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 py-2.5 px-3 outline-none"
+                      >
+                        {statusOptions.map((s) => (
+                          <option key={s.value} value={s.value}>
+                            {s.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleUpdateStatus}
+                        disabled={statusUpdating || leadStatus === lead?.status}
+                        className="w-full py-2.5 bg-slate-900 text-white rounded-lg font-bold text-sm hover:bg-black transition-colors disabled:opacity-50"
+                      >
+                        {statusUpdating ? "Updating..." : "Update Status"}
+                      </button>
                     </div>
                   </div>
 
-                  {/* Client Profile */}
                   <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-                    <div className="flex items-center gap-4 mb-5">
-                      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center text-white text-lg font-bold">
-                        {lead.initials}
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-400 to-blue-700 flex items-center justify-center text-white text-lg font-bold">
+                        {leadInitials}
                       </div>
                       <div>
-                        <h5 className="text-base font-bold">{lead.name}</h5>
-                        <p className="text-[12px] text-slate-400">Toronto, Ontario</p>
+                        <h5 className="text-base font-bold">{leadName}</h5>
+                        <p className="text-xs text-slate-400">
+                          Lead ID: {lead.leadId}
+                        </p>
                       </div>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-2">
+                      {lead.email && (
+                        <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50">
+                          <Mail size={15} className="text-blue-700" />
+                          <span className="text-sm truncate">{lead.email}</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50">
-                        <Mail size={16} className="text-brand-700" />
-                        <span className="text-[13px]">{lead.name.toLowerCase().replace(/\s+/g, '.')}@email.com</span>
-                      </div>
-                      <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50">
-                        <Phone size={16} className="text-brand-700" />
-                        <span className="text-[13px]">{lead.phone}</span>
+                        <Phone size={15} className="text-blue-700" />
+                        <span className="text-sm">{lead.phone}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Bento Notes */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex flex-col justify-between min-h-[100px]">
-                      <p className="text-[10px] text-blue-700 font-bold uppercase">Family</p>
-                      <p className="text-[12px] text-blue-900 leading-tight">Married, 2 kids (4, 7). College planning priority.</p>
+                  {lead.assignments?.length > 0 && (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
+                        Assignment
+                      </h4>
+                      {lead.assignments
+                        .filter((a) => a.isActive)
+                        .map((a, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
+                                {a.agentId
+                                  ?.split(" ")
+                                  .map((n) => n[0])
+                                  .join("") || "A"}
+                              </div>
+                              <div>
+                                <p className="text-[12px] font-bold">
+                                  {a.agentId}
+                                </p>
+                                <p className="text-[10px] text-slate-400">
+                                  Active
+                                </p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold text-blue-700">
+                              {a.commissionShare}%
+                            </span>
+                          </div>
+                        ))}
                     </div>
-                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex flex-col justify-between min-h-[100px]">
-                      <p className="text-[10px] text-amber-700 font-bold uppercase">Risk</p>
-                      <p className="text-[12px] text-amber-900 leading-tight">Conservative profile. Prefers fixed rates.</p>
-                    </div>
-                  </div>
+                  )}
                 </aside>
               </div>
             </div>
@@ -458,16 +833,24 @@ export default function AgentLeadDetail() {
         </main>
       </div>
 
-      {/* Add Follow-Up Modal */}
       {showFollowUpModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(4px)' }}
-          onClick={(e) => { if (e.target === e.currentTarget) { setShowFollowUpModal(false) } }}
+          style={{
+            background: "rgba(15, 23, 42, 0.4)",
+            backdropFilter: "blur(4px)",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowFollowUpModal(false);
+            }
+          }}
         >
           <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-              <h3 className="text-base font-semibold text-slate-900">Add Follow-Up</h3>
+              <h3 className="text-base font-semibold text-slate-900">
+                Add Follow-Up
+              </h3>
               <button
                 type="button"
                 onClick={() => setShowFollowUpModal(false)}
@@ -478,56 +861,65 @@ export default function AgentLeadDetail() {
             </div>
             <form onSubmit={handleAddFollowUp} className="p-6 space-y-5">
               <div className="space-y-2">
-                <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Action Type</label>
+                <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                  Activity Type
+                </label>
                 <select
                   value={followUpForm.type}
-                  onChange={(e) => setFollowUpForm({ ...followUpForm, type: e.target.value })}
-                  className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-[13px] focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
+                  onChange={(e) =>
+                    setFollowUpForm({ ...followUpForm, type: e.target.value })
+                  }
+                  className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-[13px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                   required
                 >
                   {actionTypes.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Date</label>
+                  <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                    Date
+                  </label>
                   <input
                     type="date"
                     value={followUpForm.date}
-                    onChange={(e) => setFollowUpForm({ ...followUpForm, date: e.target.value })}
-                    className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-[13px] focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
+                    onChange={(e) =>
+                      setFollowUpForm({ ...followUpForm, date: e.target.value })
+                    }
+                    className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-[13px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Time</label>
+                  <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                    Time
+                  </label>
                   <input
                     type="time"
                     value={followUpForm.time}
-                    onChange={(e) => setFollowUpForm({ ...followUpForm, time: e.target.value })}
-                    className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-[13px] focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
+                    onChange={(e) =>
+                      setFollowUpForm({ ...followUpForm, time: e.target.value })
+                    }
+                    className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-[13px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Note</label>
+                <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                  Note
+                </label>
                 <textarea
                   value={followUpForm.note}
-                  onChange={(e) => setFollowUpForm({ ...followUpForm, note: e.target.value })}
-                  className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-[13px] focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
+                  onChange={(e) =>
+                    setFollowUpForm({ ...followUpForm, note: e.target.value })
+                  }
+                  className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-[13px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                   rows={3}
                   placeholder="Add a note about this follow-up..."
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Reminder</label>
-                <input
-                  type="datetime-local"
-                  value={followUpForm.reminder}
-                  onChange={(e) => setFollowUpForm({ ...followUpForm, reminder: e.target.value })}
-                  className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-[13px] focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
@@ -540,15 +932,33 @@ export default function AgentLeadDetail() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-brand-700 text-white text-[13px] font-semibold rounded-lg hover:bg-brand-800 transition-colors shadow-sm"
+                  disabled={followUpSubmitting}
+                  className="px-5 py-2.5 bg-blue-700 text-white text-[13px] font-semibold rounded-lg hover:bg-blue-800 transition-colors shadow-sm disabled:opacity-50"
                 >
-                  Add Follow-Up
+                  {followUpSubmitting ? "Adding..." : "Add Follow-Up"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {showQuoteModal && (
+        <QuoteModal
+          lead={{ ...lead, id: leadId, name: leadName, email: lead?.email }}
+          onClose={() => setShowQuoteModal(false)}
+          onQuoteSaved={handleQuoteSaved}
+        />
+      )}
     </div>
-  )
+  );
+}
+
+function Field({ label, value }) {
+  return (
+    <div>
+      <p className="text-xs text-slate-500 font-bold uppercase mb-1">{label}</p>
+      <p className="text-sm text-slate-800">{value || "N/A"}</p>
+    </div>
+  );
 }
