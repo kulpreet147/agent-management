@@ -234,8 +234,18 @@ export default function AgentLeadDetail() {
         }
         return "Quote emailed to client";
 
-      default:
-        return JSON.stringify(details);
+      default: {
+        const skip = ['isNew', 'reportId', 'delivered']
+        const nonMeta = Object.fromEntries(Object.entries(details).filter(([k]) => !skip.includes(k)))
+        if (Object.keys(nonMeta).length === 0) return null
+        return Object.entries(nonMeta).map(([k, v]) => {
+          if (v === null || v === undefined || v === false) return null
+          const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())
+          if (Array.isArray(v)) return `${label}: ${v.join(', ')}`
+          if (typeof v === 'object') return `${label}: ${JSON.stringify(v)}`
+          return `${label}: ${v}`
+        }).filter(Boolean).join(' • ')
+      }
     }
   };
 
