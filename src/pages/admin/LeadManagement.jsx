@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getLeads } from '../../utils/leads.js'
 import {
   Search,
   Upload,
@@ -11,16 +12,20 @@ import {
   TrendingUp
 } from 'lucide-react'
 
-const leadData = [
-  { id: '#LM-8421', name: 'Johnathan Doe', phone: '+1 (555) 0123', email: 'john.doe@provider.com', product: 'Enterprise SaaS', agent: 'S. Jenkins', agentInitials: 'SJ', priority: 'Hot', priorityStyle: 'bg-red-100 text-red-700 border-red-200', status: 'Interested', statusStyle: 'bg-blue-50 text-blue-700', lastActivity: '2h ago', followUp: 'Today, 4:00 PM', followUpUrgent: true },
-  { id: '#LM-8422', name: 'Sarah Miller', phone: '+1 (555) 0456', email: 's.miller@provider.com', product: 'Cloud Infrastructure', agent: 'M. Chen', agentInitials: 'MC', priority: 'Warm', priorityStyle: 'bg-orange-100 text-orange-700 border-orange-200', status: 'In Progress', statusStyle: 'bg-amber-50 text-amber-700', lastActivity: '5h ago', followUp: 'Tomorrow, 10:00 AM', followUpUrgent: false },
-  { id: '#LM-8423', name: 'Bruce Wayne', phone: '+1 (555) 0912', email: 'b.wayne@provider.com', product: 'Security Suite', agent: 'E. Wilson', agentInitials: 'EW', priority: 'Cold', priorityStyle: 'bg-blue-100 text-blue-700 border-blue-200', status: 'New', statusStyle: 'bg-gray-100 text-gray-700', lastActivity: '1d ago', followUp: 'Oct 24, 2023', followUpUrgent: false },
-  { id: '#LM-8424', name: 'Diana Prince', phone: '+1 (555) 0777', email: 'd.prince@provider.com', product: 'Premium ERP', agent: 'S. Jenkins', agentInitials: 'SJ', priority: 'Hot', priorityStyle: 'bg-red-100 text-red-700 border-red-200', status: 'Converted', statusStyle: 'bg-green-100 text-green-700', lastActivity: '3h ago', followUp: 'Completed', followUpUrgent: false },
-  { id: '#LM-8425', name: 'Arthur Knight', phone: '+1 (555) 0331', email: 'a.knight@provider.com', product: 'AI Analytics', agent: 'E. Wilson', agentInitials: 'EW', priority: 'Warm', priorityStyle: 'bg-orange-100 text-orange-700 border-orange-200', status: 'Quote Sent', statusStyle: 'bg-blue-50 text-blue-700', lastActivity: '12h ago', followUp: 'Oct 26, 2023', followUpUrgent: false },
-  { id: '#LM-8426', name: 'Tony Lewis', phone: '+1 (555) 0552', email: 't.lewis@provider.com', product: 'Data Warehouse', agent: 'M. Chen', agentInitials: 'MC', priority: 'Hot', priorityStyle: 'bg-red-100 text-red-700 border-red-200', status: 'Negotiation', statusStyle: 'bg-amber-50 text-amber-700', lastActivity: '1h ago', followUp: 'Overdue (2d)', followUpUrgent: true },
-  { id: '#LM-8427', name: 'Rebecca Vance', phone: '+1 (555) 0119', email: 'r.vance@provider.com', product: 'SaaS Pro', agent: 'S. Jenkins', agentInitials: 'SJ', priority: 'Cold', priorityStyle: 'bg-blue-100 text-blue-700 border-blue-200', status: 'Lost', statusStyle: 'bg-red-50 text-red-700', lastActivity: '3d ago', followUp: 'N/A', followUpUrgent: false },
-  { id: '#LM-8428', name: 'Kevin Smith', phone: '+1 (555) 0884', email: 'k.smith@provider.com', product: 'ERP Module', agent: 'E. Wilson', agentInitials: 'EW', priority: 'Warm', priorityStyle: 'bg-orange-100 text-orange-700 border-orange-200', status: 'Contacted', statusStyle: 'bg-amber-50 text-amber-700', lastActivity: '45m ago', followUp: 'Today, 5:30 PM', followUpUrgent: false }
-]
+const priorityStyles = {
+  Hot: 'bg-red-100 text-red-700 border-red-200',
+  Warm: 'bg-orange-100 text-orange-700 border-orange-200',
+  Cold: 'bg-blue-100 text-blue-700 border-blue-200',
+}
+const statusStyles = {
+  New: 'bg-gray-100 text-gray-700',
+  Assigned: 'bg-blue-50 text-blue-700',
+  Contacted: 'bg-amber-50 text-amber-700',
+  FollowUp: 'bg-purple-50 text-purple-700',
+  InProgress: 'bg-amber-50 text-amber-700',
+  Converted: 'bg-green-100 text-green-700',
+  ClosedLost: 'bg-red-50 text-red-700',
+}
 
 const initialsBg = {
   'SJ': 'bg-purple-500',
@@ -30,14 +35,67 @@ const initialsBg = {
 
 export default function LeadManagement() {
   const navigate = useNavigate()
+  const [leads, setLeads] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
   const [agentFilter, setAgentFilter] = useState('All')
   const [priorityFilter, setPriorityFilter] = useState('All')
 
+  useEffect(() => {
+    getLeads()
+      .then((data) => {
+        const leadList = Array.isArray(data) ? data : (data?.leads || [])
+        setLeads(leadList)
+      })
+      .catch((err) => {
+        console.error('Failed to fetch leads:', err)
+        setLeads([])
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  const toTitleCase = (s) => s ? s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : ''
+  const initials = (name) => name ? name.split(' ').map((n) => n[0]).join('') : ''
+  const formatActivityDate = (d) => {
+    if (!d) return 'N/A'
+    const diff = Date.now() - new Date(d).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 60) return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h ago`
+    return `${Math.floor(hrs / 24)}d ago`
+  }
+
+  const leadData = loading ? [] : leads.length > 0 ? leads.map((l) => ({
+    id: l.id,
+    leadId: l.leadId,
+    name: `${l.firstName} ${l.lastName}`,
+    phone: l.phone,
+    email: l.email || '',
+    product: l.productInterest ? Object.keys(l.productInterest).filter((k) => l.productInterest[k]).join(', ') : '',
+    agent: (() => {
+      const active = (l.assignments || []).filter(a => a.isActive);
+      if (active.length === 0) return 'Unassigned';
+      return active.map(a => a.agentName || a.agentId).join(' / ');
+    })(),
+    agentInitials: (() => {
+      const active = (l.assignments || []).filter(a => a.isActive);
+      if (active.length === 0) return '--';
+      return active.map(a => initials(a.agentName || a.agentId)).join('/');
+    })(),
+    priority: l.leadPriority ? toTitleCase(l.leadPriority) : 'Cold',
+    priorityStyle: priorityStyles[l.leadPriority ? toTitleCase(l.leadPriority) : 'Cold'] || priorityStyles.Cold,
+    status: l.status ? toTitleCase(l.status) : 'New',
+    statusStyle: statusStyles[l.status ? toTitleCase(l.status) : 'New'] || statusStyles.New,
+    lastActivity: formatActivityDate(l.lastActivityDate),
+    followUp: '',
+    followUpUrgent: false,
+  })) : []
+
   const filteredLeads = leadData.filter((lead) => {
     const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.id.toLowerCase().includes(searchTerm.toLowerCase())
+      lead.leadId.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'All' || lead.status === statusFilter
     const matchesAgent = agentFilter === 'All' || lead.agent.includes(agentFilter)
     const matchesPriority = priorityFilter === 'All' || lead.priority === priorityFilter
@@ -50,6 +108,11 @@ export default function LeadManagement() {
     setPriorityFilter('All')
     setSearchTerm('')
   }
+
+  const newCount = leadData.filter((l) => l.status === 'New').length
+  const inProgressCount = leadData.filter((l) => l.status === 'In Progress' || l.status === 'Assigned' || l.status === 'Contacted').length
+  const convertedCount = leadData.filter((l) => l.status === 'Converted').length
+  const closedCount = leadData.filter((l) => l.status === 'Closed Lost').length
 
   return (
     <div>
@@ -83,7 +146,7 @@ export default function LeadManagement() {
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-500 transition-colors">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Leads</p>
           <div className="flex items-end justify-between">
-            <h3 className="text-3xl font-bold text-blue-600">124</h3>
+            <h3 className="text-3xl font-bold text-blue-600">{leadData.length}</h3>
             <span className="text-xs font-bold flex items-center text-green-600">
               <TrendingUp size={16} /> +12%
             </span>
@@ -91,28 +154,28 @@ export default function LeadManagement() {
         </div>
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-500 transition-colors">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">New</p>
-          <h3 className="text-3xl font-bold text-slate-800">18</h3>
+          <h3 className="text-3xl font-bold text-slate-800">{newCount}</h3>
           <div className="h-1 w-full bg-slate-100 mt-3 rounded-full overflow-hidden">
             <div className="bg-blue-500 h-full w-[15%]" />
           </div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-500 transition-colors">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">In Progress</p>
-          <h3 className="text-3xl font-bold text-slate-800">45</h3>
+          <h3 className="text-3xl font-bold text-slate-800">{inProgressCount}</h3>
           <div className="h-1 w-full bg-slate-100 mt-3 rounded-full overflow-hidden">
             <div className="bg-amber-500 h-full w-[36%]" />
           </div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-500 transition-colors">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Converted</p>
-          <h3 className="text-3xl font-bold text-slate-800">23</h3>
+          <h3 className="text-3xl font-bold text-slate-800">{convertedCount}</h3>
           <div className="h-1 w-full bg-slate-100 mt-3 rounded-full overflow-hidden">
             <div className="bg-green-500 h-full w-[18%]" />
           </div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-500 transition-colors">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Closed</p>
-          <h3 className="text-3xl font-bold text-slate-800">12</h3>
+          <h3 className="text-3xl font-bold text-slate-800">{closedCount}</h3>
           <div className="h-1 w-full bg-slate-100 mt-3 rounded-full overflow-hidden">
             <div className="bg-gray-400 h-full w-[10%]" />
           </div>
@@ -129,15 +192,14 @@ export default function LeadManagement() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm focus:ring-1 focus:ring-blue-500 min-w-[120px] outline-none"
         >
-          <option>Status: All</option>
-          <option>New</option>
-          <option>Interested</option>
-          <option>In Progress</option>
-          <option>Quote Sent</option>
-          <option>Negotiation</option>
-          <option>Converted</option>
-          <option>Lost</option>
-          <option>Contacted</option>
+          <option value="All">Status: All</option>
+          <option value="New">New</option>
+          <option value="Assigned">Assigned</option>
+          <option value="Contacted">Contacted</option>
+          <option value="Follow Up">Follow Up</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Converted">Converted</option>
+          <option value="Closed Lost">Closed Lost</option>
         </select>
         <select
           value={agentFilter}
@@ -189,11 +251,11 @@ export default function LeadManagement() {
             <tbody className="divide-y divide-slate-200">
               {filteredLeads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="px-6 py-4 text-sm text-slate-500">{lead.id}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500">{lead.leadId}</td>
                   <td className="px-6 py-4">
                     <button
                       type="button"
-                      onClick={() => navigate(`/admin/leads/${lead.id.replace('#', '')}`, { state: { lead } })}
+                      onClick={() => navigate(`/admin/leads/${lead.id}`, { state: { lead } })}
                       className="flex items-center gap-3 hover:opacity-80 transition-opacity text-left"
                     >
                       <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold border border-blue-200">
@@ -240,7 +302,7 @@ export default function LeadManagement() {
         </div>
 
         <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-white">
-          <p className="text-sm text-slate-500">Showing {filteredLeads.length} of 124 leads</p>
+          <p className="text-sm text-slate-500">Showing {filteredLeads.length} of {loading ? '...' : leadData.length} leads</p>
           <div className="flex items-center gap-2">
             <button className="p-2 border border-slate-200 rounded hover:bg-slate-50 transition-colors disabled:opacity-50" disabled>
               <ChevronLeft size={18} className="text-slate-500" />

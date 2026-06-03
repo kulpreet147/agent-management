@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { createLead } from '../../utils/leads.js'
+import { getAgents } from '../../utils/agents.js'
 import {
   ArrowLeft,
   User,
@@ -26,27 +28,36 @@ const priorityStyles = {
 
 const PRIORITY_KEYS = ['HOT', 'WARM', 'COLD']
 
-const AVAILABLE_AGENTS = [
-  { name: 'John Doe', role: 'Senior Agent', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDxMZalfX-J1y-uh21kDlryk7WwlXgaP9Rx5ZWGRNze3xLSW04RqoR7v6Gi_BU59_K5hU-k_j4-0MoLrvECy5dSn6uiTmFOImBDs2aZQEo8Bn_0BNBDdcV9MjGftTYLeP0oc02HEMm5Ner6OkUrpXY84EZpoZtCqMDuNTrI7IChidc7i5MmSCui_dbM5pCJ9vY3-FGKltjLnpq2uNafHvK-tvzmub31wiAlNewwQItGiUxN-qvM7wxiDTSoknudjscv0MTbr4e6imE' },
-  { name: 'Alice Smith', role: 'Field Specialist', img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBk2kmzVv5tYK76YO6CiyY8-JKyEe5un6ZPy964zwpL2P3fvEsxIBt-NdgLUYoee4zhUTGIVv9YwbfZqFIrRsx42aZ6O4SStS5jPzlBWipNJ9LsPpsCAa-NjMoXRk5JNoxwbb-RnSt5bKOJ8-ModKZ__UihdBq6tkmSKGnfXZxee4PARLOmR4H8_fxleCvAsGO4dfzIKCU6wrCHm7YUfqlfqD7oky8larwY3SuE0Sr9lJKV8KOaCGhmoORas7JddYBYXbBy-YW4nMA' },
-  { name: 'Sarah Jenkins', role: 'Senior Agent', img: '' },
-  { name: 'Michael Chen', role: 'Lead Specialist', img: '' },
-  { name: 'Emma Wilson', role: 'Field Agent', img: '' }
-]
-
 export default function LeadRecordCreation() {
   const navigate = useNavigate()
   const [priority, setPriority] = useState('')
   const [showAgentPicker, setShowAgentPicker] = useState(false)
-  const [agents, setAgents] = useState([
-    { name: 'John Doe', role: 'Senior Agent', split: 50, img: AVAILABLE_AGENTS[0].img },
-    { name: 'Alice Smith', role: 'Field Specialist', split: 35, img: AVAILABLE_AGENTS[1].img }
-  ])
+  const [submitting, setSubmitting] = useState(false)
+  const [availableAgents, setAvailableAgents] = useState([])
+  const [agentsLoading, setAgentsLoading] = useState(true)
+  const [agents, setAgents] = useState([])
+
+  useEffect(() => {
+    setAgentsLoading(true)
+    getAgents()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.agents || [])
+        const active = list.filter(
+          (a) => a.status === 'active' && a.accountActivationStatus === 1
+        )
+        setAvailableAgents(active)
+      })
+      .catch((err) => {
+        console.error('Failed to fetch agents:', err)
+        setAvailableAgents([])
+      })
+      .finally(() => setAgentsLoading(false))
+  }, [])
 
   const totalSplit = useMemo(() => agents.reduce((sum, a) => sum + a.split, 0), [agents])
   const isBalanced = totalSplit === 100
-  const unassigned = AVAILABLE_AGENTS.filter(
-    (a) => !agents.some((assigned) => assigned.name === a.name)
+  const unassigned = availableAgents.filter(
+    (a) => !agents.some((assigned) => assigned.agentId === a.agentId)
   )
 
   const balanceSplits = (count) => {
@@ -60,7 +71,14 @@ export default function LeadRecordCreation() {
     const splits = balanceSplits(newCount)
     const updated = [
       ...agents.map((a, i) => ({ ...a, split: splits[i] })),
-      { name: agent.name, role: agent.role, split: splits[newCount - 1], img: agent.img }
+      {
+        agentId: agent.agentId,
+        agentUuid: agent.id,
+        name: agent.name,
+        role: agent.agentLevel || 'Agent',
+        split: splits[newCount - 1],
+        img: '',
+      }
     ]
     setAgents(updated)
     setShowAgentPicker(false)
@@ -99,9 +117,49 @@ export default function LeadRecordCreation() {
     setAgents(remaining.map((a, i) => ({ ...a, split: splits[i] })))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    alert('Lead processed and assigned successfully!')
+    setSubmitting(true)
+    try {
+      const form = e.currentTarget
+      const formData = new FormData(form)
+      const products = ['Term Life', 'Whole Life', 'Health Insurance', 'Annuities']
+      const productInterest = {}
+      products.forEach((p) => { productInterest[p] = formData.getAll('productInterest').includes(p) })
+
+      const payload = {
+        firstName: formData.get('firstName'),
+        lastName: formData.get('lastName'),
+        phone: formData.get('phone'),
+        dateOfBirth: formData.get('dateOfBirth') || undefined,
+        email: formData.get('email') || undefined,
+        address: formData.get('address') || undefined,
+        maritalStatus: formData.get('maritalStatus') || undefined,
+        residencyStatus: formData.get('residencyStatus') || undefined,
+        smokingStatus: formData.get('smokingStatus') === 'on' || undefined,
+        alcoholStatus: formData.get('alcoholStatus') === 'on' || undefined,
+        healthIssues: formData.get('healthIssues') || undefined,
+        occupation: formData.get('occupation') || undefined,
+        employer: formData.get('employer') || undefined,
+        productInterest: Object.keys(productInterest).filter((k) => productInterest[k]).length > 0 ? productInterest : undefined,
+        leadSource: formData.get('leadSource') || undefined,
+        leadPriority: priority ? priority.toLowerCase() : undefined,
+      }
+
+      if (agents.length > 0 && totalSplit === 100) {
+        payload.assignments = agents.map((a) => ({
+          agentId: a.agentId,
+          commissionShare: a.split,
+        }))
+      }
+
+      await createLead(payload)
+      navigate('/admin/leads')
+    } catch (err) {
+      alert(err.message || 'Failed to create lead.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -129,27 +187,27 @@ export default function LeadRecordCreation() {
           <div className="grid grid-cols-2 gap-6">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">FIRST NAME</label>
-              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Enter first name" type="text" />
+              <input name="firstName" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Enter first name" type="text" required />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">LAST NAME</label>
-              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Enter last name" type="text" />
+              <input name="lastName" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Enter last name" type="text" required />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">PHONE NUMBER</label>
-              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="+1 (555) 000-0000" type="tel" maxLength={10} onInput={(e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10) }} />
+              <input name="phone" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="+1 (555) 000-0000" type="tel" maxLength={10} onInput={(e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10) }} required />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">DATE OF BIRTH</label>
-              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" type="date" max={today} />
+              <input name="dateOfBirth" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" type="date" max={today} />
             </div>
             <div className="col-span-2 flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">EMAIL ADDRESS</label>
-              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="example@email.com" type="email" />
+              <input name="email" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="example@email.com" type="email" />
             </div>
             <div className="col-span-2 flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">RESIDENTIAL ADDRESS</label>
-              <textarea className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Street, City, State, ZIP" rows="2" />
+              <textarea name="address" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Street, City, State, ZIP" rows="2" />
             </div>
           </div>
         </div>
@@ -162,20 +220,20 @@ export default function LeadRecordCreation() {
           <div className="grid grid-cols-2 gap-6">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">MARITAL STATUS</label>
-              <select className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white">
-                <option>Select Status</option>
-                <option>Single</option>
-                <option>Married</option>
-                <option>Divorced</option>
-                <option>Widowed</option>
+              <select name="maritalStatus" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white">
+                <option value="">Select Status</option>
+                <option value="Single">Single</option>
+                <option value="Married">Married</option>
+                <option value="Divorced">Divorced</option>
+                <option value="Widowed">Widowed</option>
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">RESIDENCY STATUS</label>
-              <select className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white">
-                <option>Citizen</option>
-                <option>Permanent Resident</option>
-                <option>Visa Holder</option>
+              <select name="residencyStatus" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white">
+                <option value="Citizen">Citizen</option>
+                <option value="Permanent Resident">Permanent Resident</option>
+                <option value="Visa Holder">Visa Holder</option>
               </select>
             </div>
             <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg">
@@ -184,7 +242,7 @@ export default function LeadRecordCreation() {
                 <span className="text-sm">Smoking Status</span>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input className="sr-only peer" type="checkbox" />
+                <input name="smokingStatus" className="sr-only peer" type="checkbox" />
                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" />
               </label>
             </div>
@@ -194,21 +252,21 @@ export default function LeadRecordCreation() {
                 <span className="text-sm">Alcohol Consumption</span>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input className="sr-only peer" type="checkbox" />
+                <input name="alcoholStatus" className="sr-only peer" type="checkbox" />
                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" />
               </label>
             </div>
             <div className="col-span-2 flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">KNOWN HEALTH ISSUES</label>
-              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Specify if any (e.g. Hypertension, Diabetes)" type="text" />
+              <input name="healthIssues" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Specify if any (e.g. Hypertension, Diabetes)" type="text" />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">OCCUPATION</label>
-              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Job title" type="text" />
+              <input name="occupation" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Job title" type="text" />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-500 tracking-wider">EMPLOYER</label>
-              <input className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Company name" type="text" />
+              <input name="employer" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" placeholder="Company name" type="text" />
             </div>
           </div>
         </div>
@@ -229,6 +287,8 @@ export default function LeadRecordCreation() {
                   >
                     <input
                       type="checkbox"
+                      name="productInterest"
+                      value={product}
                       defaultChecked={product === 'Health Insurance'}
                       className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
                     />
@@ -240,12 +300,13 @@ export default function LeadRecordCreation() {
             <div className="grid grid-cols-2 gap-6">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-slate-500 tracking-wider">LEAD SOURCE</label>
-                <select className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white">
-                  <option>Facebook Ads</option>
-                  <option>Google Search</option>
-                  <option>Referral</option>
-                  <option>Direct Call</option>
-                  <option>Landing Page</option>
+                <select name="leadSource" className="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white">
+                  <option value="">Select source</option>
+                  <option value="Facebook Ads">Facebook Ads</option>
+                  <option value="Google Search">Google Search</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Direct Call">Direct Call</option>
+                  <option value="Landing Page">Landing Page</option>
                 </select>
               </div>
               <div className="flex flex-col gap-3">
@@ -346,22 +407,24 @@ export default function LeadRecordCreation() {
                   </button>
                 </div>
                 <div className="divide-y divide-slate-100">
-                  {unassigned.length === 0 ? (
-                    <div className="px-4 py-6 text-center text-sm text-slate-500">All agents have been assigned.</div>
+                  {agentsLoading ? (
+                    <div className="px-4 py-6 text-center text-sm text-slate-500">Loading agents…</div>
+                  ) : unassigned.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-sm text-slate-500">All available agents have been assigned.</div>
                   ) : (
                     unassigned.map((agent) => (
                       <button
-                        key={agent.name}
+                        key={agent.id}
                         type="button"
                         onClick={() => addAgent(agent)}
                         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left"
                       >
                         <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600">
-                          {agent.name.split(' ').map(n => n[0]).join('')}
+                          {(agent.name || '?').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-slate-800">{agent.name}</p>
-                          <p className="text-xs text-slate-500">{agent.role}</p>
+                          <p className="text-xs text-slate-500">{agent.agentLevel || 'Agent'}</p>
                         </div>
                         <UserPlus size={16} className="ml-auto text-slate-400" />
                       </button>
@@ -370,7 +433,7 @@ export default function LeadRecordCreation() {
                 </div>
               </div>
             )}
-            {agents.length < AVAILABLE_AGENTS.length && (
+            {agents.length < availableAgents.length && (
               <button
                 type="button"
                 onClick={() => setShowAgentPicker(!showAgentPicker)}
@@ -399,10 +462,11 @@ export default function LeadRecordCreation() {
           <button
             type="submit"
             form="leadForm"
-            className="px-8 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 shadow-md transition-all flex items-center gap-2"
+            disabled={submitting}
+            className="px-8 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save size={16} />
-            Save & Assign
+            {submitting ? 'Saving...' : 'Save & Assign'}
           </button>
         </div>
       </footer>

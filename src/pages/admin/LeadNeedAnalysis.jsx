@@ -37,7 +37,7 @@ export default function LeadNeedAnalysis() {
     }, 1500)
   }
 
-  const leadId = lead.id || '#44829'
+  const leadId = lead.leadId || lead.id || '#44829'
 
   return (
     <div className="space-y-6">
@@ -46,7 +46,7 @@ export default function LeadNeedAnalysis() {
         <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={() => navigate(`/admin/leads/${leadId.replace('#', '')}`, { state: { lead } })}
+            onClick={() => navigate(`/admin/leads/${leadId}`, { state: { lead } })}
             className="p-2 hover:bg-slate-200 rounded-full transition-colors"
           >
             <ArrowLeft size={20} className="text-slate-600" />

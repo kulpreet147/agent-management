@@ -28,6 +28,7 @@ import AgentDashboard from "./pages/agent/AgentDashboard.jsx";
 import AgentLeadManagement from "./pages/agent/AgentLeadManagement.jsx";
 import AgentLeadDetail from "./pages/agent/AgentLeadDetail.jsx";
 import AgentActionItems from "./pages/agent/AgentActionItems.jsx";
+import NeedAnalysisForm from "./components/NeedAnalysisForm.jsx";
 import Analytics from "./pages/admin/Analytics.jsx";
 
 function Protected({ children }) {
@@ -124,6 +125,14 @@ export default function App() {
         element={
           <AgentProtected>
             <AgentLeadDetail />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/leads/:leadId/need-analysis"
+        element={
+          <AgentProtected>
+            <NeedAnalysisForm role="agent" />
           </AgentProtected>
         }
       />
@@ -274,7 +283,7 @@ export default function App() {
         element={
           <Protected>
             <DashboardLayout variant="admin">
-              <LeadNeedAnalysis />
+              <NeedAnalysisForm role="admin" />
             </DashboardLayout>
           </Protected>
         }
