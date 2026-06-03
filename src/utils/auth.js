@@ -18,6 +18,7 @@ export const auth = {
 
     const session = {
       id: data.user.id,
+      publicId: data.user.publicId,
       email: data.user.email,
       role: data.user.role,
       name: data.user.name,
@@ -25,6 +26,14 @@ export const auth = {
       signedDocuments: data.user.signedDocuments || {},
       token: data.accessToken,
       loggedInAt: new Date().toISOString()
+    }
+
+    const isBlocked =
+      session.role === 'admin' &&
+      Boolean(data.user.isBlocked || data.user.blocked || data.user.status === 'blocked')
+
+    if (isBlocked) {
+      throw new Error('Your access is denied by master admin.')
     }
 
     getStorage().setItem(KEY, JSON.stringify(session))

@@ -46,6 +46,12 @@ export const adminStats = [
   { label: 'Licences Expiring', value: '3' }
 ]
 
+export const dashboardModuleCounts = {
+  totalLeads: 124,
+  totalClients: 86,
+  totalPolicies: 52,
+}
+
 export const onboardingPipeline = [
   { label: 'Submitted', value: 12 },
   { label: 'Under Review', value: 8 },

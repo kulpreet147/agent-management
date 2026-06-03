@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAgents, resendAgentInvite } from '../../utils/agents.js'
-import { Eye, FilePlus } from 'lucide-react'
+import { Eye, FilePlus, Search, Plus } from 'lucide-react'
+import StatCard from '../../components/StatCard.jsx'
+import { formatAccountId } from '../../utils/accountId.js'
 
 const ONBOARDING_STEPS = 6
 
@@ -12,6 +14,22 @@ const onboardingMeta = {
   4: { label: 'Under Review', classes: 'bg-amber-100 text-amber-700', barColor: 'bg-amber-500' },
   5: { label: 'Ready for MGA', classes: 'bg-sky-100 text-sky-700', barColor: 'bg-sky-500' },
   6: { label: 'Under Review', classes: 'bg-amber-100 text-amber-700', barColor: 'bg-amber-500' },
+}
+
+const STAT_TONES = ['indigo', 'amber', 'slate', 'emerald']
+
+function parseLicenceExpiry(agent) {
+  const raw =
+    agent?.licenceExpiry ||
+    agent?.licenseExpiry ||
+    agent?.licenseExpDate ||
+    agent?.licenceExpDate ||
+    null
+
+  if (!raw) return null
+
+  const date = new Date(raw)
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
 function getDocumentProgress(agent) {
@@ -67,10 +85,13 @@ export default function Agents() {
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
   const [inviteMode, setInviteMode] = useState(false)
   const [selectedAgentIds, setSelectedAgentIds] = useState([])
   const [sendingInvites, setSendingInvites] = useState(false)
   const navigate = useNavigate()
+  const pageSize = 8
 
   useEffect(() => {
     let isMounted = true
@@ -100,6 +121,68 @@ export default function Agents() {
   const invitedAgentIds = agents
     .filter((agent) => String(agent.status || '').toLowerCase() === 'invited')
     .map((agent) => agent.id)
+
+  const filteredAgents = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return agents
+
+    return agents.filter((agent) => {
+      const haystack = [
+        agent?.name,
+        agent?.email,
+        agent?.agentId,
+        agent?.insuranceCompany,
+        agent?.publicId,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+
+      return haystack.includes(q)
+    })
+  }, [agents, searchTerm])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm])
+
+  const totalPages = Math.max(1, Math.ceil(filteredAgents.length / pageSize))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const paginatedAgents = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * pageSize
+    return filteredAgents.slice(startIndex, startIndex + pageSize)
+  }, [filteredAgents, safeCurrentPage])
+
+  const stats = useMemo(() => {
+    const now = new Date()
+    const in30 = new Date()
+    in30.setDate(now.getDate() + 30)
+
+    const onboardingInProgress = agents.filter((agent) => {
+      const activation = Number(agent?.accountActivationStatus)
+      const step = Number(agent?.onboardingStatus || 1)
+      return activation !== 1 && activation !== 2 && step > 1 && step < 6
+    }).length
+
+    const pendingApprovals = agents.filter((agent) => {
+      const activation = Number(agent?.accountActivationStatus)
+      const step = Number(agent?.onboardingStatus || 1)
+      const status = String(agent?.status || '').toLowerCase()
+      return activation === 0 && (step >= 6 || status === 'under_review')
+    }).length
+
+    const licencesExpiring = agents.filter((agent) => {
+      const expiry = parseLicenceExpiry(agent)
+      return expiry && expiry >= now && expiry <= in30
+    }).length
+
+    return [
+      { label: 'Total Agents', value: agents.length, tone: STAT_TONES[0] },
+      { label: 'Onboarding In Progress', value: onboardingInProgress, tone: STAT_TONES[1] },
+      { label: 'Pending Approvals', value: pendingApprovals, tone: STAT_TONES[2] },
+      { label: 'Licences Expiring', value: licencesExpiring, tone: STAT_TONES[3] },
+    ]
+  }, [agents])
 
   const toggleSelect = (agentId) => {
     setSelectedAgentIds((prev) =>
@@ -133,9 +216,33 @@ export default function Agents() {
     }
   }
 
+  const goToPage = (page) => {
+    const nextPage = Math.min(Math.max(page, 1), totalPages)
+    setCurrentPage(nextPage)
+  }
+
+  const paginationPages = useMemo(() => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1)
+    }
+
+    if (safeCurrentPage <= 3) {
+      return [1, 2, 3, 4, 'ellipsis', totalPages]
+    }
+
+    if (safeCurrentPage >= totalPages - 2) {
+      return [1, 'ellipsis', totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+    }
+
+    return [1, 'ellipsis', safeCurrentPage - 1, safeCurrentPage, safeCurrentPage + 1, 'ellipsis', totalPages]
+  }, [safeCurrentPage, totalPages])
+
+  const displayStart = filteredAgents.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1
+  const displayEnd = filteredAgents.length === 0 ? 0 : Math.min(safeCurrentPage * pageSize, filteredAgents.length)
+
   return (
-    <div className="max-w-full mx-auto">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-card p-6">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full min-h-0 flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-card">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-3xl font-semibold text-slate-900">Agents</h1>
@@ -145,16 +252,15 @@ export default function Agents() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {/* <button
-              type="button"
-              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              onClick={() => {
-                window.alert('Under development - export functionality coming soon!')
-              }}
-            >
-              <Download size={16} className="mr-2" />
-              Export Report
-            </button> */}
+            <div className="relative w-full sm:w-72">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search agents..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+              />
+            </div>
             <button
               type="button"
               onClick={handleInviteAction}
@@ -176,11 +282,31 @@ export default function Agents() {
                   setSelectedAgentIds([])
                 }}
                 className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancel Selection
-              </button>
+                >
+                  Cancel Selection
+                </button>
             )}
+            <button
+              type="button"
+              onClick={() => navigate('/admin/agent-record-creation')}
+              className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            >
+              <Plus size={16} className="mr-2" />
+              Add New Agent
+            </button>
           </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {stats.map((stat, index) => (
+            <StatCard
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+              tone={STAT_TONES[index]}
+              compact
+            />
+          ))}
         </div>
 
         {inviteMode && (
@@ -189,8 +315,9 @@ export default function Agents() {
           </div>
         )}
 
-        <div className="mt-6 overflow-x-auto">
-          <table className="min-w-full text-sm">
+        <div className="mt-6 min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200">
+          <div className="h-full overflow-x-auto overflow-y-auto">
+            <table className="min-w-full text-sm">
             <thead>
               <tr className="border-y border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-4">Agent Name</th>
@@ -219,8 +346,14 @@ export default function Agents() {
                     No agents found.
                   </td>
                 </tr>
+              ) : filteredAgents.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-4 py-10 text-center text-sm text-slate-500">
+                    No agents match your search.
+                  </td>
+                </tr>
               ) : (
-                agents.map((agent) => {
+                paginatedAgents.map((agent) => {
                   const onboarding = getOnboardingView(agent)
                   const isInvited = String(agent.status || '').toLowerCase() === 'invited'
                   const selected = selectedAgentIds.includes(agent.id)
@@ -259,7 +392,9 @@ export default function Agents() {
                           </div>
                           <div>
                             <div className="font-semibold text-slate-900">{agent.name}</div>
-                            <div className="text-xs text-slate-500">ID: {agent.agentId || 'N/A'}</div>
+                            <div className="text-xs text-slate-500">
+                              ID: {formatAccountId('AG', agent.publicId) || agent.displayId || 'N/A'}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -303,33 +438,50 @@ export default function Agents() {
                 })
               )}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
 
-        {agents.length > 15 && (
-          <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-slate-500">
-              Showing 1-15 of {agents.length} results
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
-                Previous
-              </button>
-              <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
-                1
-              </button>
-              <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
-                2
-              </button>
-              <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
-                3
-              </button>
-              <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">
-                Next
-              </button>
-            </div>
+        <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-slate-500">
+            Showing {displayStart}-{displayEnd} of {filteredAgents.length} results
           </div>
-        )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => goToPage(safeCurrentPage - 1)}
+              disabled={safeCurrentPage === 1}
+              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Previous
+            </button>
+            {paginationPages.map((page, index) =>
+              page === 'ellipsis' ? (
+                <span key={`ellipsis-${index}`} className="px-1 text-slate-400">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={page}
+                  onClick={() => goToPage(page)}
+                  className={`rounded-md border px-3 py-2 text-xs font-semibold transition ${
+                    page === safeCurrentPage
+                      ? 'border-blue-600 bg-blue-600 text-white'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {page}
+                </button>
+              ),
+            )}
+            <button
+              onClick={() => goToPage(safeCurrentPage + 1)}
+              disabled={safeCurrentPage === totalPages}
+              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

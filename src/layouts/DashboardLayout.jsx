@@ -117,7 +117,7 @@ export default function DashboardLayout({ variant = 'master', children }) {
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Topbar */}
         <header className="h-16 shrink-0 bg-white border-b border-slate-200 flex items-center px-6 gap-4">
-          {variant === 'admin' && (
+          {/* {variant === 'admin' && (
             <div className="relative flex-1 max-w-md">
               <Search
                 size={16}
@@ -128,7 +128,7 @@ export default function DashboardLayout({ variant = 'master', children }) {
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-slate-400 focus:bg-white focus:border-brand-400 focus:ring-2 focus:ring-brand-100 outline-none transition"
               />
             </div>
-          )}
+          )} */}
           <div className="ml-auto flex items-center gap-3">
             <IconBtn>
               <Bell size={17} />
@@ -143,7 +143,7 @@ export default function DashboardLayout({ variant = 'master', children }) {
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-slate-100 p-4 lg:p-5">
+        <main className="flex-1 min-h-0 overflow-hidden overflow-x-hidden bg-slate-100 p-4 lg:p-5">
           {children}
         </main>
       </div>
