@@ -32,6 +32,7 @@ import {
   StickyNote
 } from 'lucide-react'
 import { addFollowUp, reassignAgent, addNote, getLead, getFollowUps, getActivityLog, updateLeadStatus } from '../../utils/leads.js'
+import { getAgents } from '../../utils/agents.js'
 import QuoteModal from '../../components/QuoteModal.jsx'
 
 const formatTimeAgo = (dateString) => {
@@ -69,7 +70,22 @@ const formatDetails = (action, details) => {
     case 'lead_created_from_excel':
       return null
     case 'need_analysis_saved':
-      return null
+    case 'need_analysis_updated':
+      if (d.summary) return d.summary
+      if (d.fields && Array.isArray(d.fields)) {
+        const sections = new Set()
+        const sectionMap = {
+          ownHouse: 'Assets', houseValue: 'Assets', mortgageRemaining: 'Assets', rrsp: 'Assets', tfsa: 'Assets',
+          outstandingMortgage: 'Liabilities', lineOfCredit: 'Liabilities', creditCardDebt: 'Liabilities',
+          annualIncomePrimary: 'Income', annualIncomeSpouse: 'Income', totalHouseholdIncome: 'Income',
+          lifeInsurance: 'Insurance', criticalIllness: 'Insurance', disability: 'Insurance', groupInsurance: 'Insurance',
+          spouseName: 'Family', spouseDOB: 'Family', children: 'Family',
+          desiredCoverage: 'Coverage', budgetMonthly: 'Coverage', coverageNotes: 'Coverage',
+        }
+        d.fields.forEach((f) => { if (sectionMap[f]) sections.add(sectionMap[f]) })
+        return `Updated ${d.fields.length} fields across ${sections.size} sections`
+      }
+      return 'Need analysis updated'
     case 'need_analysis_sent_to_client':
       return d.clientEmail ? `Sent to ${d.clientEmail}${d.delivered === false ? ' (delivery failed)' : ''}` : null
     case 'need_analysis_deleted':
@@ -84,10 +100,18 @@ const formatDetails = (action, details) => {
       return d.clientEmail ? `Sent to ${d.clientEmail}${d.delivered === false ? ' (delivery failed)' : ''}` : null
     case 'converted':
       return null
-    default:
-      const nonMeta = Object.fromEntries(Object.entries(d).filter(([k]) => !['fromStatus', 'toStatus'].includes(k)))
+    default: {
+      const skip = ['fromStatus', 'toStatus', 'isNew', 'reportId', 'delivered']
+      const nonMeta = Object.fromEntries(Object.entries(d).filter(([k]) => !skip.includes(k)))
       if (Object.keys(nonMeta).length === 0) return null
-      return JSON.stringify(nonMeta)
+      return Object.entries(nonMeta).map(([k, v]) => {
+        if (v === null || v === undefined || v === false) return null
+        const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())
+        if (Array.isArray(v)) return `${label}: ${v.join(', ')}`
+        if (typeof v === 'object') return `${label}: ${JSON.stringify(v)}`
+        return `${label}: ${v}`
+      }).filter(Boolean).join(' • ')
+    }
   }
 }
 
@@ -170,12 +194,26 @@ export default function LeadDetail() {
   const [activeTab, setActiveTab] = useState(0)
   const [showReassign, setShowReassign] = useState(false)
   const [reassignState, setReassignState] = useState('idle')
+  const [reassignForm, setReassignForm] = useState({ agentId: '', split: 100, reason: '' })
   const [showFollowUpModal, setShowFollowUpModal] = useState(false)
   const [followUpForm, setFollowUpForm] = useState({
     activityType: 'Call', date: '', time: '', outcomeGoal: '',
     reminder: '', notes: '', quickLogOutcome: '',
   })
   const [newFollowUps, setNewFollowUps] = useState([])
+  const [agentsList, setAgentsList] = useState([])
+
+  useEffect(() => {
+    if (showReassign && agentsList.length === 0) {
+      getAgents()
+        .then((data) => {
+          const list = Array.isArray(data) ? data : (data?.agents || [])
+          const active = list.filter(a => a.status === 'active' && a.accountActivationStatus === 1)
+          setAgentsList(active)
+        })
+        .catch(() => setAgentsList([]))
+    }
+  }, [showReassign])
 
   const handleQuoteSaved = (log) => {
     setActivityLog((prev) => [log, ...prev])
@@ -335,19 +373,38 @@ export default function LeadDetail() {
     setReassignState('processing')
     try {
       const uuid = getLeadUuid()
-      if (uuid) {
-        const apiData = apiLead || (await getLead(uuid).catch(() => null))
-        const currentAssignment = apiData?.assignments?.find(a => a.isActive)
-        const newAgent = document.querySelector('select')?.value
-        const newSplit = document.querySelector('input[type="number"]')?.value
-        const reason = document.querySelector('textarea')?.value
-        if (currentAssignment && newAgent && newAgent !== 'Choose an agent...') {
-          await reassignAgent(uuid, newAgent, Number(newSplit) || 100, reason)
+      if (uuid && reassignForm.agentId) {
+        const result = await reassignAgent(uuid, reassignForm.agentId, Number(reassignForm.split) || 100, reassignForm.reason)
+        const refreshedLead = result || await getLead(uuid).catch(() => null)
+        if (refreshedLead) {
+          setApiLead(refreshedLead)
+          setLead({
+            id: refreshedLead.id,
+            leadId: refreshedLead.leadId,
+            uuid: refreshedLead.id,
+            name: `${refreshedLead.firstName} ${refreshedLead.lastName}`,
+            phone: refreshedLead.phone,
+            email: refreshedLead.email,
+            dateOfBirth: refreshedLead.dateOfBirth,
+            maritalStatus: refreshedLead.maritalStatus,
+            residencyStatus: refreshedLead.residencyStatus,
+            occupation: refreshedLead.occupation,
+            employer: refreshedLead.employer,
+            address: refreshedLead.address,
+            productInterest: refreshedLead.productInterest,
+            leadSource: refreshedLead.leadSource,
+            status: refreshedLead.status ? refreshedLead.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'New',
+            priority: refreshedLead.leadPriority ? refreshedLead.leadPriority.charAt(0).toUpperCase() + refreshedLead.leadPriority.slice(1) : 'Cold',
+            createdAt: refreshedLead.createdAt,
+            updatedAt: refreshedLead.updatedAt,
+            assignments: refreshedLead.assignments,
+          })
         }
       }
       setReassignState('success')
       setTimeout(() => {
         setShowReassign(false)
+        setReassignForm({ agentId: '', split: 100, reason: '' })
         setTimeout(() => setReassignState('idle'), 300)
       }, 800)
     } catch (err) {
@@ -381,10 +438,6 @@ export default function LeadDetail() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg flex items-center gap-2 hover:bg-slate-50 transition-colors">
-            <Pencil size={14} />
-            Edit
-          </button>
           <button
             type="button"
             onClick={() => setShowReassign(true)}
@@ -458,9 +511,8 @@ export default function LeadDetail() {
       <div className="grid grid-cols-12 gap-8">
         {/* Left: Customer Details */}
         <div className="col-span-12 lg:col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
             <h3 className="text-sm font-bold text-slate-800">Customer Details</h3>
-            <Pencil size={16} className="text-blue-600 cursor-pointer" />
           </div>
           <div className="p-6 grid grid-cols-2 gap-y-6 gap-x-8">
             <div>
@@ -928,13 +980,17 @@ export default function LeadDetail() {
                   <label className="text-xs font-medium text-slate-600">Select New Agent</label>
                   <div className="relative">
                     <UserPlus size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <select className="w-full bg-white border border-slate-200 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none">
-                      <option disabled selected>Choose an agent...</option>
-                      <option>John Doe</option>
-                      <option>Alice Smith</option>
-                      <option>Sarah Jenkins</option>
-                      <option>Michael Chen</option>
-                      <option>Emma Wilson</option>
+                    <select
+                      value={reassignForm.agentId}
+                      onChange={(e) => setReassignForm({ ...reassignForm, agentId: e.target.value })}
+                      className="w-full bg-white border border-slate-200 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none"
+                    >
+                      <option value="" disabled>Choose an agent...</option>
+                      {agentsList.map((agent) => (
+                        <option key={agent.id} value={agent.agentId || agent.id}>
+                          {agent.name || agent.firstName + ' ' + agent.lastName}
+                        </option>
+                      ))}
                     </select>
                     <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
@@ -943,7 +999,7 @@ export default function LeadDetail() {
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-slate-600">Current Agent Split %</label>
                     <div className="relative">
-                      <input className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" type="number" defaultValue={(lead.assignments || apiLead?.assignments || []).find(a => a.isActive)?.commissionShare || 0} />
+                      <input className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" type="number" value={reassignForm.split} onChange={(e) => setReassignForm({ ...reassignForm, split: e.target.value })} />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
                     </div>
                   </div>
@@ -961,17 +1017,28 @@ export default function LeadDetail() {
               <section className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-slate-600">Reason for Reassignment</label>
-                  <select className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none">
-                    <option>Account Scaled to Enterprise</option>
-                    <option>Agent Performance Review</option>
-                    <option>Geographic Territory Shift</option>
-                    <option>Agent Departure / Leave</option>
-                    <option>Other (Specify below)</option>
+                  <select
+                    value={reassignForm.reason}
+                    onChange={(e) => setReassignForm({ ...reassignForm, reason: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                  >
+                    <option value="">Select reason...</option>
+                    <option value="Account Scaled to Enterprise">Account Scaled to Enterprise</option>
+                    <option value="Agent Performance Review">Agent Performance Review</option>
+                    <option value="Geographic Territory Shift">Geographic Territory Shift</option>
+                    <option value="Agent Departure / Leave">Agent Departure / Leave</option>
+                    <option value="Other">Other (Specify below)</option>
                   </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-slate-600">Internal Transfer Notes</label>
-                  <textarea className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none" placeholder="Provide context for the new agent..." rows={3} />
+                  <textarea
+                    value={reassignForm.reason}
+                    onChange={(e) => setReassignForm({ ...reassignForm, reason: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                    placeholder="Provide context for the new agent..."
+                    rows={3}
+                  />
                 </div>
               </section>
 

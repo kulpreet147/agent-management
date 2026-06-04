@@ -124,6 +124,10 @@ export function getOverdueFollowUps() {
   return apiRequest('/leads/follow-ups/overdue')
 }
 
+export function getUpcomingFollowUps() {
+  return apiRequest('/leads/follow-ups/upcoming')
+}
+
 export function getFollowUpsForAgent(agentId, date) {
   const params = date ? `?date=${date}` : ''
   return apiRequest(`/leads/follow-ups/agent/${agentId}${params}`)
