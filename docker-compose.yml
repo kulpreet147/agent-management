@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: agentflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agentflow
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - agentflow-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agentflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../Agent-Management-Backend
+    container_name: agentflow-backend
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      FRONTEND_URL: http://localhost:8080
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: Bentsys@123#
+      DB_NAME: agentflow
+      DB_SYNC: "false"
+      JWT_SECRET: replace-with-a-long-random-secret
+      JWT_EXPIRES_IN: 1d
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_SECURE: "false"
+      SMTP_USER: bentsys.dev@gmail.com
+      SMTP_PASS: whho dhep rkxp jlmi
+      SMTP_FROM: Agent Management <bentsys.dev@gmail.com>
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ../Agent-Management-Backend/uploads:/app/uploads
+
+  frontend:
+    build:
+      context: .
+      args:
+        VITE_API_BASE_URL: http://localhost:3000/api
+    container_name: agentflow-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  agentflow-postgres-data:

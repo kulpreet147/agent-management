@@ -9,29 +9,88 @@ import {
   ChevronRight, RefreshCw, Lock, Globe, Linkedin, Instagram,
   Youtube, Twitter, Plus, X, Building2, CreditCard, Hash,
 } from 'lucide-react'
-import { getAgent, getAgentProfile } from '../../utils/agents.js'
+import { getAgent, getAgentProfile, updateAgentProfile } from '../../utils/agents.js'
 import { getAccountActivities } from '../../utils/activities.js'
 
 // ─── Mock dynamic data ────────────────────────────────────────────────────────
 
+function normalizeList(value) {
+  if (Array.isArray(value)) return value.filter(Boolean)
+  if (typeof value === 'string') return value.split(',').map(item => item.trim()).filter(Boolean)
+  return []
+}
+
+function normalizeDesignations(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map(item => (typeof item === 'string' ? { name: item, full: item, date: '', status: '' } : item))
+    .filter(item => item?.name || item?.full)
+}
+
+function formatDateValue(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+function parseLicenceDetails(value) {
+  const text = String(value || '')
+  return {
+    expiry: text.match(/Expiry:\s*([^|]+)/i)?.[1]?.trim() || '',
+    type: text.match(/Type:\s*([^|]+)/i)?.[1]?.trim() || '',
+  }
+}
+
+function resolveMediaUrl(url) {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url) || url.startsWith('data:')) return url
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api'
+  const origin = apiBase.replace(/\/api\/?$/, '')
+  return `${origin}${url.startsWith('/') ? url : `/${url}`}`
+}
+
+function readAvatarPathFromAgent(agent) {
+  const avatar = agent?.documents?.profileAvatar
+  if (!avatar) return ''
+  if (avatar.fileName) return `/uploads/agents/${avatar.fileName}`
+  if (avatar.path) {
+    const normalized = String(avatar.path).replace(/\\/g, '/')
+    const idx = normalized.indexOf('/uploads/')
+    if (idx >= 0) return normalized.slice(idx)
+  }
+  return ''
+}
+
 function buildMockData(agent) {
   const name = agent?.name || 'Agent'
   const initials = name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
+  const savedProfile = agent?.documents?.profile || {}
+  const personal = savedProfile.personal || {}
+  const professional = savedProfile.professional || {}
+  const business = savedProfile.business || {}
+  const relationships = savedProfile.relationships || {}
+  const socials = business.socials || business.social || {}
+  const licenceDetails = parseLicenceDetails(professional.licenceDetails)
+  const emergencyContact = personal.emergencyContact || personal.emergencyContactName || relationships.spouse?.name || personal.spouseName || ''
+  const emergencyRelation = personal.emergencyRelation || personal.emergencyContactRelation || (emergencyContact ? 'Spouse' : '')
+  const subscriptionTier = agent?.subscriptionTier || savedProfile.settings?.subscriptionTier || savedProfile.subscriptionTier || 'Silver'
   return {
     initials,
-    tier: 'Silver',
-    status: 'Active',
-    title: 'Managing Senior Agent',
+    avatarUrl: resolveMediaUrl(readAvatarPathFromAgent(agent)),
+    tier: subscriptionTier,
+    status: agent?.accountActivationStatus === 1 ? 'Active' : agent?.status || 'Invited',
+    title: agent?.agentLevel || 'Agent',
     licenceNo: agent?.agentId || 'LIC-99021-X',
     licenceStatus: 'Valid',
     provinces: ['ON', 'BC', 'AB'],
-    clients: '1,204 Active',
-    lastLogin: '3 days ago',
-    lastLoginWarning: true,
-    phone: agent?.phone || '(555) 012-3456',
-    email: agent?.email || 'm.johnson@insure.ca',
-    company: agent?.insuranceCompany || 'HUB Financial',
-    agentCode: agent?.agentCode || 'L2-B10',
+    clients: agent?.clientsCount ? `${agent.clientsCount} Active` : '0 Active',
+    lastLogin: agent?.lastLogin ? formatDateValue(agent.lastLogin) : '',
+    lastLoginWarning: !agent?.lastLogin,
+    phone: personal.personalPhone || personal.businessPhone || agent?.phone || '',
+    email: agent?.email || personal.personalEmail || '',
+    company: agent?.insuranceCompany || '',
+    agentCode: agent?.agentCode || '',
 
     performance: {
       alert: {
@@ -56,35 +115,30 @@ function buildMockData(agent) {
     profile: {
       personal: {
         fullName: name,
-        personalEmail: agent?.email || 'm.johnson@example.com',
-        personalPhone: agent?.phone || '(555) 012-3456',
-        businessPhone: '(555) 987-6543',
-        mailingAddress: '88 King St W, Suite 500',
-        city: agent?.city || 'Toronto',
-        province: 'Ontario',
-        postalCode: agent?.postalCode || 'M5H 1S1',
-        residence: 'Owned',
-        languages: ['English', 'French', 'Punjabi'],
-        emergencyContact: 'Jennifer Johnson',
-        emergencyPhone: '(555) 111-2222',
-        emergencyRelation: 'Spouse',
-        dob: 'March 15, 1985',
-        bio: 'Dedicated insurance professional with 12+ years of experience helping individuals and families protect their financial future. Specializes in life, critical illness, and disability coverage.',
-        expertise: ['Life Insurance', 'Critical Illness', 'Disability', 'Group Benefits', 'Estate Planning'],
+        personalEmail: agent?.email || personal.personalEmail || '',
+        personalPhone: personal.personalPhone || agent?.phone || '',
+        businessPhone: personal.businessPhone || '',
+        mailingAddress: personal.businessAddress || personal.mailingAddress || '',
+        city: personal.city || '',
+        province: personal.province || '',
+        postalCode: personal.postalCode || '',
+        residence: personal.residence || '',
+        emergencyContact,
+        emergencyPhone: personal.emergencyContactPhone || personal.emergencyPhone || '',
+        emergencyRelation,
+        dob: formatDateValue(personal.dateOfBirth || personal.dob || ''),
+        bio: professional.bio || '',
+        expertise: normalizeList(professional.expertise || business.expertise || personal.expertise),
       },
       professional: {
         licenceNo: agent?.agentId || 'LIC-99021-X',
-        licenceType: agent?.licenceType || 'Existing Licence Transfer',
-        licenceExpiry: 'December 31, 2026',
-        company: agent?.insuranceCompany || 'HUB Financial',
-        agentCode: agent?.agentCode || 'L2-B10',
-        yearsExp: '12',
-        mga: 'HUB Financial',
-        designations: [
-          { name: 'CFP', full: 'Certified Financial Planner', date: 'Jan 2020', status: 'Approved' },
-          { name: 'CLU', full: 'Chartered Life Underwriter', date: 'Mar 2018', status: 'Approved' },
-          { name: 'CHS', full: 'Certified Health Specialist', date: 'Jun 2022', status: 'Pending' },
-        ],
+        licenceType: agent?.licenceType || licenceDetails.type || '',
+        licenceExpiry: professional.licenceExpiry || licenceDetails.expiry || '',
+        company: agent?.insuranceCompany || '',
+        agentCode: agent?.agentCode || '',
+        yearsExp: professional.yearsOfExperience || '',
+        mga: agent?.mga || agent?.insuranceCompany || '',
+        designations: normalizeDesignations(professional.designations),
         certifications: ['LLQP — Life Licence Qualification', 'AML Compliance (2024)', 'E&O Coverage Active'],
         awards: ['Top Producer 2023 — HUB Financial', 'Client Satisfaction Award Q2 2023'],
       },
@@ -140,7 +194,7 @@ function buildMockData(agent) {
     ],
 
     settings: {
-      tier: 'Silver',
+      tier: subscriptionTier,
       notifications: { email: true, sms: false, portal: true },
       twoFactor: true,
       status: 'Active',
@@ -151,6 +205,37 @@ function buildMockData(agent) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function applyDynamicProfileData(data, agent) {
+  const savedProfile = agent?.documents?.profile || {}
+  const personal = savedProfile.personal || {}
+  const professional = savedProfile.professional || {}
+  const business = savedProfile.business || {}
+  const relationships = savedProfile.relationships || {}
+  const socials = business.socials || business.social || {}
+  const licenceDetails = parseLicenceDetails(professional.licenceDetails)
+  const emergencyContact = personal.emergencyContact || personal.emergencyContactName || relationships.spouse?.name || personal.spouseName || ''
+
+  data.profile.professional.certifications = normalizeList(professional.certifications)
+  data.profile.professional.awards = normalizeList(professional.awards)
+  data.profile.business.businessName = business.businessName || agent?.insuranceCompany || ''
+  data.profile.business.businessAddress = business.businessAddress || personal.businessAddress || ''
+  data.profile.business.website = socials.website || business.website || ''
+  data.profile.business.social = {
+    linkedin: socials.linkedin || '',
+    facebook: socials.facebook || '',
+    instagram: socials.instagram || '',
+    twitter: socials.twitter || '',
+    youtube: socials.youtube || '',
+    tiktok: socials.tiktok || '',
+  }
+  data.profile.personal.emergencyContact = emergencyContact
+  data.profile.personal.emergencyPhone = personal.emergencyContactPhone || personal.emergencyPhone || ''
+  data.profile.personal.emergencyRelation = personal.emergencyRelation || personal.emergencyContactRelation || (emergencyContact ? 'Spouse' : '')
+  data.profile.professional.licenceExpiry = professional.licenceExpiry || licenceDetails.expiry || ''
+
+  return data
+}
 
 function val(v) { return v || 'N/A' }
 
@@ -222,9 +307,18 @@ function mapAccountActivity(activity) {
         ? 'Agent'
         : activity.performedByType || 'System',
     time: activity.performedAt ? new Date(activity.performedAt).toLocaleString() : '',
+    performedAt: activity.performedAt || null,
     badge: formatActivityAction(activity.action),
     badgeColor: activity.action?.includes('status') ? 'blue' : 'slate',
   }
+}
+
+function getLatestLoginTime(activities) {
+  const latestLogin = [...activities]
+    .filter(activity => String(activity.action || '').toLowerCase().includes('login') && activity.performedAt)
+    .sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime())[0]
+
+  return latestLogin?.performedAt ? new Date(latestLogin.performedAt).toLocaleString() : ''
 }
 
 const TAB_COLORS = {
@@ -374,13 +468,8 @@ function OverviewTab({ data, agent }) {
             <FieldItem label="Residence" value={p.residence} />
             <FieldItem label="Emergency Contact" value={p.emergencyContact} />
             <FieldItem label="Emergency Phone" value={p.emergencyPhone} />
+            <FieldItem label="Emergency Relation" value={p.emergencyRelation} />
           </FieldGrid>
-          <div className="mt-4">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-2">Languages</div>
-            <div className="flex flex-wrap gap-1.5">
-              {p.languages.map(l => <Tag key={l} label={l} color="blue" />)}
-            </div>
-          </div>
         </SectionCard>
 
         <SectionCard title="Professional Details">
@@ -391,7 +480,7 @@ function OverviewTab({ data, agent }) {
             <FieldItem label="Insurance Company" value={pr.company} />
             <FieldItem label="Agent Code" value={pr.agentCode} mono />
             <FieldItem label="MGA" value={pr.mga} />
-            <FieldItem label="Years Experience" value={`${pr.yearsExp} years`} />
+            <FieldItem label="Years Experience" value={pr.yearsExp ? `${pr.yearsExp} years` : ''} />
           </FieldGrid>
         </SectionCard>
       </div>
@@ -591,8 +680,11 @@ function ProfileTab({ data }) {
       {sub === 'personal' && (
         <div className="grid gap-5 lg:grid-cols-[200px_1fr]">
           <div className="flex flex-col items-center gap-3">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-2xl font-bold text-white">
-              {data.initials}
+            <div
+              className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-2xl font-bold text-white"
+              style={data.avatarUrl ? { backgroundImage: `url(${data.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+            >
+              {!data.avatarUrl && data.initials}
             </div>
             <button className="text-xs font-semibold text-blue-600 hover:text-blue-700">Upload Photo</button>
             <div className="h-12 w-12 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 cursor-pointer hover:border-blue-400">
@@ -625,17 +717,11 @@ function ProfileTab({ data }) {
                 <FieldItem label="Residence Type" value={p.residence} />
               </FieldGrid>
             </SectionCard>
-            <SectionCard title="Languages & Emergency Contact">
-              <div className="flex flex-wrap gap-1.5 mb-4">
-                {p.languages.map(l => <Tag key={l} label={l} color="blue" />)}
-                <button className="inline-flex items-center gap-1 rounded-full border border-dashed border-blue-300 px-2.5 py-1 text-xs font-semibold text-blue-500 hover:bg-blue-50">
-                  <Plus size={10} /> Add
-                </button>
-              </div>
+            <SectionCard title="Emergency Contact Information">
               <FieldGrid>
                 <FieldItem label="Emergency Contact" value={p.emergencyContact} />
                 <FieldItem label="Emergency Phone" value={p.emergencyPhone} />
-                <FieldItem label="Relationship" value={p.emergencyRelation} />
+                <FieldItem label="Emergency Relation" value={p.emergencyRelation} />
               </FieldGrid>
             </SectionCard>
           </div>
@@ -733,7 +819,6 @@ function ProfileTab({ data }) {
               { label: 'Instagram', key: 'instagram', Icon: Instagram, color: 'text-pink-500' },
               { label: 'Twitter / X', key: 'twitter', Icon: Twitter, color: 'text-sky-500' },
               { label: 'YouTube', key: 'youtube', Icon: Youtube, color: 'text-red-500' },
-              { label: 'TikTok', key: 'tiktok', Icon: Hash, color: 'text-slate-800' },
               { label: 'Website', key: 'website', Icon: Globe, color: 'text-slate-500' },
             ].map(({ label, key, Icon: Ic, color }) => (
               <div key={key}>
@@ -880,8 +965,23 @@ function LicensingTab({ data }) {
 
 function ActivityLogTab({ data }) {
   const [filter, setFilter] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const filters = ['all', 'profile', 'delegation', 'licence', 'login', 'system']
-  const filtered = filter === 'all' ? data.activityLog : data.activityLog.filter(a => a.type === filter)
+  const filtered = data.activityLog.filter((entry) => {
+    if (filter !== 'all' && entry.type !== filter) return false
+
+    if (!dateFrom && !dateTo) return true
+    if (!entry.performedAt) return false
+
+    const entryTime = new Date(entry.performedAt).getTime()
+    const fromTime = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null
+    const toTime = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null
+
+    if (fromTime !== null && entryTime < fromTime) return false
+    if (toTime !== null && entryTime > toTime) return false
+    return true
+  })
   return (
     <div>
       <div className="mb-5 flex items-center gap-2 flex-wrap">
@@ -895,9 +995,31 @@ function ActivityLogTab({ data }) {
           </button>
         ))}
         <div className="ml-auto flex items-center gap-2">
-          <input type="date" className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+            className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          />
           <span className="text-xs text-slate-400">to</span>
-          <input type="date" className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={e => setDateTo(e.target.value)}
+            className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          />
+          {(dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={() => {
+                setDateFrom('')
+                setDateTo('')
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-blue-600"
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
@@ -945,7 +1067,28 @@ function DocumentsTab({ data }) {
   return <DocumentsTabContent data={data} />
 }
 
-function SettingsTab({ data }) {
+const SUBSCRIPTIONS = [
+  {
+    name: 'Silver',
+    icon: '🥈',
+    description: 'Standard agent profile badge and basic marketing access.',
+    color: 'border-slate-300 bg-slate-50 text-slate-700',
+  },
+  {
+    name: 'Gold',
+    icon: '🥇',
+    description: 'Gold badge with expanded marketing templates and visibility.',
+    color: 'border-amber-300 bg-amber-50 text-amber-700',
+  },
+  {
+    name: 'Platinum',
+    icon: '💎',
+    description: 'Premium badge with full profile benefits and priority visibility.',
+    color: 'border-violet-300 bg-violet-50 text-violet-700',
+  },
+]
+
+function SettingsTab({ data, onSubscriptionChange }) {
   const s = data.settings
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -960,44 +1103,48 @@ function SettingsTab({ data }) {
               {['Active', 'Inactive', 'Suspended', 'Terminated'].map(v => <option key={v}>{v}</option>)}
             </select>
           </div>
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-800">Subscription Tier</p>
-              <p className="text-xs text-slate-400">Determines available marketing templates</p>
-            </div>
-            <select defaultValue={s.tier} className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100">
-              {['Silver', 'Gold', 'Platinum'].map(v => <option key={v}>{v}</option>)}
-            </select>
-          </div>
-          <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-800">Two-Factor Auth</p>
-              <p className="text-xs text-slate-400">Extra security for login</p>
-            </div>
-            <div className={`relative h-5 w-9 rounded-full cursor-pointer transition ${s.twoFactor ? 'bg-blue-500' : 'bg-slate-300'}`}>
-              <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${s.twoFactor ? 'left-[18px]' : 'left-0.5'}`} />
-            </div>
-          </div>
         </div>
+      </SectionCard>
+
+      <SectionCard title="Subscription">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {SUBSCRIPTIONS.map(subscription => {
+            const active = s.tier === subscription.name
+            return (
+              <button
+                key={subscription.name}
+                type="button"
+                onClick={() => onSubscriptionChange(subscription.name)}
+                className={`rounded-xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${
+                  active ? `${subscription.color} ring-2 ring-blue-100` : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200'
+                }`}
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-xl">{subscription.icon}</span>
+                  {active && <Badge label="Active" color="blue" />}
+                </div>
+                <p className="text-sm font-bold">{subscription.name}</p>
+                <p className="mt-1 text-xs leading-relaxed opacity-75">{subscription.description}</p>
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-3 text-xs text-slate-400">
+          This subscription controls the badge shown on the agent profile.
+        </p>
       </SectionCard>
 
       <SectionCard title="Notification Preferences">
         <div className="space-y-3">
-          {[
-            { label: 'Email Notifications', key: 'email', desc: 'Receive alerts via email' },
-            { label: 'SMS Notifications', key: 'sms', desc: 'Receive alerts via SMS' },
-            { label: 'Portal Notifications', key: 'portal', desc: 'In-app notification bell' },
-          ].map(({ label, key, desc }) => (
-            <div key={key} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-800">{label}</p>
-                <p className="text-xs text-slate-400">{desc}</p>
-              </div>
-              <div className={`relative h-5 w-9 rounded-full cursor-pointer transition ${s.notifications[key] ? 'bg-blue-500' : 'bg-slate-300'}`}>
-                <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${s.notifications[key] ? 'left-[18px]' : 'left-0.5'}`} />
-              </div>
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Email Notifications</p>
+              <p className="text-xs text-slate-400">Receive alerts via email</p>
             </div>
-          ))}
+            <div className={`relative h-5 w-9 rounded-full cursor-pointer transition ${s.notifications.email ? 'bg-blue-500' : 'bg-slate-300'}`}>
+              <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition ${s.notifications.email ? 'left-[18px]' : 'left-0.5'}`} />
+            </div>
+          </div>
         </div>
       </SectionCard>
 
@@ -1041,9 +1188,12 @@ export default function AgentProfileView() {
     ])
       .then(([agentData, _profileData, activityData]) => {
         if (!mounted) return
-        const nextData = buildMockData(agentData)
+        const nextData = applyDynamicProfileData(buildMockData(agentData), agentData)
         nextData.documents = buildUploadedDocuments(agentData)
         const activities = Array.isArray(activityData?.items) ? activityData.items : []
+        const latestLoginTime = getLatestLoginTime(activities)
+        nextData.lastLogin = latestLoginTime || nextData.lastLogin
+        nextData.lastLoginWarning = !nextData.lastLogin
         nextData.activityLog = activities.map(mapAccountActivity)
         setAgent(agentData)
         setMockData(nextData)
@@ -1085,6 +1235,44 @@ export default function AgentProfileView() {
   if (!d) return null
 
   const tierColors = { Silver: 'bg-slate-100 text-slate-600 border-slate-300', Gold: 'bg-amber-50 text-amber-600 border-amber-300', Platinum: 'bg-violet-50 text-violet-600 border-violet-300' }
+  const handleSubscriptionChange = async (tier) => {
+    setMockData(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        tier,
+        settings: {
+          ...prev.settings,
+          tier,
+        },
+      }
+    })
+
+    if (!agent?.id) return
+
+    try {
+      const currentProfile = agent?.documents?.profile || {}
+      const nextProfile = {
+        ...currentProfile,
+        settings: {
+          ...(currentProfile.settings || {}),
+          subscriptionTier: tier,
+        },
+      }
+      const formData = new FormData()
+      formData.append('profile', JSON.stringify(nextProfile))
+      const updated = await updateAgentProfile(agent.id, formData)
+      setAgent(updated?.agent || {
+        ...agent,
+        documents: {
+          ...(agent.documents || {}),
+          profile: nextProfile,
+        },
+      })
+    } catch (err) {
+      window.alert(err.message || 'Unable to update subscription.')
+    }
+  }
 
   return (
     <div className="mx-auto flex h-full min-h-0 w-full  flex-col gap-5">
@@ -1106,8 +1294,11 @@ export default function AgentProfileView() {
           <div className="flex flex-wrap items-end justify-between gap-4 -mt-10 mb-5">
             {/* Avatar + name */}
             <div className="flex items-end gap-4">
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white bg-gradient-to-br from-blue-500 to-blue-700 text-xl font-bold text-white shadow-md">
-                {d.initials}
+              <div
+                className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-gradient-to-br from-blue-500 to-blue-700 text-xl font-bold text-white shadow-md"
+                style={d.avatarUrl ? { backgroundImage: `url(${d.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+              >
+                {!d.avatarUrl && d.initials}
               </div>
               <div className="mb-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
@@ -1175,7 +1366,7 @@ export default function AgentProfileView() {
         {activeTab === 'licensing' && <LicensingTab data={d} />}
         {activeTab === 'documents' && <DocumentsTab data={d} />}
         {activeTab === 'activity' && <ActivityLogTab data={d} />}
-        {activeTab === 'settings' && <SettingsTab data={d} />}
+        {activeTab === 'settings' && <SettingsTab data={d} onSubscriptionChange={handleSubscriptionChange} />}
       </div>
     </div>
   )
