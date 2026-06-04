@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -114,9 +114,11 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null)
   const [analysisId, setAnalysisId] = useState(null)
+  const [hasBeenSaved, setHasBeenSaved] = useState(false)
   const [pdfPreviewing, setPdfPreviewing] = useState(false)
   const [sendModalOpen, setSendModalOpen] = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
+  const sendingEmailRef = useRef(false)
   const [sendResult, setSendResult] = useState(null)
 
   const session = auth.get()
@@ -169,6 +171,7 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
         ])
         if (analysis && analysis.id) {
           setAnalysisId(analysis.id)
+          setHasBeenSaved(true)
           setForm({
             ownHouse: analysis.ownHouse ?? false,
             houseValue: analysis.houseValue,
@@ -223,6 +226,7 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
     setSaveMsg(null)
     try {
       await saveNeedAnalysis(leadId, form)
+      setHasBeenSaved(true)
       setSaveMsg('saved')
       setTimeout(() => setSaveMsg(null), 3000)
     } catch (err) {
@@ -282,7 +286,8 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
       weight: 1,
       filled: Boolean(
         form.lifeInsurance || form.criticalIllness || form.disability ||
-        form.groupInsurance || (form.existingPolicies || []).some((p) => p.provider || p.type)
+        form.groupInsurance || (form.existingPolicies || []).some((p) => p.provider || p.type) ||
+        hasBeenSaved
       ),
     },
     {
@@ -291,7 +296,8 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
       weight: 1,
       filled: Boolean(
         form.spouseName || form.spouseDOB || form.spouseOccupation || form.spouseIncome ||
-        (form.children || []).some((c) => c.name)
+        (form.children || []).some((c) => c.name) ||
+        hasBeenSaved
       ),
     },
     {
@@ -300,7 +306,7 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
       weight: 1,
       filled: Boolean(form.desiredCoverage || form.budgetMonthly || form.coverageNotes),
     },
-  ], [form])
+  ], [form, hasBeenSaved])
 
   const completedCount = sections.filter((s) => s.filled).length
   const totalSections = sections.length
@@ -329,9 +335,12 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
   }
 
   const handleSendToClient = async (overrideEmail) => {
+    if (sendingEmailRef.current) return
+    sendingEmailRef.current = true
     const targetEmail = (overrideEmail || lead?.email || '').trim()
     if (!targetEmail) {
       alert('Client email is required.')
+      sendingEmailRef.current = false
       return
     }
     setSendingEmail(true)
@@ -347,6 +356,7 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
     } catch (err) {
       setSendResult({ ok: false, message: err.message || 'Failed to send report' })
     } finally {
+      sendingEmailRef.current = false
       setSendingEmail(false)
     }
   }
