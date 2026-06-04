@@ -1,15 +1,12 @@
 import {
-  Bell,
   CalendarClock,
   CheckCircle2,
-  CircleHelp,
   FileText,
-  Search,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { auth } from '../../utils/auth.js'
 import AgentSidebar from '../../components/AgentSidebar.jsx'
+import CommonHeader from '../../components/CommonHeader.jsx'
 import { getAgentSignedDocuments } from '../../utils/agents.js'
 
 const documentCatalog = [
@@ -25,7 +22,6 @@ const nextTasks = [
 ]
 
 export default function AgentDashboard() {
-  const navigate = useNavigate()
   const session = auth.get()
   const agentName = session?.name || 'Agent'
   const initials = agentName
@@ -35,6 +31,7 @@ export default function AgentDashboard() {
     .slice(0, 2)
     .toUpperCase()
   const [signedDocs, setSignedDocs] = useState({})
+  const [headerSearch, setHeaderSearch] = useState('')
 
   useEffect(() => {
     if (!session?.id) return
@@ -87,27 +84,13 @@ export default function AgentDashboard() {
         <AgentSidebar agentName={agentName} initials={initials} />
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-     <header className="flex h-14 shrink-0 items-center border-b border-slate-200 bg-white px-6">
-            <div className="text-sm font-bold">Agent Dashboard</div>
-            <div className="relative ml-8 w-72">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                placeholder="Search documents, training..."
-                className="h-8 w-full rounded-md border border-slate-300 bg-slate-50 pl-9 pr-3 text-[11px] outline-none focus:border-brand-500 focus:bg-white"
-              />
-            </div>
-            <div className="ml-auto flex items-center gap-4 text-slate-500">
-              <Bell size={15} />
-              <CircleHelp size={15} />
-              <button
-                type="button"
-                onClick={() => navigate('/agent/profile')}
-                className="grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
-              >
-                {initials}
-              </button>
-            </div>
-          </header>
+          <CommonHeader
+            title="Agent Dashboard"
+            searchValue={headerSearch}
+            onSearchChange={setHeaderSearch}
+            searchPlaceholder="Search documents, training..."
+            compact
+          />
 
           <div className="flex-1 overflow-y-auto p-6">
             <div className="mx-auto max-w-6xl space-y-5">
