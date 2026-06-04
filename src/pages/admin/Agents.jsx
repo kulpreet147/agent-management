@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAgents, resendAgentInvite } from '../../utils/agents.js'
-import { Eye, FilePlus, Search, Plus } from 'lucide-react'
+import { Clock3, Eye, FilePlus, Search, Plus, X } from 'lucide-react'
 import StatCard from '../../components/StatCard.jsx'
 import { formatAccountId } from '../../utils/accountId.js'
 
@@ -85,11 +85,13 @@ export default function Agents() {
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [toast, setToast] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [inviteMode, setInviteMode] = useState(false)
   const [selectedAgentIds, setSelectedAgentIds] = useState([])
   const [sendingInvites, setSendingInvites] = useState(false)
+  const toastTimerRef = useRef(null)
   const navigate = useNavigate()
   const pageSize = 8
 
@@ -188,6 +190,37 @@ export default function Agents() {
     setSelectedAgentIds((prev) =>
       prev.includes(agentId) ? prev.filter((id) => id !== agentId) : [...prev, agentId],
     )
+  }
+
+  const showToast = (message) => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
+    setToast(message)
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 2500)
+  }
+
+  const handleAgentView = (agent) => {
+    if (inviteMode) return
+
+    const activation = Number(agent?.accountActivationStatus)
+    const step = Number(agent?.onboardingStatus || 1)
+    const status = String(agent?.status || '').toLowerCase()
+
+    if (activation === 1) {
+      navigate(`/admin/agents/${agent.id}/profile`)
+      return
+    }
+
+    if (step === 5 || status === 'ready_for_mga' || status === 'ready_to_mga' || status === 'ready for mga') {
+      navigate(`/admin/agents/${agent.id}`)
+      return
+    }
+
+    if (step === 1 || step === 2 || status === 'invited' || status === 'account_setup') {
+      showToast('User is still agent status.')
+      return
+    }
+
+    showToast('User is still agent status.')
   }
 
   const handleInviteAction = async () => {
@@ -315,6 +348,29 @@ export default function Agents() {
           </div>
         )}
 
+        {toast && (
+          <div className="fixed right-6 top-20 z-50 w-[320px] overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-xl shadow-slate-900/10">
+            <div className="flex items-start gap-3 p-4">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-600">
+                <Clock3 size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-slate-900">Agent onboarding in progress</div>
+                <div className="mt-0.5 text-xs leading-5 text-slate-500">{toast}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setToast(null)}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Dismiss notification"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="h-1 bg-gradient-to-r from-amber-400 via-orange-400 to-amber-300" />
+          </div>
+        )}
+
         <div className="mt-6 min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200">
           <div className="h-full overflow-x-auto overflow-y-auto">
             <table className="min-w-full text-sm">
@@ -362,10 +418,7 @@ export default function Agents() {
                     <tr
                       key={agent.id}
                       className="cursor-pointer transition hover:bg-slate-50"
-                      onClick={() => {
-                        if (inviteMode) return
-                        navigate(`/admin/agents/${agent.id}`)
-                      }}
+                      onClick={() => handleAgentView(agent)}
                     >
                       <td className="px-4 py-5">
                         <div className="flex items-center gap-3">
@@ -425,7 +478,7 @@ export default function Agents() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation()
-                            navigate(`/admin/agents/${agent.id}`)
+                            handleAgentView(agent)
                           }}
                           className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
                         >

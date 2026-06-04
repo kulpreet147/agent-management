@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Bell, CircleHelp, Shield } from 'lucide-react'
+import { ArrowRight, Shield } from 'lucide-react'
 import { auth } from '../../utils/auth.js'
 import { updateAgentOnboardingStatus, updateAgentRegistrationDetails } from '../../utils/agents.js'
+import CommonHeader from '../../components/CommonHeader.jsx'
 
 export default function AgentRegistrationForm() {
   const session = auth.get()
@@ -33,7 +34,7 @@ export default function AgentRegistrationForm() {
 
   return (
     <div className="min-h-screen bg-[#f4f8fc] text-slate-950">
-      <AgentHeader initials="AS" />
+      <CommonHeader title="Agent Management" compact />
 
       <main className="px-6 pb-8 pt-7">
         <section className="mx-auto max-w-[620px]">
@@ -116,27 +117,6 @@ export default function AgentRegistrationForm() {
         </section>
       </main>
     </div>
-  )
-}
-
-export function AgentHeader({ initials = 'AG', name = 'Agent', subtitle = 'Agent In-Onboarding' }) {
-  return (
-    <header className="h-11 border-b border-slate-200 bg-white">
-      <div className="flex h-full items-center px-8">
-        <div className="text-xs font-bold text-slate-950">Agent Management</div>
-        <div className="ml-auto flex items-center gap-4 text-slate-500">
-          <Bell size={13} />
-          <CircleHelp size={13} />
-          <div className="text-right leading-tight">
-            <div className="text-[10px] font-bold text-slate-900">{name}</div>
-            <div className="text-[9px] text-slate-500">{subtitle}</div>
-          </div>
-          <div className="grid h-7 w-7 place-items-center rounded-full bg-slate-800 text-[10px] font-bold text-white">
-            {initials}
-          </div>
-        </div>
-      </div>
-    </header>
   )
 }
 

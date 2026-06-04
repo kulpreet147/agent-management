@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
-  Bell,
-  Search,
-  CircleHelp,
   ChevronRight,
   ArrowLeft,
   Wallet,
@@ -24,6 +21,7 @@ import {
 } from "lucide-react";
 import { auth } from "../../utils/auth.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
+import CommonHeader from "../../components/CommonHeader.jsx";
 import QuoteModal from "../../components/QuoteModal.jsx";
 import {
   getLead,
@@ -408,24 +406,18 @@ export default function AgentLeadDetail() {
         <AgentSidebar agentName={agentName} initials={initials} />
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="flex h-16 shrink-0 items-center border-b border-slate-200 bg-white px-6">
-            <div className="flex items-center gap-3">
+          <CommonHeader
+            title="Lead Detail"
+            leading={
               <button
                 onClick={() => navigate("/agent/leads")}
                 className="p-1 rounded hover:bg-slate-100 transition-colors"
+                type="button"
               >
                 <ArrowLeft size={18} className="text-slate-500" />
               </button>
-              <span className="text-base font-bold">Lead Detail</span>
-            </div>
-            <div className="ml-auto flex items-center gap-4 text-slate-500">
-              <Bell size={17} />
-              <CircleHelp size={17} />
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white">
-                {initials}
-              </div>
-            </div>
-          </header>
+            }
+          />
 
           <div className="flex-1 overflow-y-auto p-6">
             <div className="mx-auto max-w-7xl">

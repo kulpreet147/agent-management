@@ -83,7 +83,7 @@ export default function PasswordReset() {
           <div className="h-9 w-9 rounded-lg bg-brand-600 text-white grid place-items-center shadow-sm">
             <Eye size={18} />
           </div>
-          <span className="text-xl font-bold text-brand-700 tracking-tight">AgentFlow</span>
+          <span className="text-xl font-bold text-brand-700 tracking-tight">Insurely</span>
         </div>
 
         <div className="flex-1 flex items-center justify-center">
@@ -215,7 +215,7 @@ export default function PasswordReset() {
               Use the secure link from your inbox to choose a new password. The link expires after 10 minutes.
             </p>
           </div>
-          <div className="text-[11px] text-white/50 tracking-wide">(c) 2026 AGENTFLOW TECHNOLOGIES INC. - ALL RIGHTS RESERVED.</div>
+          <div className="text-[11px] text-white/50 tracking-wide">(c) 2026 Insurely TECHNOLOGIES INC. - ALL RIGHTS RESERVED.</div>
         </div>
       </div>
     </div>

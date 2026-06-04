@@ -105,7 +105,7 @@ export default function Login() {
           <div className="h-9 w-9 rounded-lg bg-brand-600 text-white grid place-items-center shadow-sm">
             <Shield size={18} />
           </div>
-          <span className="text-xl font-bold text-brand-700 tracking-tight">AgentFlow</span>
+          <span className="text-xl font-bold text-brand-700 tracking-tight">Insurely</span>
         </div>
 
         <div className="flex-1 flex items-center justify-center">
@@ -262,7 +262,7 @@ export default function Login() {
               Redefined.
             </h2>
             <p className="mt-4 text-white/75 leading-relaxed">
-              AgentFlow delivers a sophisticated, bank-grade infrastructure designed for managing
+              Insurely delivers a sophisticated, bank-grade infrastructure designed for managing
               complex global insurance ecosystems with absolute precision.
             </p>
 
@@ -281,7 +281,7 @@ export default function Login() {
           </div>
 
           <div className="text-[11px] text-white/50 tracking-wide">
-            (c) 2024 AGENTFLOW TECHNOLOGIES INC. - ALL RIGHTS RESERVED.
+            (c) 2024 Insurely TECHNOLOGIES INC. - ALL RIGHTS RESERVED.
           </div>
         </div>
       </div>

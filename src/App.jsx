@@ -25,6 +25,7 @@ import LeadReassign from "./pages/admin/LeadReassign.jsx";
 import LeadRecordCreation from "./pages/admin/LeadRecordCreation.jsx";
 import AgentDetails from "./pages/admin/AgentDetails.jsx";
 import AgentMGAPackage from "./pages/admin/AgentMGAPackage.jsx";
+import AgentProfileView from "./pages/admin/AgentProfileView.jsx";
 import AgentRegistrationForm from "./pages/agent/AgentRegistrationForm.jsx";
 import AgentDocumentSigning from "./pages/agent/AgentDocumentSigning.jsx";
 import AgentWelcome from "./pages/agent/AgentWelcome.jsx";
@@ -38,6 +39,7 @@ import AgentProfile from "./pages/agent/AgentProfile.jsx";
 import AgentClientManagement from "./pages/agent/AgentClientManagement.jsx";
 import AgentClientDetail from "./pages/agent/AgentClientDetail.jsx";
 import Analytics from "./pages/admin/Analytics.jsx";
+import AgentUnderImplementation from "./pages/agent/AgentUnderImplementation.jsx";
 
 function Protected({ children }) {
   return auth.isAuthenticated() ? children : <Navigate to="/login" replace />;
@@ -178,6 +180,50 @@ export default function App() {
           </AgentProtected>
         }
       />
+      <Route
+        path="/agent/documents"
+        element={
+          <AgentProtected>
+            <AgentUnderImplementation
+              title="Documents"
+              breadcrumb="Agents > Documents"
+            />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/training"
+        element={
+          <AgentProtected>
+            <AgentUnderImplementation
+              title="Training"
+              breadcrumb="Agents > Training"
+            />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/commissions"
+        element={
+          <AgentProtected>
+            <AgentUnderImplementation
+              title="Commissions"
+              breadcrumb="Agents > Commissions"
+            />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/settings"
+        element={
+          <AgentProtected>
+            <AgentUnderImplementation
+              title="Settings"
+              breadcrumb="Agents > Settings"
+            />
+          </AgentProtected>
+        }
+      />
       <Route path="/" element={<RoleRoute />} />
 
       <Route
@@ -263,6 +309,17 @@ export default function App() {
           <Protected>
             <DashboardLayout variant="admin">
               <AgentDetails />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/admin/agents/:agentId/profile"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <AgentProfileView />
             </DashboardLayout>
           </Protected>
         }

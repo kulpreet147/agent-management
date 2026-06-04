@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { auth } from "../../utils/auth.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
+import CommonHeader from "../../components/CommonHeader.jsx";
 import { getAgent, getAgentProfile, updateAgentProfile } from "../../utils/agents.js";
 
 function normalizePhoneDigits(value) {
@@ -104,7 +105,6 @@ function PersonalTab() {
   const [married, setMarried] = useState(true);
   const [hasChildren, setHasChildren] = useState(false);
   const [children, setChildren] = useState([{ name: "", age: "", sex: "Male" }]);
-  const [languages, setLanguages] = useState(["English", "French"]);
   const [residence, setResidence] = useState("Owned");
 
   const addChild = () => {
@@ -146,7 +146,7 @@ function PersonalTab() {
             <input style={css.input} defaultValue="+1 (345) 000-0001" />
           </div>
           <div style={css.field}>
-            <label style={css.label}>Relationship</label>
+            <label style={css.label}>Emergency Relation</label>
             <select style={css.select}>
               <option>Spouse</option><option>Parent</option><option>Sibling</option><option>Other</option>
             </select>
@@ -168,19 +168,6 @@ function PersonalTab() {
           <div style={css.field}>
             <label style={css.label}>Postal Code</label>
             <input style={css.input} defaultValue="M5V 2L1" />
-          </div>
-        </div>
-
-        <div style={{ marginTop: 20 }}>
-          <label style={css.label}>Languages</label>
-          <div style={{ ...css.tagContainer, marginTop: 6 }}>
-            {languages.map(lang => (
-              <div key={lang} style={css.tag}>
-                {lang}
-                <span style={{ cursor: "pointer", opacity: 0.6 }} onClick={() => setLanguages(l => l.filter(x => x !== lang))}>×</span>
-              </div>
-            ))}
-            <span style={css.tagAdd}>+ Add language...</span>
           </div>
         </div>
 
@@ -377,6 +364,10 @@ export default function AgentProfile() {
   const [agentData, setAgentData] = useState(null);
   const agentName = agentData?.name || session?.name || "Agent";
   const agentEmail = agentData?.email || session?.email || "";
+  const subscriptionTier =
+    agentData?.subscriptionTier ||
+    agentData?.documents?.profile?.settings?.subscriptionTier ||
+    "Silver";
   const initials = agentName
     .split(" ")
     .map((part) => part[0])
@@ -387,13 +378,15 @@ export default function AgentProfile() {
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [personal, setPersonal] = useState({
-    businessPhone: "+1 (555) 000-0001",
-    emergencyContactPhone: "+1 (345) 000-0001",
-    businessAddress: "123 Financial Ave",
-    city: "Toronto",
-    postalCode: "M5V 2L1",
-    residence: "Owned",
-    married: true,
+    businessPhone: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    emergencyContactRelation: "",
+    businessAddress: "",
+    city: "",
+    postalCode: "",
+    residence: "",
+    married: false,
     spouseName: "",
     spouseDob: "",
     spouseEmail: "",
@@ -401,9 +394,9 @@ export default function AgentProfile() {
     children: [{ name: "", age: "", gender: "Male" }],
   });
   const [professional, setProfessional] = useState({
-    bio: "Experienced real estate agent with a focus on high-end residential properties in the Greater Toronto Area. Dedicated to providing client-centric solutions and data-driven market insights.",
-    yearsOfExperience: "6",
-    licenceDetails: "A4-3226-92492 | Expiry: May 31, 2026 | Type: Existing | Issuing Transfer",
+    bio: "",
+    yearsOfExperience: "",
+    licenceDetails: "",
   });
   const [business, setBusiness] = useState({
     consent: true,
@@ -506,8 +499,9 @@ export default function AgentProfile() {
     <div className="min-h-screen bg-[#0f1117]">
       <div className="flex h-screen overflow-hidden">
         <AgentSidebar agentName={agentName} initials={initials} />
-        <div style={{ ...css.page, flex: 1 }}>
-          <div style={css.main}>
+        <div style={{ ...css.page, flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <CommonHeader title="My Profile" compact />
+          <div style={{ ...css.main, height: "auto", minHeight: 0 }}>
             <div style={css.pageHeader}>
               <div>
                 <div style={css.pageTitle}>My Profile</div>
@@ -545,6 +539,7 @@ export default function AgentProfile() {
                   avatarPreview={avatarPreview}
                   setAvatarPreview={setAvatarPreview}
                   setAvatarFile={setAvatarFile}
+                  subscriptionTier={subscriptionTier}
                   isEditing={isEditing}
                   onNext={() => setActiveTab("Professional")}
                 />
@@ -578,8 +573,14 @@ export default function AgentProfile() {
   );
 }
 
-function PersonalTabConnected({ css, agentName, agentEmail, personal, setPersonal, avatarPreview, setAvatarPreview, setAvatarFile, isEditing, onNext }) {
+function PersonalTabConnected({ css, agentName, agentEmail, personal, setPersonal, avatarPreview, setAvatarPreview, setAvatarFile, subscriptionTier, isEditing, onNext }) {
   const fileInputRef = useRef(null);
+  const tierIcons = { Silver: "🥈", Gold: "🥇", Platinum: "💎" };
+  const tierStyles = {
+    Silver: { background: "#f8fafc", color: "#475569", borderColor: "#cbd5e1" },
+    Gold: { background: "#fffbeb", color: "#b45309", borderColor: "#fcd34d" },
+    Platinum: { background: "#f5f3ff", color: "#6d28d9", borderColor: "#c4b5fd" },
+  };
   const addChild = () =>
     setPersonal((prev) => ({
       ...prev,
@@ -619,7 +620,25 @@ function PersonalTabConnected({ css, agentName, agentEmail, personal, setPersona
             <button type="button" style={css.avatarBadge} disabled={!isEditing} onClick={() => fileInputRef.current?.click()}>✎</button>
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 600 }}>{agentName}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{agentName}</div>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  border: "1px solid",
+                  borderRadius: 999,
+                  padding: "2px 8px",
+                  fontSize: 10,
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  ...(tierStyles[subscriptionTier] || tierStyles.Silver),
+                }}
+              >
+                {tierIcons[subscriptionTier] || tierIcons.Silver} {subscriptionTier}
+              </span>
+            </div>
             <div style={{ fontSize: 12, color: "#9095b0", marginTop: 3 }}>{agentEmail}</div>
             <button type="button" style={{ ...css.uploadBtn, opacity: isEditing ? 1 : 0.6, cursor: isEditing ? "pointer" : "not-allowed" }} disabled={!isEditing} onClick={() => fileInputRef.current?.click()}>Upload Photo</button>
             <input
@@ -646,6 +665,16 @@ function PersonalTabConnected({ css, agentName, agentEmail, personal, setPersona
             />
           </div>
           <div style={css.field}>
+            <label style={css.label}>Emergency Contact Name</label>
+            <input
+              style={css.input}
+              value={personal.emergencyContactName || ""}
+              onChange={(e) => setPersonal((p) => ({ ...p, emergencyContactName: e.target.value }))}
+              disabled={!isEditing}
+              placeholder="Contact name"
+            />
+          </div>
+          <div style={css.field}>
             <label style={css.label}>Emergency Contact Phone</label>
             <input
               style={css.input}
@@ -655,6 +684,16 @@ function PersonalTabConnected({ css, agentName, agentEmail, personal, setPersona
               inputMode="tel"
               maxLength={14}
               placeholder="(604) 555-0123"
+            />
+          </div>
+          <div style={css.field}>
+            <label style={css.label}>Emergency Relation</label>
+            <input
+              style={css.input}
+              value={personal.emergencyContactRelation || ""}
+              onChange={(e) => setPersonal((p) => ({ ...p, emergencyContactRelation: e.target.value }))}
+              disabled={!isEditing}
+              placeholder="e.g. Spouse, Parent"
             />
           </div>
           <div style={css.fieldFull}><label style={css.label}>Business Address</label><input style={css.input} value={personal.businessAddress || ""} disabled={!isEditing} onChange={(e) => setPersonal((p) => ({ ...p, businessAddress: e.target.value }))} /></div>
@@ -772,3 +811,4 @@ function BusinessTabConnected({ css, business, setBusiness, isEditing, onBack, o
     </div>
   );
 }
+

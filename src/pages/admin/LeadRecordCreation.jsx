@@ -148,7 +148,7 @@ export default function LeadRecordCreation() {
 
       if (agents.length > 0 && totalSplit === 100) {
         payload.assignments = agents.map((a) => ({
-          agentId: a.agentId,
+          agentId: a.agentUuid || a.agentId,
           commissionShare: a.split,
         }))
       }

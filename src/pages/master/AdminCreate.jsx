@@ -12,20 +12,81 @@ const initialForm = {
   zipcode: '',
 }
 
+function normalizePhoneDigits(value) {
+  return String(value || '').replace(/\D/g, '').slice(0, 11)
+}
+
+function formatUsCaPhone(value) {
+  const raw = normalizePhoneDigits(value)
+  const digits = raw.length === 11 && raw.startsWith('1') ? raw.slice(1) : raw
+  if (digits.length <= 3) return digits
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`
+}
+
+function validateUsCaPhone(value) {
+  if (!value) return true
+  const raw = normalizePhoneDigits(value)
+  const digits = raw.length === 11 && raw.startsWith('1') ? raw.slice(1) : raw
+  return digits.length === 10
+}
+
+function normalizeUsCaPostalCode(value) {
+  return String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9 -]/g, '')
+    .slice(0, 10)
+}
+
+function validateUsCaPostalCode(value) {
+  if (!value) return true
+  const normalized = normalizeUsCaPostalCode(value).trim()
+  return /^\d{5}(-\d{4})?$/.test(normalized) || /^[A-Z]\d[A-Z][ -]?\d[A-Z]\d$/.test(normalized)
+}
+
 export default function AdminCreate() {
   const navigate = useNavigate()
   const [form, setForm] = useState(initialForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [fieldError, setFieldError] = useState({})
   const [createdInvite, setCreatedInvite] = useState(null)
 
   const handleChange = (field) => (event) => {
     setForm((previous) => ({ ...previous, [field]: event.target.value }))
+    if (field === 'phone' || field === 'zipcode') {
+      setFieldError((previous) => ({ ...previous, [field]: '' }))
+    }
+  }
+
+  const handlePhoneChange = (event) => {
+    setForm((previous) => ({ ...previous, phone: formatUsCaPhone(event.target.value) }))
+    setFieldError((previous) => ({ ...previous, phone: '' }))
+  }
+
+  const handleZipcodeChange = (event) => {
+    setForm((previous) => ({
+      ...previous,
+      zipcode: normalizeUsCaPostalCode(event.target.value),
+    }))
+    setFieldError((previous) => ({ ...previous, zipcode: '' }))
   }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
+    setFieldError({})
+
+    if (!validateUsCaPhone(form.phone)) {
+      setFieldError((previous) => ({ ...previous, phone: 'Enter a valid US/Canada phone number.' }))
+      return
+    }
+
+    if (!validateUsCaPostalCode(form.zipcode)) {
+      setFieldError((previous) => ({ ...previous, zipcode: 'Enter a valid US/Canada zipcode/postal code.' }))
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -86,11 +147,22 @@ export default function AdminCreate() {
                 <input
                   type={type}
                   value={form[field]}
-                  onChange={handleChange(field)}
+                  onChange={
+                    field === 'phone'
+                      ? handlePhoneChange
+                      : field === 'zipcode'
+                        ? handleZipcodeChange
+                        : handleChange(field)
+                  }
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
                   placeholder={label}
                   required={field !== 'address' && field !== 'phone'}
+                  inputMode={field === 'phone' ? 'tel' : undefined}
+                  maxLength={field === 'phone' ? 14 : field === 'zipcode' ? 10 : undefined}
                 />
+                {(field === 'phone' || field === 'zipcode') && fieldError[field] ? (
+                  <span className="mt-1 block text-xs text-red-600">{fieldError[field]}</span>
+                ) : null}
               </label>
             ))}
 

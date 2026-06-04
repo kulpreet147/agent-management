@@ -1,4 +1,5 @@
 import { CheckCircle2 } from 'lucide-react'
+import CommonHeader from './CommonHeader.jsx'
 
 const steps = [
   ['registration', 'Registration'],
@@ -11,12 +12,7 @@ export default function AgentOnboardingShell({ activeStep, title, subtitle, chil
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="h-14 border-b border-slate-200 bg-white">
-        <div className="mx-auto flex h-full max-w-[1180px] items-center justify-between px-6">
-          <div className="text-sm font-bold text-brand-800">Agent Management</div>
-          <div className="text-xs font-semibold text-slate-500">Secure Onboarding</div>
-        </div>
-      </header>
+      <CommonHeader title="Agent Management" compact />
 
       <main className="mx-auto max-w-[1180px] px-6 py-8">
         <div className="mb-7 text-center">

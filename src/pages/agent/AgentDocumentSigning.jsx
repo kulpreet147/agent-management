@@ -3,6 +3,7 @@ import { Send, Trash2, Keyboard, FileText, ShieldCheck, Lock } from 'lucide-reac
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../../utils/auth.js';
 import { saveAgentSignedDocument, updateAgentOnboardingStatus } from '../../utils/agents.js';
+import CommonHeader from '../../components/CommonHeader.jsx';
 
 const DOCUMENTS = [
   {
@@ -332,11 +333,7 @@ const DocumentSigningPage = () => {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-50 text-slate-950 overflow-hidden">
-      {/* Header */}
-      <header className="h-14 border-b border-slate-200 bg-white shadow-sm flex items-center px-6 shrink-0">
-        <div className="mx-4 h-4 w-px bg-slate-200" />
-        <div className="text-[10px] font-semibold text-slate-500">Document Signing</div>
-      </header>
+      <CommonHeader title="Document Signing" compact />
 
       {/* Main Content */}
       <main className="flex min-h-0 flex-1 overflow-hidden">

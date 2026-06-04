@@ -1,11 +1,59 @@
-import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import StatCard from '../components/StatCard.jsx'
 import StatusPill from '../components/StatusPill.jsx'
-import { masterStats, auditLogs } from '../data/dummy.js'
+import { auditLogs } from '../data/dummy.js'
+import { listAccounts } from '../utils/admins.js'
+import { getAgents } from '../utils/agents.js'
 
 export default function MasterDashboard() {
-  const navigate = useNavigate()
+  const [admins, setAdmins] = useState([])
+  const [agents, setAgents] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let mounted = true
+
+    Promise.all([listAccounts('admin'), getAgents()])
+      .then(([adminsData, agentsData]) => {
+        if (!mounted) return
+        setAdmins(Array.isArray(adminsData) ? adminsData : adminsData?.items || [])
+        setAgents(Array.isArray(agentsData) ? agentsData : agentsData?.items || [])
+      })
+      .catch((err) => {
+        if (!mounted) return
+        setError(err.message || 'Unable to load system overview.')
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const stats = useMemo(() => {
+    const totalAdmins = admins.length
+    const activeAdmins = admins.filter(
+      (admin) => (admin.adminStatus || (admin.isActive ? 'active' : 'pending')) === 'active',
+    ).length
+    const totalAgents = agents.length
+    const pendingOnboardings = agents.filter((agent) => {
+      const activation = Number(agent?.accountActivationStatus)
+      const step = Number(agent?.onboardingStatus || 1)
+      const status = String(agent?.status || '').toLowerCase()
+
+      return activation !== 1 && activation !== 2 && (step < 6 || status === 'under_review')
+    }).length
+
+    return [
+      { label: 'Total Admins', value: totalAdmins, tone: 'blue' },
+      { label: 'Active Admins', value: activeAdmins, tone: 'green' },
+      { label: 'Total Agents', value: totalAgents, tone: 'indigo' },
+      { label: 'Pending Onboardings', value: pendingOnboardings, tone: 'amber' },
+    ]
+  }, [admins, agents])
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-card">
@@ -16,24 +64,21 @@ export default function MasterDashboard() {
             Real-time monitoring of administrative operations and agent lifecycle.
           </p>
         </div>
-        <button
-          onClick={() => navigate('/master/admin-management/new')}
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-brand-600/20 transition hover:bg-brand-700"
-        >
-          <Plus size={16} />
-          New Administrator
-        </button>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {masterStats.map((s, i) => (
+      {error ? (
+        <div className="mt-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((s) => (
           <StatCard
             key={s.label}
             label={s.label}
-            value={s.value}
-            delta={s.delta}
+            value={loading ? '...' : s.value.toLocaleString()}
             tone={s.tone}
-            urgent={i === 4}
           />
         ))}
       </div>
