@@ -16,6 +16,8 @@ import AgentRecordCreation from "./pages/admin/AgentRecordCreation.jsx";
 import Agents from "./pages/admin/Agents.jsx";
 import LeadManagement from "./pages/admin/LeadManagement.jsx";
 import ClientManagement from "./pages/admin/ClientManagement.jsx";
+import ClientDetail from "./pages/admin/ClientDetail.jsx";
+import ClientCreate from "./pages/admin/ClientCreate.jsx";
 import PolicyManagement from "./pages/admin/PolicyManagement.jsx";
 import LeadDetail from "./pages/admin/LeadDetail.jsx";
 import LeadNeedAnalysis from "./pages/admin/LeadNeedAnalysis.jsx";
@@ -33,6 +35,8 @@ import AgentLeadDetail from "./pages/agent/AgentLeadDetail.jsx";
 import AgentActionItems from "./pages/agent/AgentActionItems.jsx";
 import NeedAnalysisForm from "./components/NeedAnalysisForm.jsx";
 import AgentProfile from "./pages/agent/AgentProfile.jsx";
+import AgentClientManagement from "./pages/agent/AgentClientManagement.jsx";
+import AgentClientDetail from "./pages/agent/AgentClientDetail.jsx";
 import Analytics from "./pages/admin/Analytics.jsx";
 
 function Protected({ children }) {
@@ -147,6 +151,22 @@ export default function App() {
         element={
           <AgentProtected>
             <AgentActionItems />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/clients"
+        element={
+          <AgentProtected>
+            <AgentClientManagement />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/clients/:clientId"
+        element={
+          <AgentProtected>
+            <AgentClientDetail />
           </AgentProtected>
         }
       />
@@ -276,6 +296,39 @@ export default function App() {
           <Protected>
             <DashboardLayout variant="admin">
               <ClientManagement />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/admin/clients/new"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <ClientCreate />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/admin/clients/:clientId/edit"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <ClientCreate />
+            </DashboardLayout>
+          </Protected>
+        }
+      />
+
+      <Route
+        path="/admin/clients/:clientId"
+        element={
+          <Protected>
+            <DashboardLayout variant="admin">
+              <ClientDetail />
             </DashboardLayout>
           </Protected>
         }

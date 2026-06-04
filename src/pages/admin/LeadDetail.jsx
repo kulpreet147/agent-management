@@ -226,7 +226,7 @@ export default function LeadDetail() {
       alert('This lead is already converted.')
       return
     }
-    if (!window.confirm(`Mark "${lead.name}" as converted? This will change their status to Converted.`)) return
+    if (!window.confirm(`Mark "${lead.name}" as converted? This will create a new client profile from this lead's data.`)) return
     try {
       await updateLeadStatus(lead.id, 'converted', 'Marked as converted from Quick Actions')
       const updatedLead = await getLead(lead.id)
@@ -239,7 +239,13 @@ export default function LeadDetail() {
       setLeadStatus(updatedLead.status)
       const activity = await getActivityLog(lead.id).catch(() => ({ logs: [] }))
       setActivityLog(Array.isArray(activity?.logs) ? activity.logs : [])
-      alert(`${lead.name} marked as converted.`)
+
+      const goToList = window.confirm(
+        `"${lead.name}" has been converted to a client successfully!\n\nClick OK to go to Client Management.`
+      )
+      if (goToList) {
+        navigate('/admin/clients')
+      }
     } catch (err) {
       alert(err.message || 'Failed to mark as converted')
     }

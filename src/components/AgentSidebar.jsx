@@ -1,10 +1,11 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Home, FileCheck2, BookOpenCheck, WalletCards, Settings, Users, LogOut, Shield } from 'lucide-react'
+import { Home, FileCheck2, BookOpenCheck, WalletCards, Settings, Users, LogOut, Shield, BriefcaseBusiness } from 'lucide-react'
 import { auth } from '../utils/auth.js'
 
 const navItems = [
   { icon: Home, label: 'Dashboard', path: '/agent/dashboard' },
   { icon: Users, label: 'Lead Management', path: '/agent/leads' },
+  { icon: BriefcaseBusiness, label: 'Client Management', path: '/agent/clients' },
   { icon: FileCheck2, label: 'Documents', path: '/agent/documents' },
   { icon: BookOpenCheck, label: 'Training', path: '/agent/training' },
   { icon: WalletCards, label: 'Commissions', path: '/agent/commissions' },

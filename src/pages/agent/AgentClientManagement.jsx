@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { getClients, getClientStats, getUpcomingRenewals } from "../../utils/clients.js";
+import { getMyClients, getClientStats } from "../../utils/clients.js";
 import {
   Search,
-  UserPlus,
-  Filter,
   ChevronLeft,
   ChevronRight,
   MoreVertical,
@@ -18,7 +16,6 @@ const statusStyles = {
   active: "bg-emerald-50 text-emerald-700",
   inactive: "bg-gray-100 text-gray-600",
   pending: "bg-amber-50 text-amber-600",
-  archived: "bg-red-50 text-red-600",
 };
 
 const tagStyles = {
@@ -27,21 +24,18 @@ const tagStyles = {
   Corporate: "bg-brand-50 text-brand-700",
   "Renewal Due": "bg-red-50 text-red-600",
   Prospect: "bg-gray-100 text-gray-600",
-  "High Value": "bg-purple-50 text-purple-700",
 };
 
 const PAGE_SIZE = 10;
 
-export default function ClientManagement() {
+export default function AgentClientManagement() {
   const navigate = useNavigate();
   const location = useLocation();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [agentFilter, setAgentFilter] = useState("All");
   const [segmentFilter, setSegmentFilter] = useState("All");
-  const [renewalFilter, setRenewalFilter] = useState("All dates");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalClients, setTotalClients] = useState(0);
   const [stats, setStats] = useState({ totalActive: 0, upcomingRenewals: 0, pendingFollowUps: 0 });
@@ -94,12 +88,11 @@ export default function ClientManagement() {
     try {
       const params = { page: currentPage, limit: PAGE_SIZE };
       if (statusFilter !== "All") params.status = statusFilter.toLowerCase();
-      if (agentFilter !== "All") params.agentId = agentFilter;
       if (segmentFilter !== "All") params.tags = segmentFilter;
       if (searchTerm) params.search = searchTerm;
 
       const [clientsData, statsData] = await Promise.all([
-        getClients(params).catch(() => ({ clients: [], total: 0 })),
+        getMyClients(params).catch(() => ({ clients: [], total: 0 })),
         getClientStats().catch(() => ({ totalActive: 0, upcomingRenewals: 0, pendingFollowUps: 0 })),
       ]);
 
@@ -112,7 +105,7 @@ export default function ClientManagement() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, agentFilter, segmentFilter, searchTerm, refreshKey]);
+  }, [currentPage, statusFilter, segmentFilter, searchTerm, refreshKey]);
 
   useEffect(() => {
     fetchClients();
@@ -121,35 +114,20 @@ export default function ClientManagement() {
   const totalPages = Math.ceil(totalClients / PAGE_SIZE);
 
   return (
-    <div>
-      {/* Header Actions */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900 mb-1">Client Management</h2>
-          <div className="flex items-center gap-1 text-sm text-slate-500">
-            <span>Directory</span>
-            <ChevronRight size={14} />
-            <span className="text-brand-600 font-medium">All Clients</span>
-          </div>
-        </div>
-        <button
-          onClick={() => navigate("/admin/clients/new")}
-          className="flex items-center gap-2 bg-brand-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors shadow-sm"
-        >
-          <UserPlus size={18} />
-          <span>Add Client</span>
-        </button>
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-semibold text-slate-900 mb-1">Client Management</h2>
+        <p className="text-sm text-slate-500">Your assigned clients</p>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         <StatCard
           icon={<Users size={20} />}
           iconBg="bg-brand-50 text-brand-600"
           label="Active Clients"
           value={stats.totalActive}
-          trend="+8%"
-          trendColor="text-emerald-600"
         />
         <StatCard
           icon={<RefreshCw size={20} />}
@@ -161,24 +139,24 @@ export default function ClientManagement() {
         <StatCard
           icon={<Clock size={20} />}
           iconBg="bg-amber-50 text-amber-500"
-          label="Pending Service Requests"
+          label="Pending Tasks"
           value={stats.pendingFollowUps}
           valueColor="text-amber-600"
-        />
-        <StatCard
-          icon={<Home size={20} />}
-          iconBg="bg-slate-100 text-slate-500"
-          label="Households"
-          value={clients.filter((c) => c.householdMembers && c.householdMembers.length > 0).length}
         />
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between mb-5 shadow-sm">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600">
-            <Filter size={15} />
-            <span className="text-xs font-semibold">Filters</span>
+      <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              placeholder="Search clients..."
+              className="pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 w-64"
+            />
           </div>
           <select
             value={statusFilter}
@@ -188,18 +166,7 @@ export default function ClientManagement() {
             <option value="All">Status: All</option>
             <option>Active</option>
             <option>Inactive</option>
-            <option>Pending</option>
-            <option>Archived</option>
           </select>
-          <div className="w-px h-6 bg-slate-200" />
-          <select
-            value={agentFilter}
-            onChange={(e) => { setAgentFilter(e.target.value); setCurrentPage(1); }}
-            className="text-sm text-slate-600 bg-transparent border-none focus:ring-0 cursor-pointer hover:text-brand-600"
-          >
-            <option value="All">Agent: All</option>
-          </select>
-          <div className="w-px h-6 bg-slate-200" />
           <select
             value={segmentFilter}
             onChange={(e) => { setSegmentFilter(e.target.value); setCurrentPage(1); }}
@@ -211,28 +178,7 @@ export default function ClientManagement() {
             <option>Corporate</option>
             <option>Prospect</option>
           </select>
-          <div className="w-px h-6 bg-slate-200" />
-          <select
-            value={renewalFilter}
-            onChange={(e) => { setRenewalFilter(e.target.value); setCurrentPage(1); }}
-            className="text-sm text-slate-600 bg-transparent border-none focus:ring-0 cursor-pointer hover:text-brand-600"
-          >
-            <option value="All dates">Renewal: All dates</option>
-          </select>
         </div>
-        <button
-          onClick={() => {
-            setSearchTerm("");
-            setStatusFilter("All");
-            setAgentFilter("All");
-            setSegmentFilter("All");
-            setRenewalFilter("All dates");
-            setCurrentPage(1);
-          }}
-          className="text-brand-600 text-xs font-bold hover:underline"
-        >
-          Clear All
-        </button>
       </div>
 
       {/* Data Table */}
@@ -243,7 +189,6 @@ export default function ClientManagement() {
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Client</th>
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Household</th>
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Policies</th>
-              <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Agent</th>
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Next Renewal</th>
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tags</th>
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
@@ -253,13 +198,13 @@ export default function ClientManagement() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-500">
+                <td colSpan={7} className="px-5 py-12 text-center text-sm text-slate-500">
                   Loading clients...
                 </td>
               </tr>
             ) : clients.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-500">
+                <td colSpan={7} className="px-5 py-12 text-center text-sm text-slate-500">
                   No clients found
                 </td>
               </tr>
@@ -272,7 +217,7 @@ export default function ClientManagement() {
                   <tr
                     key={client.id}
                     className="hover:bg-slate-50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/admin/clients/${client.id}`)}
+                    onClick={() => navigate(`/agent/clients/${client.id}`)}
                   >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -288,26 +233,12 @@ export default function ClientManagement() {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="text-sm text-slate-600">
-                        {formatHousehold(client)}
-                      </span>
+                      <span className="text-sm text-slate-600">{formatHousehold(client)}</span>
                     </td>
                     <td className="px-5 py-4">
                       <span className="px-2 py-1 bg-brand-50 text-brand-700 rounded-md text-[11px] font-bold">
                         {activeCount} ACTIVE
                       </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">
-                          {client.assignedAgentName
-                            ? client.assignedAgentName.split(" ").map((n) => n[0]).join("").slice(0, 2)
-                            : "NA"}
-                        </div>
-                        <span className="text-sm text-slate-700">
-                          {client.assignedAgentName || "Unassigned"}
-                        </span>
-                      </div>
                     </td>
                     <td className="px-5 py-4">
                       {renewal ? (
@@ -331,17 +262,12 @@ export default function ClientManagement() {
                       </div>
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${statusStyles[client.status] || "bg-gray-100 text-gray-600"}`}
-                      >
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${statusStyles[client.status] || "bg-gray-100 text-gray-600"}`}>
                         {client.status}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1 hover:bg-slate-100 rounded transition-colors text-slate-400"
-                      >
+                      <button onClick={(e) => e.stopPropagation()} className="p-1 hover:bg-slate-100 rounded transition-colors text-slate-400">
                         <MoreVertical size={16} />
                       </button>
                     </td>
@@ -352,11 +278,10 @@ export default function ClientManagement() {
           </tbody>
         </table>
 
-        {/* Footer Pagination */}
+        {/* Pagination */}
         <div className="px-5 py-4 flex justify-between items-center bg-slate-50 border-t border-slate-200">
           <p className="text-sm text-slate-500">
-            Showing{" "}
-            <span className="font-bold text-slate-900">{clients.length}</span> of{" "}
+            Showing <span className="font-bold text-slate-900">{clients.length}</span> of{" "}
             <span className="font-bold text-slate-900">{totalClients}</span> clients
           </p>
           <div className="flex items-center gap-2">
@@ -384,21 +309,6 @@ export default function ClientManagement() {
                   </button>
                 );
               })}
-              {totalPages > 5 && (
-                <>
-                  <span className="text-slate-400 px-1">...</span>
-                  <button
-                    onClick={() => setCurrentPage(totalPages)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === totalPages
-                        ? "bg-brand-600 text-white"
-                        : "hover:bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {totalPages}
-                  </button>
-                </>
-              )}
             </div>
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
@@ -414,7 +324,7 @@ export default function ClientManagement() {
   );
 }
 
-function StatCard({ icon, iconBg, label, value, trend, trendColor, sub, valueColor }) {
+function StatCard({ icon, iconBg, label, value, sub, valueColor }) {
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm group hover:border-brand-300 transition-all">
       <div className="flex items-center justify-between mb-3">
@@ -422,14 +332,7 @@ function StatCard({ icon, iconBg, label, value, trend, trendColor, sub, valueCol
         <div className={`p-2 rounded-lg ${iconBg}`}>{icon}</div>
       </div>
       <div className="flex items-end gap-2">
-        <h3 className={`text-3xl font-bold leading-none ${valueColor || "text-slate-900"}`}>
-          {value}
-        </h3>
-        {trend && (
-          <div className={`flex items-center text-xs font-bold pb-0.5 ${trendColor}`}>
-            <span>{trend}</span>
-          </div>
-        )}
+        <h3 className={`text-3xl font-bold leading-none ${valueColor || "text-slate-900"}`}>{value}</h3>
         {sub && <span className="text-xs text-slate-500 pb-0.5">{sub}</span>}
       </div>
     </div>

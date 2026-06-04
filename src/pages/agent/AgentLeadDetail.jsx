@@ -330,7 +330,7 @@ export default function AgentLeadDetail() {
       alert("This lead is already marked as converted.");
       return;
     }
-    if (!window.confirm("Mark this lead as converted?")) return;
+    if (!window.confirm("Mark this lead as converted? This will create a new client profile.")) return;
     try {
       await updateLeadStatus(leadId, "converted", "Marked converted by agent");
       const updatedLead = await getLead(leadId);
@@ -338,6 +338,13 @@ export default function AgentLeadDetail() {
       setLeadStatus(updatedLead.status);
       const activity = await getActivityLog(leadId).catch(() => ({ logs: [] }));
       setActivityLog(activity?.logs || []);
+
+      const goToList = window.confirm(
+        "Lead has been converted to a client successfully!\n\nClick OK to go to Client Management."
+      );
+      if (goToList) {
+        navigate("/agent/clients");
+      }
     } catch (err) {
       alert(err.message || "Failed to mark as converted");
     }
