@@ -28,7 +28,7 @@ export default function AgentSidebar({ agentName, initials }) {
             <Shield size={18} />
           </div>
           <div>
-            <div className="font-bold tracking-tight text-white">AgentFlow</div>
+            <div className="font-bold tracking-tight text-white">Insurely</div>
             <div className="text-[10px] uppercase tracking-wider text-slate-400">Agent Portal</div>
           </div>
         </div>

@@ -56,7 +56,7 @@ export default function DashboardLayout({ variant = 'master', children }) {
               <Shield size={18} />
             </div>
             <div>
-              <div className="text-white font-bold tracking-tight">AgentFlow</div>
+              <div className="text-white font-bold tracking-tight">Insurely</div>
               <div className="text-[10px] uppercase tracking-wider text-slate-400">
                 {variant === 'master' ? 'System Portal' : 'Management Portal'}
               </div>
