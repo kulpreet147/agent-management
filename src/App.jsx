@@ -35,6 +35,7 @@ import AgentActionItems from "./pages/agent/AgentActionItems.jsx";
 import NeedAnalysisForm from "./components/NeedAnalysisForm.jsx";
 import AgentProfile from "./pages/agent/AgentProfile.jsx";
 import Analytics from "./pages/admin/Analytics.jsx";
+import AgentUnderImplementation from "./pages/agent/AgentUnderImplementation.jsx";
 
 function Protected({ children }) {
   return auth.isAuthenticated() ? children : <Navigate to="/login" replace />;
@@ -156,6 +157,50 @@ export default function App() {
         element={
           <AgentProtected>
             <AgentProfile />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/documents"
+        element={
+          <AgentProtected>
+            <AgentUnderImplementation
+              title="Documents"
+              breadcrumb="Agents > Documents"
+            />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/training"
+        element={
+          <AgentProtected>
+            <AgentUnderImplementation
+              title="Training"
+              breadcrumb="Agents > Training"
+            />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/commissions"
+        element={
+          <AgentProtected>
+            <AgentUnderImplementation
+              title="Commissions"
+              breadcrumb="Agents > Commissions"
+            />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/settings"
+        element={
+          <AgentProtected>
+            <AgentUnderImplementation
+              title="Settings"
+              breadcrumb="Agents > Settings"
+            />
           </AgentProtected>
         }
       />
