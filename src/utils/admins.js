@@ -18,6 +18,12 @@ export function createAccountInvite(accountType = 'admin', payload) {
   })
 }
 
+export function resendAccountInvite(accountType = 'admin', accountId) {
+  return apiRequest(`/${getResource(accountType)}/${accountId}/invites/resend`, {
+    method: 'POST',
+  })
+}
+
 export function getAccountInvite(accountType = 'admin', token) {
   return apiRequest(`/${getResource(accountType)}/invites/${token}`)
 }

@@ -36,6 +36,8 @@ import NeedAnalysisForm from "./components/NeedAnalysisForm.jsx";
 import AgentProfile from "./pages/agent/AgentProfile.jsx";
 import Analytics from "./pages/admin/Analytics.jsx";
 import AgentUnderImplementation from "./pages/agent/AgentUnderImplementation.jsx";
+import SocketActionManager from "./components/SocketActionManager.jsx";
+import RealtimeAlertBar from "./components/RealtimeAlertBar.jsx";
 
 function Protected({ children }) {
   return auth.isAuthenticated() ? children : <Navigate to="/login" replace />;
@@ -71,23 +73,26 @@ function RoleRoute() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/recover/:token" element={<PasswordReset />} />
-      <Route path="/admin/account-setup/:inviteToken" element={<AdminAccountSetup />} />
-      <Route path="/agent/account-setup" element={<AgentAccountSetup />} />
-      <Route
-        path="/agent/account-setup/:inviteToken"
-        element={<AgentAccountSetup />}
-      />
-      <Route
-        path="/agent/registration"
-        element={
-          <AgentProtected>
-            <AgentRegistrationForm />
-          </AgentProtected>
-        }
-      />
+    <>
+      <SocketActionManager />
+      <RealtimeAlertBar />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/recover/:token" element={<PasswordReset />} />
+        <Route path="/admin/account-setup/:inviteToken" element={<AdminAccountSetup />} />
+        <Route path="/agent/account-setup" element={<AgentAccountSetup />} />
+        <Route
+          path="/agent/account-setup/:inviteToken"
+          element={<AgentAccountSetup />}
+        />
+        <Route
+          path="/agent/registration"
+          element={
+            <AgentProtected>
+              <AgentRegistrationForm />
+            </AgentProtected>
+          }
+        />
       <Route
         path="/agent/sign-documents"
         element={
@@ -402,7 +407,8 @@ export default function App() {
           </Protected>
         }
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
