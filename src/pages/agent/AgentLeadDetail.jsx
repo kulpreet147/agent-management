@@ -130,6 +130,30 @@ export default function AgentLeadDetail() {
     );
   }
 
+  const actionLabels = {
+    lead_created: 'Lead Created',
+    lead_assigned: 'Lead Assigned',
+    agent_unassigned: 'Agent Unassigned',
+    lead_reassigned: 'Lead Reassigned',
+    status_changed: 'Status Changed',
+    follow_up_added: 'Follow-Up Scheduled',
+    follow_up_created: 'Follow-Up Scheduled',
+    follow_up_completed: 'Follow-Up Completed',
+    follow_up_skipped: 'Follow-Up Skipped',
+    note_added: 'Note Added',
+    agent_reassigned: 'Agent Reassigned',
+    lead_created_from_excel: 'Imported from Excel',
+    need_analysis_saved: 'Need Analysis Updated',
+    need_analysis_updated: 'Need Analysis Updated',
+    need_analysis_sent_to_client: 'Need Analysis Sent',
+    need_analysis_deleted: 'Need Analysis Deleted',
+    quote_run: 'Quote Run',
+    quote_selected: 'Quote Selected',
+    quote_deleted: 'Quote Deleted',
+    quote_emailed_to_client: 'Quote Sent to Client',
+    converted: 'Lead Converted',
+  };
+
   const tabs = [
     { key: "overview", label: "Overview" },
     { key: "need-analysis", label: "Need Analysis" },
@@ -182,7 +206,7 @@ export default function AgentLeadDetail() {
       case "need_analysis_sent_to_client":
         if (details.summary) return details.summary;
         if (details.clientEmail) {
-          return `Need analysis report sent to ${details.clientEmail}${details.reportId ? ` (Report ID: ${details.reportId})` : ""}`;
+          return `Need analysis report sent to ${details.clientEmail}`;
         }
         return "Need analysis report sent to client";
 
@@ -196,13 +220,16 @@ export default function AgentLeadDetail() {
         return `Follow-up completed${details.outcome ? ` — ${details.outcome}` : ""}`;
 
       case "lead_created":
-        return `Lead created — ${details.leadId || ""}`;
+        return null;
 
       case "lead_assigned":
-        return `Assigned to ${details.agentId || "agent"}${details.commissionShare ? ` (${details.commissionShare}% commission)` : ""}`;
+        return details.agentName ? `Assigned to ${details.agentName}` : (details.agentId ? `Assigned to agent` : null);
+
+      case "agent_unassigned":
+        return details.agentName ? `Unassigned ${details.agentName}` : null;
 
       case "lead_reassigned":
-        return `Reassigned from ${details.fromAgent || "agent"} to ${details.toAgent || "agent"}`;
+        return details.targetAgentName ? `Reassigned to ${details.targetAgentName}` : null;
 
       case "status_changed":
         return `Status changed from ${details.fromStatus || details.from || "unknown"} to ${details.toStatus || details.to || "unknown"}`;
@@ -216,8 +243,8 @@ export default function AgentLeadDetail() {
 
       case "quote_selected":
         if (details.summary) return details.summary;
-        if (details.quoteId) {
-          return `Selected quote ${details.quoteId} — ${details.carrier || ""} at ${details.premium || ""} ${details.currency || ""}/mo`;
+        if (details.carrier && details.premium) {
+          return `${details.carrier} at ${details.premium} ${details.currency || ""}/mo`;
         }
         return "Quote selected";
 
@@ -227,13 +254,13 @@ export default function AgentLeadDetail() {
 
       case "quote_emailed_to_client":
         if (details.summary) return details.summary;
-        if (details.quoteId) {
-          return `Quote ${details.quoteId} emailed to ${details.clientEmail || "client"} (${details.carrier || ""} at ${details.premium || ""} ${details.currency || ""}/mo)`;
+        if (details.clientEmail) {
+          return `Quote emailed to ${details.clientEmail}`;
         }
         return "Quote emailed to client";
 
       default: {
-        const skip = ['isNew', 'reportId', 'delivered']
+        const skip = ['isNew', 'reportId', 'delivered', 'leadId', 'followUpId', 'agentId', 'targetAgentId', 'fromAgentId', 'agentName', 'targetAgentName', 'fromAgentName']
         const nonMeta = Object.fromEntries(Object.entries(details).filter(([k]) => !skip.includes(k)))
         if (Object.keys(nonMeta).length === 0) return null
         return Object.entries(nonMeta).map(([k, v]) => {
@@ -328,7 +355,7 @@ export default function AgentLeadDetail() {
       alert("This lead is already marked as converted.");
       return;
     }
-    if (!window.confirm("Mark this lead as converted?")) return;
+    if (!window.confirm("Mark this lead as converted? This will create a new client profile.")) return;
     try {
       await updateLeadStatus(leadId, "converted", "Marked converted by agent");
       const updatedLead = await getLead(leadId);
@@ -336,6 +363,13 @@ export default function AgentLeadDetail() {
       setLeadStatus(updatedLead.status);
       const activity = await getActivityLog(leadId).catch(() => ({ logs: [] }));
       setActivityLog(activity?.logs || []);
+
+      const goToList = window.confirm(
+        "Lead has been converted to a client successfully!\n\nClick OK to go to Client Management."
+      );
+      if (goToList) {
+        navigate("/agent/clients");
+      }
     } catch (err) {
       alert(err.message || "Failed to mark as converted");
     }
@@ -569,17 +603,20 @@ export default function AgentLeadDetail() {
                               className="flex gap-3 p-3 bg-slate-50 rounded-lg"
                             >
                               <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0" />
-                              <div>
-                                <p className="text-sm font-semibold text-slate-800 capitalize">
-                                  {log.action.replace(/_/g, " ")}
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-slate-800">
+                                  {actionLabels[log.action] || log.action.replace(/_/g, " ")}
                                 </p>
                                 <p className="text-xs text-slate-500">
                                   {formatDateTime(log.performedAt)}
                                 </p>
-                                {log.details && (
+                                {log.details && formatDetails(log.action, log.details) && (
                                   <p className="text-xs text-slate-600 mt-1">
                                     {formatDetails(log.action, log.details)}
                                   </p>
+                                )}
+                                {log.performedByName && (
+                                  <p className="text-[11px] text-slate-400 mt-1">by {log.performedByName}</p>
                                 )}
                               </div>
                             </div>
@@ -793,41 +830,6 @@ export default function AgentLeadDetail() {
                     </div>
                   </div>
 
-                  {lead.assignments?.length > 0 && (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-3">
-                        Assignment
-                      </h4>
-                      {lead.assignments
-                        .filter((a) => a.isActive)
-                        .map((a, i) => (
-                          <div
-                            key={i}
-                            className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
-                                {a.agentId
-                                  ?.split(" ")
-                                  .map((n) => n[0])
-                                  .join("") || "A"}
-                              </div>
-                              <div>
-                                <p className="text-[12px] font-bold">
-                                  {a.agentId}
-                                </p>
-                                <p className="text-[10px] text-slate-400">
-                                  Active
-                                </p>
-                              </div>
-                            </div>
-                            <span className="text-xs font-bold text-blue-700">
-                              {a.commissionShare}%
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  )}
                 </aside>
               </div>
             </div>

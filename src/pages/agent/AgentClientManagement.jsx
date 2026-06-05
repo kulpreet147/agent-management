@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { getClients, getClientStats, getUpcomingRenewals } from "../../utils/clients.js";
+import { getMyClients, getClientStats } from "../../utils/clients.js";
+import { auth } from "../../utils/auth.js";
+import AgentSidebar from "../../components/AgentSidebar.jsx";
+import CommonHeader from "../../components/CommonHeader.jsx";
 import {
   Search,
-  UserPlus,
   Filter,
   ChevronLeft,
   ChevronRight,
@@ -32,16 +34,17 @@ const tagStyles = {
 
 const PAGE_SIZE = 10;
 
-export default function ClientManagement() {
+export default function AgentClientManagement() {
   const navigate = useNavigate();
   const location = useLocation();
+  const session = auth.get();
+  const agentName = session?.name || "Agent";
+  const agentInitials = agentName.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [agentFilter, setAgentFilter] = useState("All");
   const [segmentFilter, setSegmentFilter] = useState("All");
-  const [renewalFilter, setRenewalFilter] = useState("All dates");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalClients, setTotalClients] = useState(0);
   const [stats, setStats] = useState({ totalActive: 0, upcomingRenewals: 0, pendingFollowUps: 0 });
@@ -94,12 +97,11 @@ export default function ClientManagement() {
     try {
       const params = { page: currentPage, limit: PAGE_SIZE };
       if (statusFilter !== "All") params.status = statusFilter.toLowerCase();
-      if (agentFilter !== "All") params.agentId = agentFilter;
       if (segmentFilter !== "All") params.tags = segmentFilter;
       if (searchTerm) params.search = searchTerm;
 
       const [clientsData, statsData] = await Promise.all([
-        getClients(params).catch(() => ({ clients: [], total: 0 })),
+        getMyClients(params).catch(() => ({ clients: [], total: 0 })),
         getClientStats().catch(() => ({ totalActive: 0, upcomingRenewals: 0, pendingFollowUps: 0 })),
       ]);
 
@@ -112,7 +114,7 @@ export default function ClientManagement() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, agentFilter, segmentFilter, searchTerm, refreshKey]);
+  }, [currentPage, statusFilter, segmentFilter, searchTerm, refreshKey]);
 
   useEffect(() => {
     fetchClients();
@@ -121,24 +123,25 @@ export default function ClientManagement() {
   const totalPages = Math.ceil(totalClients / PAGE_SIZE);
 
   return (
-    <div>
-      {/* Header Actions */}
+    <div className="min-h-screen bg-[#eef3f8] text-slate-950">
+      <div className="flex h-screen overflow-hidden">
+        <AgentSidebar agentName={agentName} initials={agentInitials} />
+
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <CommonHeader title="Client Management" compact />
+
+          <div className="flex-1 overflow-y-auto p-4 lg:p-5">
+            <div className="max-w-[2200px] mx-auto space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-semibold text-slate-900 mb-1">Client Management</h2>
           <div className="flex items-center gap-1 text-sm text-slate-500">
             <span>Directory</span>
             <ChevronRight size={14} />
-            <span className="text-brand-600 font-medium">All Clients</span>
+            <span className="text-brand-600 font-medium">My Clients</span>
           </div>
         </div>
-        <button
-          onClick={() => navigate("/admin/clients/new")}
-          className="flex items-center gap-2 bg-brand-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors shadow-sm"
-        >
-          <UserPlus size={18} />
-          <span>Add Client</span>
-        </button>
       </div>
 
       {/* Stat Cards */}
@@ -193,14 +196,6 @@ export default function ClientManagement() {
           </select>
           <div className="w-px h-6 bg-slate-200" />
           <select
-            value={agentFilter}
-            onChange={(e) => { setAgentFilter(e.target.value); setCurrentPage(1); }}
-            className="text-sm text-slate-600 bg-transparent border-none focus:ring-0 cursor-pointer hover:text-brand-600"
-          >
-            <option value="All">Agent: All</option>
-          </select>
-          <div className="w-px h-6 bg-slate-200" />
-          <select
             value={segmentFilter}
             onChange={(e) => { setSegmentFilter(e.target.value); setCurrentPage(1); }}
             className="text-sm text-slate-600 bg-transparent border-none focus:ring-0 cursor-pointer hover:text-brand-600"
@@ -211,22 +206,12 @@ export default function ClientManagement() {
             <option>Corporate</option>
             <option>Prospect</option>
           </select>
-          <div className="w-px h-6 bg-slate-200" />
-          <select
-            value={renewalFilter}
-            onChange={(e) => { setRenewalFilter(e.target.value); setCurrentPage(1); }}
-            className="text-sm text-slate-600 bg-transparent border-none focus:ring-0 cursor-pointer hover:text-brand-600"
-          >
-            <option value="All dates">Renewal: All dates</option>
-          </select>
         </div>
         <button
           onClick={() => {
             setSearchTerm("");
             setStatusFilter("All");
-            setAgentFilter("All");
             setSegmentFilter("All");
-            setRenewalFilter("All dates");
             setCurrentPage(1);
           }}
           className="text-brand-600 text-xs font-bold hover:underline"
@@ -243,7 +228,6 @@ export default function ClientManagement() {
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Client</th>
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Household</th>
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Policies</th>
-              <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Agent</th>
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Next Renewal</th>
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tags</th>
               <th className="px-5 py-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
@@ -253,13 +237,13 @@ export default function ClientManagement() {
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-500">
+                <td colSpan={7} className="px-5 py-12 text-center text-sm text-slate-500">
                   Loading clients...
                 </td>
               </tr>
             ) : clients.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-500">
+                <td colSpan={7} className="px-5 py-12 text-center text-sm text-slate-500">
                   No clients found
                 </td>
               </tr>
@@ -272,7 +256,7 @@ export default function ClientManagement() {
                   <tr
                     key={client.id}
                     className="hover:bg-slate-50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/admin/clients/${client.id}`)}
+                    onClick={() => navigate(`/agent/clients/${client.id}`)}
                   >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -288,26 +272,12 @@ export default function ClientManagement() {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="text-sm text-slate-600">
-                        {formatHousehold(client)}
-                      </span>
+                      <span className="text-sm text-slate-600">{formatHousehold(client)}</span>
                     </td>
                     <td className="px-5 py-4">
                       <span className="px-2 py-1 bg-brand-50 text-brand-700 rounded-md text-[11px] font-bold">
                         {activeCount} ACTIVE
                       </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">
-                          {client.assignedAgentName
-                            ? client.assignedAgentName.split(" ").map((n) => n[0]).join("").slice(0, 2)
-                            : "NA"}
-                        </div>
-                        <span className="text-sm text-slate-700">
-                          {client.assignedAgentName || "Unassigned"}
-                        </span>
-                      </div>
                     </td>
                     <td className="px-5 py-4">
                       {renewal ? (
@@ -331,17 +301,12 @@ export default function ClientManagement() {
                       </div>
                     </td>
                     <td className="px-5 py-4 text-center">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${statusStyles[client.status] || "bg-gray-100 text-gray-600"}`}
-                      >
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${statusStyles[client.status] || "bg-gray-100 text-gray-600"}`}>
                         {client.status}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1 hover:bg-slate-100 rounded transition-colors text-slate-400"
-                      >
+                      <button onClick={(e) => e.stopPropagation()} className="p-1 hover:bg-slate-100 rounded transition-colors text-slate-400">
                         <MoreVertical size={16} />
                       </button>
                     </td>
@@ -352,11 +317,10 @@ export default function ClientManagement() {
           </tbody>
         </table>
 
-        {/* Footer Pagination */}
+        {/* Pagination */}
         <div className="px-5 py-4 flex justify-between items-center bg-slate-50 border-t border-slate-200">
           <p className="text-sm text-slate-500">
-            Showing{" "}
-            <span className="font-bold text-slate-900">{clients.length}</span> of{" "}
+            Showing <span className="font-bold text-slate-900">{clients.length}</span> of{" "}
             <span className="font-bold text-slate-900">{totalClients}</span> clients
           </p>
           <div className="flex items-center gap-2">
@@ -410,6 +374,10 @@ export default function ClientManagement() {
           </div>
         </div>
       </div>
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
@@ -422,9 +390,7 @@ function StatCard({ icon, iconBg, label, value, trend, trendColor, sub, valueCol
         <div className={`p-2 rounded-lg ${iconBg}`}>{icon}</div>
       </div>
       <div className="flex items-end gap-2">
-        <h3 className={`text-3xl font-bold leading-none ${valueColor || "text-slate-900"}`}>
-          {value}
-        </h3>
+        <h3 className={`text-3xl font-bold leading-none ${valueColor || "text-slate-900"}`}>{value}</h3>
         {trend && (
           <div className={`flex items-center text-xs font-bold pb-0.5 ${trendColor}`}>
             <span>{trend}</span>
