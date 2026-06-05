@@ -212,6 +212,23 @@ export function handleSocketRealtimeAction({
 }) {
   if (!session) return
 
+  if (session.role === 'agent' && eventName === 'agent:notification') {
+    const nextPatch = {}
+
+    if (payload?.type === 'account_activated') {
+      nextPatch.accountActivationStatus = 1
+      nextPatch.status = 'active'
+    }
+
+    if (typeof payload?.onboardingStatus !== 'undefined') {
+      nextPatch.onboardingStatus = payload.onboardingStatus
+    }
+
+    if (Object.keys(nextPatch).length > 0) {
+      auth.update(nextPatch)
+    }
+  }
+
   if (session.role === 'master_admin' && eventName.startsWith('admin:')) {
     dispatch(getAllAccountsAsync('admin'))
   }
@@ -280,6 +297,17 @@ export function handleSocketRealtimeAction({
     const onboardingStatus = Number(payload?.onboardingStatus || payload?.agent?.onboardingStatus || 0)
     const updateType = payload?.updateType
     const agentEmail = payload?.email || payload?.agent?.email || 'the agent'
+
+    if (updateType === 'registration_details_completed') {
+      dispatch(
+        ShowRealtimeAlert({
+          variant: 'info',
+          title: 'Agent registration updated',
+          message: `${agentEmail} completed registration details and is ready for document signing.`,
+        }),
+      )
+      return
+    }
 
     if (updateType === 'document_signed') {
       dispatch(

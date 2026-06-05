@@ -24,6 +24,8 @@ const nextTasks = [
 export default function AgentDashboard() {
   const session = auth.get()
   const agentName = session?.name || 'Agent'
+  const accountActivationStatus = Number(session?.accountActivationStatus || 0)
+  const onboardingStatus = Number(session?.onboardingStatus || 1)
   const initials = agentName
     .split(' ')
     .map((part) => part[0])
@@ -84,6 +86,56 @@ export default function AgentDashboard() {
   const rejectedCount = documents.filter((d) => d.status === 'Rejected').length
   const underReviewCount = documents.filter((d) => d.status === 'Under Review').length
 
+  const onboardingSummary = useMemo(() => {
+    if (accountActivationStatus === 1) {
+      return {
+        statusLabel: 'Active',
+        statusTone: 'emerald',
+        nextStep: 'Lead Management',
+        progress: 100,
+        progressNote: 'Your account is active and all agent tools are available.',
+      }
+    }
+
+    if (accountActivationStatus === 2) {
+      return {
+        statusLabel: 'Expired',
+        statusTone: 'rose',
+        nextStep: 'Contact Admin',
+        progress: 100,
+        progressNote: 'Your access has expired. Please contact your administrator.',
+      }
+    }
+
+    if (onboardingStatus >= 6 || session?.status === 'under_review') {
+      return {
+        statusLabel: 'Under Review',
+        statusTone: 'amber',
+        nextStep: 'Admin Review',
+        progress: 90,
+        progressNote: 'Your documents are under admin review. Extra tools unlock after approval.',
+      }
+    }
+
+    if (onboardingStatus >= 5 || session?.status === 'ready_for_mga') {
+      return {
+        statusLabel: 'Ready for MGA',
+        statusTone: 'blue',
+        nextStep: 'MGA Review',
+        progress: 80,
+        progressNote: 'Your onboarding package is ready and waiting for MGA review.',
+      }
+    }
+
+    return {
+      statusLabel: 'Onboarding In Progress',
+      statusTone: 'blue',
+      nextStep: 'Complete Onboarding',
+      progress: Math.max(20, Math.min(75, onboardingStatus * 20)),
+      progressNote: 'Complete the remaining onboarding steps to unlock your full account.',
+    }
+  }, [accountActivationStatus, onboardingStatus, session?.status])
+
   const overallReviewStatus =
     rejectedCount > 0
       ? 'Rejected'
@@ -115,9 +167,9 @@ export default function AgentDashboard() {
               </div>
 
               <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <Metric icon={CheckCircle2} label="Onboarding Status" value="Active" tone="emerald" />
+                <Metric icon={CheckCircle2} label="Onboarding Status" value={onboardingSummary.statusLabel} tone={onboardingSummary.statusTone} />
                 <Metric icon={FileText} label="Signed Documents" value={`${Object.keys(signedDocs || {}).length} Files`} tone="blue" />
-                <Metric icon={CalendarClock} label="Next Step" value="Training" tone="amber" />
+                <Metric icon={CalendarClock} label="Next Step" value={onboardingSummary.nextStep} tone="amber" />
               </section>
 
               <section className="rounded-lg border border-slate-300 bg-white shadow-card">
@@ -198,12 +250,12 @@ export default function AgentDashboard() {
                 <div className="rounded-lg border border-slate-300 bg-white p-5 shadow-card">
                   <div className="mb-4 flex items-center justify-between">
                     <h2 className="text-base font-bold">Onboarding Progress</h2>
-                    <span className="text-xs font-bold text-brand-700">80%</span>
+                    <span className="text-xs font-bold text-brand-700">{onboardingSummary.progress}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-                    <div className="h-full w-4/5 rounded-full bg-brand-600" />
+                    <div className="h-full rounded-full bg-brand-600" style={{ width: `${onboardingSummary.progress}%` }} />
                   </div>
-                  <div className="mt-3 text-xs text-slate-500">Documents complete. Training and final profile review remain.</div>
+                  <div className="mt-3 text-xs text-slate-500">{onboardingSummary.progressNote}</div>
                 </div>
 
                 <div className="rounded-lg border border-slate-300 bg-white p-5 shadow-card">
@@ -230,7 +282,8 @@ function Metric({ icon: Icon, label, value, tone }) {
   const tones = {
     emerald: 'bg-emerald-50 text-emerald-700',
     blue: 'bg-brand-50 text-brand-700',
-    amber: 'bg-amber-50 text-amber-700'
+    amber: 'bg-amber-50 text-amber-700',
+    rose: 'bg-rose-50 text-rose-700',
   }
 
   return (
