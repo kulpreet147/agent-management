@@ -15,6 +15,7 @@ import { useDispatch } from 'react-redux'
 import { auth } from '../utils/auth.js'
 import { Logout } from '../redux/authSlice.js'
 import CommonHeader from '../components/CommonHeader.jsx'
+import { APP_VERSION } from '../version.js'
 
 const masterNav = [
   { label: 'Dashboard', icon: LayoutDashboard, active: true, to: '/master' },
@@ -64,6 +65,9 @@ export default function DashboardLayout({ variant = 'master', children }) {
                 {variant === 'master' ? 'System Portal' : 'Management Portal'}
               </div>
             </div>
+            <span className="ml-auto rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold text-slate-400">
+              v{APP_VERSION}
+            </span>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Home, FileCheck2, BookOpenCheck, WalletCards, Settings, Users, LogOut, Shield, BriefcaseBusiness,Lock  } from 'lucide-react'
 import { auth } from '../utils/auth.js'
+import { APP_VERSION } from '../version.js'
 
 const navItems = [
   { icon: Home, label: 'Dashboard', path: '/agent/dashboard' },
@@ -43,6 +44,9 @@ export default function AgentSidebar({ agentName, initials }) {
             <div className="font-bold tracking-tight text-white">Insurely</div>
             <div className="text-[10px] uppercase tracking-wider text-slate-400">Agent Portal</div>
           </div>
+          <span className="ml-auto rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold text-slate-400">
+            v{APP_VERSION}
+          </span>
         </div>
       </div>
 
