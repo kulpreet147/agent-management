@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import {
   Shield,
   ShieldCheck,
@@ -9,21 +10,24 @@ import {
   ArrowRight,
   Lock
 } from 'lucide-react'
+import { ClearAuthMessage, LoginAsync, PasswordRecoveryAsync } from '../redux/authSlice.js'
 import { auth } from '../utils/auth.js'
 
 export default function Login() {
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
-  const [keepActive, setKeepActive] = useState(false)
   const [loginAsAgent, setLoginAsAgent] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [sendingRecovery, setSendingRecovery] = useState(false)
   const [recoverySent, setRecoverySent] = useState(false)
-  const [recoveryMessage, setRecoveryMessage] = useState('')
   const [resendCooldown, setResendCooldown] = useState(0)
-  const [error, setError] = useState('')
+  const [validationError, setValidationError] = useState('')
+  const [logoutNotice, setLogoutNotice] = useState(null)
+  const { loginLoading, recoveryLoading, recoveryMessage, loginError, recoveryError } = useSelector((state) => state.auth)
+  const loading = loginLoading
+  const sendingRecovery = recoveryLoading
+  const error = validationError || loginError || recoveryError || logoutNotice?.message
 
   useEffect(() => {
     if (resendCooldown <= 0) return undefined
@@ -35,22 +39,42 @@ export default function Login() {
     return () => window.clearInterval(timer)
   }, [resendCooldown])
 
+  useEffect(() => {
+    dispatch(ClearAuthMessage())
+    setValidationError('')
+    setRecoverySent(false)
+  }, [dispatch, loginAsAgent])
+
+  useEffect(() => {
+    const notice = auth.consumeLogoutNotice()
+    if (notice) {
+      setLogoutNotice(notice)
+    }
+  }, [])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
+    dispatch(ClearAuthMessage())
+    setValidationError('')
+    setLogoutNotice(null)
 
     if (!email || !password) {
-      setError('Please enter both credentials.')
+      setValidationError('Please enter both credentials.')
       return
     }
 
-    setLoading(true)
     try {
-      const session = await auth.login({
-        email,
-        password,
-        loginAs: loginAsAgent ? 'agent' : 'admin'
-      })
+      const session = await dispatch(
+        LoginAsync({
+          email,
+          password,
+          loginAs: loginAsAgent ? 'agent' : 'admin',
+        }),
+      )
+
+      if (!session?.role) {
+        return
+      }
 
       if (session.role === 'agent') {
         const status = Number(session.onboardingStatus || 2)
@@ -62,40 +86,37 @@ export default function Login() {
       }
 
       navigate(session.role === 'master_admin' ? '/master' : '/admin')
-    } catch (err) {
-      setError(err.message || 'Login failed. Please try again.')
-    } finally {
-      setLoading(false)
+    } catch {
+      return
     }
   }
 
   const handlePasswordRecovery = async () => {
-    setError('')
-    setRecoveryMessage('')
+    dispatch(ClearAuthMessage())
+    setValidationError('')
+    setLogoutNotice(null)
 
     if (resendCooldown > 0) {
       return
     }
 
     if (!email) {
-      setError('Please enter your registered email first.')
+      setValidationError('Please enter your registered email first.')
       return
     }
 
-    setSendingRecovery(true)
     try {
-      const response = await auth.requestPasswordReset({
-        email,
-        loginAs: loginAsAgent ? 'agent' : 'admin'
-      })
-      setRecoverySent(true)
-      setResendCooldown(60)
-      setRecoveryMessage(response.message || 'Recovery link sent. Please check your inbox.')
-    } catch (err) {
-      setError(err.message || 'Unable to send recovery link. Please try again.')
-    } finally {
-      setSendingRecovery(false)
-    }
+      const response = await dispatch(
+        PasswordRecoveryAsync({
+          email,
+          loginAs: loginAsAgent ? 'agent' : 'admin',
+        }),
+      )
+      if (response?.message || recoveryMessage) {
+        setRecoverySent(true)
+        setResendCooldown(60)
+      }
+    } catch {}
   }
 
   return (

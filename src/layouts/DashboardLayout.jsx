@@ -10,8 +10,10 @@ import {
   Activity,
   BriefcaseBusiness
 } from 'lucide-react'
+import { useDispatch } from 'react-redux'
 
 import { auth } from '../utils/auth.js'
+import { Logout } from '../redux/authSlice.js'
 import CommonHeader from '../components/CommonHeader.jsx'
 
 const masterNav = [
@@ -36,13 +38,14 @@ const adminNav = [
 
 export default function DashboardLayout({ variant = 'master', children }) {
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const session = auth.get()
   const nav = variant === 'master' ? masterNav : adminNav
   const location = useLocation()
 
 
   const handleLogout = () => {
-    auth.logout()
+    dispatch(Logout())
     navigate('/login')
   }
 

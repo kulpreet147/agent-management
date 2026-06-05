@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Home, FileCheck2, BookOpenCheck, WalletCards, Settings, Users, LogOut, Shield, BriefcaseBusiness } from 'lucide-react'
+import { Home, FileCheck2, BookOpenCheck, WalletCards, Settings, Users, LogOut, Shield, BriefcaseBusiness,Lock  } from 'lucide-react'
 import { auth } from '../utils/auth.js'
 
 const navItems = [
@@ -15,6 +15,17 @@ const navItems = [
 export default function AgentSidebar({ agentName, initials }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const session = auth.get()
+  const isActiveAgent = Number(session?.accountActivationStatus) === 1
+  const lockedSectionMessage =
+    'Your account is not active yet. These sections will become available once your onboarding review is completed and your access is activated by the administrator.'
+  const agentStatusLabel = isActiveAgent
+    ? 'Active Agent'
+    : session?.status === 'under_review'
+      ? 'Under Review'
+      : session?.status === 'ready_for_mga'
+        ? 'Ready for MGA'
+        : 'Onboarding In Progress'
 
   const handleLogout = () => {
     auth.logout()
@@ -38,18 +49,34 @@ export default function AgentSidebar({ agentName, initials }) {
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path
+          const isLocked = item.path !== '/agent/dashboard' && !isActiveAgent
           return (
             <Link
               key={item.path}
-              to={item.path}
+              to={isLocked ? location.pathname : item.path}
+              onClick={(event) => {
+                if (isLocked) {
+                  event.preventDefault()
+                  window.alert(lockedSectionMessage)
+                }
+              }}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                isActive
+                isLocked
+                  ? 'text-slate-400 hover:bg-white/5'
+                  : isActive
                   ? 'bg-brand-600 text-white shadow-sm shadow-brand-900/40'
                   : 'text-slate-300 hover:bg-white/5 hover:text-white'
               }`}
+              aria-disabled={isLocked}
+              title={
+                isLocked
+                  ? 'This section unlocks after the agent account is activated.'
+                  : item.label
+              }
             >
               <item.icon size={17} />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {isLocked ? <Lock size={14} className="text-slate-500" /> : null}
             </Link>
           )
         })}
@@ -62,7 +89,7 @@ export default function AgentSidebar({ agentName, initials }) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold text-white">{agentName}</div>
-            <div className="truncate text-[11px] text-slate-400">Active Agent</div>
+            <div className="truncate text-[11px] text-slate-400">{agentStatusLabel}</div>
           </div>
           <button
             type="button"

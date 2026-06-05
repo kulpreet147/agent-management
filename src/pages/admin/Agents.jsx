@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getAgents, resendAgentInvite } from '../../utils/agents.js'
+import { useDispatch, useSelector } from 'react-redux'
 import { Clock3, Eye, FilePlus, Search, Plus, X } from 'lucide-react'
 import StatCard from '../../components/StatCard.jsx'
 import { formatAccountId } from '../../utils/accountId.js'
+import { getAllAgentsAsync, resendAgentInviteAsync } from '../../redux/agentSlice.js'
+import { ShowRealtimeAlert } from '../../redux/realtimeSlice.js'
 
 const ONBOARDING_STEPS = 6
 
@@ -82,9 +84,6 @@ function getOnboardingView(agent) {
 }
 
 export default function Agents() {
-  const [agents, setAgents] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
   const [toast, setToast] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -93,32 +92,16 @@ export default function Agents() {
   const [sendingInvites, setSendingInvites] = useState(false)
   const toastTimerRef = useRef(null)
   const navigate = useNavigate()
+  const dispatch = useDispatch()
+  const { allAgentsData, getAllAgentsLoading, getAllAgentsFailed } = useSelector((state) => state.agent)
+  const agents = allAgentsData
+  const loading = getAllAgentsLoading
+  const error = getAllAgentsFailed || null
   const pageSize = 8
 
   useEffect(() => {
-    let isMounted = true
-
-    getAgents()
-      .then((data) => {
-        if (isMounted) {
-          setAgents(data)
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          setError(err.message || 'Unable to load agents.')
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false)
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
+    dispatch(getAllAgentsAsync())
+  }, [dispatch])
 
   const invitedAgentIds = agents
     .filter((agent) => String(agent.status || '').toLowerCase() === 'invited')
@@ -236,12 +219,27 @@ export default function Agents() {
 
     setSendingInvites(true)
     try {
-      await Promise.all(selectedAgentIds.map((id) => resendAgentInvite(id)))
-      window.alert(`Invite link sent to ${selectedAgentIds.length} agent(s).`)
+      const responses = await Promise.all(
+        selectedAgentIds.map((id) => dispatch(resendAgentInviteAsync(id))),
+      )
+      const failed = responses.find(
+        (response) =>
+          response instanceof Error ||
+          response?.message === 'Unable to save agent changes.',
+      )
+      if (failed) {
+        throw failed
+      }
+      dispatch(
+        ShowRealtimeAlert({
+          variant: 'success',
+          title: 'Invitation Sent',
+          message: `Invite link sent to ${selectedAgentIds.length} agent(s).`,
+        }),
+      )
       setInviteMode(false)
       setSelectedAgentIds([])
-      const refreshed = await getAgents()
-      setAgents(refreshed)
+      dispatch(getAllAgentsAsync())
     } catch (err) {
       window.alert(err.message || 'Unable to send invite links.')
     } finally {

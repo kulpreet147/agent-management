@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import { Search, ShieldCheck, ShieldOff, UserPlus, Mail, Phone, MapPin } from 'lucide-react'
 import StatCard from '../../components/StatCard.jsx'
-import { listAccounts, setAccountBlocked } from '../../utils/admins.js'
+import {
+  getAllAccountsAsync,
+  resendAccountInviteAsync,
+  setAccountBlockedAsync,
+} from '../../redux/accountSlice.js'
+import { ShowRealtimeAlert } from '../../redux/realtimeSlice.js'
 import { formatAccountId } from '../../utils/accountId.js'
 
 function formatUsCaPhone(phone) {
@@ -14,33 +20,17 @@ function formatUsCaPhone(phone) {
 
 export default function AdminManagement() {
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const [searchTerm, setSearchTerm] = useState('')
-  const [admins, setAdmins] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [refreshKey, setRefreshKey] = useState(0)
   const [message, setMessage] = useState('')
+  const [pendingAction, setPendingAction] = useState(null)
+  const { allAccountsData, getAllAccountsLoading } = useSelector((state) => state.account)
+  const admins = allAccountsData
+  const loading = getAllAccountsLoading
 
   useEffect(() => {
-    let mounted = true
-
-    setLoading(true)
-    listAccounts('admin')
-      .then((data) => {
-        if (!mounted) return
-        setAdmins(Array.isArray(data) ? data : data?.items || [])
-      })
-      .catch((err) => {
-        if (!mounted) return
-        setMessage(err.message || 'Unable to load admins.')
-      })
-      .finally(() => {
-        if (mounted) setLoading(false)
-      })
-
-    return () => {
-      mounted = false
-    }
-  }, [refreshKey])
+    dispatch(getAllAccountsAsync('admin'))
+  }, [dispatch])
 
   const filteredAdmins = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
@@ -79,9 +69,12 @@ export default function AdminManagement() {
   }, [admins])
 
   const toggleBlock = (admin) => {
-    setAccountBlocked('admin', admin.id, !admin.isBlocked)
-      .then(() => {
-        setRefreshKey((value) => value + 1)
+    setPendingAction({ type: 'block', id: admin.id })
+    dispatch(setAccountBlockedAsync('admin', admin.id, !admin.isBlocked))
+      .then((response) => {
+        if (response instanceof Error || response?.message === 'Unable to save account changes.') {
+          throw response
+        }
         setMessage(`${admin.firstName} ${admin.lastName} ${admin.isBlocked ? 'unblocked' : 'blocked'}.`)
         window.setTimeout(() => setMessage(''), 2500)
       })
@@ -89,6 +82,29 @@ export default function AdminManagement() {
         setMessage(err.message || 'Unable to update admin access.')
         window.setTimeout(() => setMessage(''), 2500)
       })
+      .finally(() => setPendingAction(null))
+  }
+
+  const resendInvite = (admin) => {
+    setPendingAction({ type: 'resend', id: admin.id })
+    dispatch(resendAccountInviteAsync('admin', admin.id))
+      .then((response) => {
+        if (response instanceof Error || response?.message === 'Unable to save account changes.') {
+          throw response
+        }
+        dispatch(
+          ShowRealtimeAlert({
+            variant: 'success',
+            title: 'Invitation Sent',
+            message: `Invitation sent to ${admin.email}.`,
+          }),
+        )
+      })
+      .catch((err) => {
+        setMessage(err.message || 'Unable to resend invitation.')
+        window.setTimeout(() => setMessage(''), 2500)
+      })
+      .finally(() => setPendingAction(null))
   }
 
   return (
@@ -159,6 +175,8 @@ export default function AdminManagement() {
                   const isBlocked = Boolean(admin.isBlocked)
                   const adminStatus = admin.adminStatus || (isBlocked ? 'blocked' : admin.isActive ? 'active' : 'pending')
                   const isPending = adminStatus === 'pending'
+                  const isResending = pendingAction?.type === 'resend' && pendingAction.id === admin.id
+                  const isBlocking = pendingAction?.type === 'block' && pendingAction.id === admin.id
                   const statusLabel =
                     adminStatus === 'blocked' ? 'Blocked' : adminStatus === 'active' ? 'Active' : 'Pending'
 
@@ -228,23 +246,26 @@ export default function AdminManagement() {
                         </div>
                         <div className="flex items-center gap-2">
                           {isPending ? (
-                            <Link
-                              to="/master/admin-management/new"
+                            <button
+                              type="button"
+                              onClick={() => resendInvite(admin)}
+                              disabled={isResending}
                               className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-700 transition hover:bg-slate-200"
                             >
-                              Invite Again
-                            </Link>
+                              {isResending ? 'Sending...' : 'Invite Again'}
+                            </button>
                           ) : null}
                           <button
                             type="button"
                             onClick={() => toggleBlock(admin)}
+                            disabled={isBlocking}
                             className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[10px] font-semibold transition ${isBlocked
                                 ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                                 : 'bg-red-50 text-red-700 hover:bg-red-100'
-                              }`}
+                              } disabled:cursor-not-allowed disabled:opacity-60`}
                           >
                             {isBlocked ? <ShieldCheck size={14} /> : <ShieldOff size={14} />}
-                            {isBlocked ? 'Unblock' : 'Block'}
+                            {isBlocking ? 'Saving...' : isBlocked ? 'Unblock' : 'Block'}
                           </button>
                         </div>
                       </div>
