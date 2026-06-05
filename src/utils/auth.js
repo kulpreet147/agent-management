@@ -1,6 +1,7 @@
 import { apiRequest } from './api.js'
 
 const KEY = 'agentflow_auth'
+const NOTICE_KEY = 'agentflow_auth_notice'
 
 function getStorage() {
   return window.sessionStorage
@@ -68,9 +69,28 @@ export const auth = {
     })
   },
 
+  async getCurrentUser() {
+    return apiRequest('/auth/me')
+  },
+
   logout() {
     getStorage().removeItem(KEY)
     window.localStorage.removeItem(KEY)
+  },
+  setLogoutNotice(notice) {
+    try {
+      if (!notice) return
+      getStorage().setItem(NOTICE_KEY, JSON.stringify(notice))
+    } catch {}
+  },
+  consumeLogoutNotice() {
+    try {
+      const raw = getStorage().getItem(NOTICE_KEY)
+      getStorage().removeItem(NOTICE_KEY)
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
   },
   get() {
     try {

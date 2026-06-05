@@ -35,9 +35,24 @@ export default function AgentDashboard() {
 
   useEffect(() => {
     if (!session?.id) return
-    getAgentSignedDocuments(session.id)
-      .then((data) => setSignedDocs(data || {}))
-      .catch(() => setSignedDocs({}))
+
+    const loadSignedDocuments = () => {
+      getAgentSignedDocuments(session.id)
+        .then((data) => setSignedDocs(data || {}))
+        .catch(() => setSignedDocs({}))
+    }
+
+    loadSignedDocuments()
+
+    const handleRealtimeRefresh = () => {
+      loadSignedDocuments()
+    }
+
+    window.addEventListener('agent:realtime-update', handleRealtimeRefresh)
+
+    return () => {
+      window.removeEventListener('agent:realtime-update', handleRealtimeRefresh)
+    }
   }, [session?.id])
 
   const documents = useMemo(() => {

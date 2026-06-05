@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
 import { AlertCircle, CheckCircle2, Eye, EyeOff, ShieldCheck } from 'lucide-react'
-import { activateAccountInvite, getAccountInvite } from '../utils/admins.js'
+import { getAccountInviteAsync } from '../redux/accountSlice.js'
+import { ActivateAdminAccountAsync } from '../redux/authSlice.js'
 
 function PasswordRule({ valid, label }) {
   return (
@@ -19,6 +21,7 @@ function PasswordRule({ valid, label }) {
 export default function AdminAccountSetup() {
   const { inviteToken } = useParams()
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -60,7 +63,7 @@ export default function AdminAccountSetup() {
       }
 
       try {
-        const response = await getAccountInvite('admin', inviteToken)
+        const response = await dispatch(getAccountInviteAsync('admin', inviteToken))
         if (!mounted) return
 
         const admin = response?.admin || response?.user || response
@@ -98,7 +101,7 @@ export default function AdminAccountSetup() {
     return () => {
       mounted = false
     }
-  }, [inviteToken])
+  }, [dispatch, inviteToken])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -117,7 +120,18 @@ export default function AdminAccountSetup() {
 
     setLoading(true)
     try {
-      const updatedAdmin = await activateAccountInvite('admin', inviteToken, password)
+      const response = await dispatch(ActivateAdminAccountAsync(inviteToken, password))
+      const updatedAdmin = response?.admin || response?.user || response
+
+      if (!updatedAdmin?.firstName) {
+        throw new Error(response?.message || 'Unable to activate account.')
+      }
+
+      setInvite((previous) => ({
+        ...previous,
+        valid: false,
+        message: '',
+      }))
       setSuccess(`Welcome, ${updatedAdmin.firstName}. Your account is ready.`)
       window.setTimeout(() => navigate('/login'), 1800)
     } catch (err) {
@@ -140,7 +154,16 @@ export default function AdminAccountSetup() {
       </header>
 
       <main className="mx-auto max-w-[920px] px-6 py-8">
-        {invite.loading ? (
+        {success ? (
+          <div className="mx-auto max-w-[420px] rounded-lg border border-emerald-200 bg-white p-8 text-center shadow-card">
+            <div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-emerald-50 text-emerald-600">
+              <CheckCircle2 size={22} />
+            </div>
+            <h1 className="mt-4 text-lg font-bold text-slate-950">Account Activated</h1>
+            <p className="mt-2 text-sm text-slate-500">{success}</p>
+            <p className="mt-1 text-xs text-slate-400">Redirecting to login...</p>
+          </div>
+        ) : invite.loading ? (
           <div className="mx-auto max-w-[420px] rounded-lg border border-slate-300 bg-white p-8 text-center shadow-card">
             <div className="text-sm font-bold text-slate-900">Checking secure invitation...</div>
             <div className="mt-2 text-xs text-slate-500">

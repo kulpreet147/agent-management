@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { getLeads, getUpcomingFollowUps } from "../../utils/leads.js";
+import { useDispatch, useSelector } from "react-redux";
+import { getAllLeadsAsync, getAllUpcomingFollowUpsAsync, Store_Selected_Lead } from "../../redux/leadSlice.js";
 import {
   Search,
   UserPlus,
@@ -31,16 +32,22 @@ const PAGE_SIZE = 10;
 export default function LeadManagement() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [leads, setLeads] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const {
+    allLeadsData,
+    getAllLeadsLoading,
+    leadPaginationLength,
+    upcomingFollowUpsData,
+  } = useSelector((state) => state.lead);
+  const leads = allLeadsData;
+  const totalLeads = leadPaginationLength;
+  const loading = getAllLeadsLoading;
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [agentFilter, setAgentFilter] = useState("All");
   const [priorityFilter, setPriorityFilter] = useState("All");
   const [dateFilter, setDateFilter] = useState("");
-  const [upcomingFollowUps, setUpcomingFollowUps] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalLeads, setTotalLeads] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -67,35 +74,17 @@ export default function LeadManagement() {
   };
 
   const fetchLeads = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = { page: currentPage, limit: PAGE_SIZE };
-      if (statusFilter !== "All") params.status = statusFilter.replace(/ /g, "_").toLowerCase();
-      if (priorityFilter !== "All") params.leadPriority = priorityFilter.toLowerCase();
-      if (agentFilter !== "All") params.search = agentFilter;
-      if (searchTerm) params.search = searchTerm;
+    const data = { page: currentPage, perPage: PAGE_SIZE };
+    if (statusFilter !== "All") data.status = statusFilter.replace(/ /g, "_").toLowerCase();
+    if (priorityFilter !== "All") data.leadPriority = priorityFilter.toLowerCase();
+    if (agentFilter !== "All") data.search = agentFilter;
+    if (searchTerm) data.search = searchTerm;
 
-      const [leadsData, followUps] = await Promise.all([
-        getLeads(params).catch(() => ({ leads: [], total: 0 })),
-        getUpcomingFollowUps().catch(() => []),
-      ]);
-
-      const leadList = Array.isArray(leadsData) ? leadsData : leadsData?.leads || [];
-      if (leadList.length > 0) {
-        const sample = leadList[0]
-        console.log('[LeadManagement] sample lead assignments:', sample?.id, sample?.assignments?.length, sample?.assignments?.map(a => ({ id: a.id, isActive: a.isActive, agentName: a.agentName })))
-      }
-      setLeads(leadList);
-      setTotalLeads(leadsData?.total || leadList.length);
-      setUpcomingFollowUps(Array.isArray(followUps) ? followUps : []);
-    } catch {
-      setLeads([]);
-      setTotalLeads(0);
-      setUpcomingFollowUps([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage, statusFilter, priorityFilter, searchTerm, agentFilter]);
+    await Promise.all([
+      dispatch(getAllLeadsAsync(data)),
+      dispatch(getAllUpcomingFollowUpsAsync({ page: currentPage, perPage: PAGE_SIZE })),
+    ]);
+  }, [agentFilter, currentPage, dispatch, priorityFilter, searchTerm, statusFilter]);
 
   useEffect(() => {
     fetchLeads();
@@ -107,7 +96,6 @@ export default function LeadManagement() {
 
   const leadData = leads.map((l) => {
     const active = (l.assignments || []).filter((a) => a.isActive);
-    console.debug('[LeadManagement] lead:', l.id, 'activeAssignments:', active.length, active.map(a => a.agentName));
     return {
     id: l.id,
     leadId: l.leadId,
@@ -143,7 +131,7 @@ export default function LeadManagement() {
       statusStyles.New,
     lastActivity: formatActivityDate(l.lastActivityDate),
     followUp: (() => {
-      const fu = upcomingFollowUps
+      const fu = upcomingFollowUpsData
         .filter((f) => f.leadId === l.id)
         .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))[0];
       if (!fu) return "";
@@ -153,7 +141,7 @@ export default function LeadManagement() {
       });
     })(),
     followUpUrgent: (() => {
-      const fu = upcomingFollowUps
+      const fu = upcomingFollowUpsData
         .filter((f) => f.leadId === l.id)
         .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))[0];
       if (!fu) return false;
@@ -425,11 +413,12 @@ export default function LeadManagement() {
                     <td className="px-6 py-4">
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          dispatch(Store_Selected_Lead(lead));
                           navigate(`/admin/leads/${lead.id}`, {
                             state: { lead },
-                          })
-                        }
+                          });
+                        }}
                         className="flex items-center gap-3 hover:opacity-80 transition-opacity text-left"
                       >
                         <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold border border-blue-200">
