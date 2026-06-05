@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getMyClients, getClientStats } from "../../utils/clients.js";
+import { auth } from "../../utils/auth.js";
+import AgentSidebar from "../../components/AgentSidebar.jsx";
+import CommonHeader from "../../components/CommonHeader.jsx";
 import {
   Search,
+  Filter,
   ChevronLeft,
   ChevronRight,
   MoreVertical,
@@ -16,6 +20,7 @@ const statusStyles = {
   active: "bg-emerald-50 text-emerald-700",
   inactive: "bg-gray-100 text-gray-600",
   pending: "bg-amber-50 text-amber-600",
+  archived: "bg-red-50 text-red-600",
 };
 
 const tagStyles = {
@@ -24,6 +29,7 @@ const tagStyles = {
   Corporate: "bg-brand-50 text-brand-700",
   "Renewal Due": "bg-red-50 text-red-600",
   Prospect: "bg-gray-100 text-gray-600",
+  "High Value": "bg-purple-50 text-purple-700",
 };
 
 const PAGE_SIZE = 10;
@@ -31,6 +37,9 @@ const PAGE_SIZE = 10;
 export default function AgentClientManagement() {
   const navigate = useNavigate();
   const location = useLocation();
+  const session = auth.get();
+  const agentName = session?.name || "Agent";
+  const agentInitials = agentName.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -114,20 +123,36 @@ export default function AgentClientManagement() {
   const totalPages = Math.ceil(totalClients / PAGE_SIZE);
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-[#eef3f8] text-slate-950">
+      <div className="flex h-screen overflow-hidden">
+        <AgentSidebar agentName={agentName} initials={agentInitials} />
+
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <CommonHeader title="Client Management" compact />
+
+          <div className="flex-1 overflow-y-auto p-4 lg:p-5">
+            <div className="max-w-[2200px] mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900 mb-1">Client Management</h2>
-        <p className="text-sm text-slate-500">Your assigned clients</p>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-900 mb-1">Client Management</h2>
+          <div className="flex items-center gap-1 text-sm text-slate-500">
+            <span>Directory</span>
+            <ChevronRight size={14} />
+            <span className="text-brand-600 font-medium">My Clients</span>
+          </div>
+        </div>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
         <StatCard
           icon={<Users size={20} />}
           iconBg="bg-brand-50 text-brand-600"
           label="Active Clients"
           value={stats.totalActive}
+          trend="+8%"
+          trendColor="text-emerald-600"
         />
         <StatCard
           icon={<RefreshCw size={20} />}
@@ -139,24 +164,24 @@ export default function AgentClientManagement() {
         <StatCard
           icon={<Clock size={20} />}
           iconBg="bg-amber-50 text-amber-500"
-          label="Pending Tasks"
+          label="Pending Service Requests"
           value={stats.pendingFollowUps}
           valueColor="text-amber-600"
+        />
+        <StatCard
+          icon={<Home size={20} />}
+          iconBg="bg-slate-100 text-slate-500"
+          label="Households"
+          value={clients.filter((c) => c.householdMembers && c.householdMembers.length > 0).length}
         />
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              placeholder="Search clients..."
-              className="pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-400 w-64"
-            />
+      <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between mb-5 shadow-sm">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600">
+            <Filter size={15} />
+            <span className="text-xs font-semibold">Filters</span>
           </div>
           <select
             value={statusFilter}
@@ -166,7 +191,10 @@ export default function AgentClientManagement() {
             <option value="All">Status: All</option>
             <option>Active</option>
             <option>Inactive</option>
+            <option>Pending</option>
+            <option>Archived</option>
           </select>
+          <div className="w-px h-6 bg-slate-200" />
           <select
             value={segmentFilter}
             onChange={(e) => { setSegmentFilter(e.target.value); setCurrentPage(1); }}
@@ -179,6 +207,17 @@ export default function AgentClientManagement() {
             <option>Prospect</option>
           </select>
         </div>
+        <button
+          onClick={() => {
+            setSearchTerm("");
+            setStatusFilter("All");
+            setSegmentFilter("All");
+            setCurrentPage(1);
+          }}
+          className="text-brand-600 text-xs font-bold hover:underline"
+        >
+          Clear All
+        </button>
       </div>
 
       {/* Data Table */}
@@ -309,6 +348,21 @@ export default function AgentClientManagement() {
                   </button>
                 );
               })}
+              {totalPages > 5 && (
+                <>
+                  <span className="text-slate-400 px-1">...</span>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === totalPages
+                        ? "bg-brand-600 text-white"
+                        : "hover:bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {totalPages}
+                  </button>
+                </>
+              )}
             </div>
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
@@ -320,11 +374,15 @@ export default function AgentClientManagement() {
           </div>
         </div>
       </div>
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
 
-function StatCard({ icon, iconBg, label, value, sub, valueColor }) {
+function StatCard({ icon, iconBg, label, value, trend, trendColor, sub, valueColor }) {
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm group hover:border-brand-300 transition-all">
       <div className="flex items-center justify-between mb-3">
@@ -333,6 +391,11 @@ function StatCard({ icon, iconBg, label, value, sub, valueColor }) {
       </div>
       <div className="flex items-end gap-2">
         <h3 className={`text-3xl font-bold leading-none ${valueColor || "text-slate-900"}`}>{value}</h3>
+        {trend && (
+          <div className={`flex items-center text-xs font-bold pb-0.5 ${trendColor}`}>
+            <span>{trend}</span>
+          </div>
+        )}
         {sub && <span className="text-xs text-slate-500 pb-0.5">{sub}</span>}
       </div>
     </div>

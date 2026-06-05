@@ -73,10 +73,11 @@ export function removePolicy(clientId, policyId) {
 
 // ============ DOCUMENTS ============
 
-export function uploadDocument(clientId, file, documentType) {
+export function uploadDocument(clientId, file, documentType, expiryDate) {
   const formData = new FormData()
   formData.append('file', file)
   if (documentType) formData.append('documentType', documentType)
+  if (expiryDate) formData.append('expiryDate', expiryDate)
   return apiRequest(`/clients/${clientId}/documents`, {
     method: 'POST',
     body: formData,
@@ -88,7 +89,27 @@ export function getDocuments(clientId) {
 }
 
 export function downloadDocument(clientId, docId) {
-  return apiRequest(`/clients/${clientId}/documents/${docId}/download`)
+  const session = JSON.parse(sessionStorage.getItem('agentflow_auth') || localStorage.getItem('agentflow_auth') || '{}')
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api'
+  const url = `${API_BASE}/clients/${clientId}/documents/${docId}/download`
+  const a = document.createElement('a')
+  a.href = url
+  if (session?.token) {
+    fetch(url, { headers: { Authorization: `Bearer ${session.token}` } })
+      .then(res => {
+        if (!res.ok) throw new Error('Download failed')
+        return res.blob()
+      })
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob)
+        a.href = blobUrl
+        a.click()
+        URL.revokeObjectURL(blobUrl)
+      })
+      .catch(err => alert(err.message || 'Download failed'))
+  } else {
+    a.click()
+  }
 }
 
 // ============ NOTES ============

@@ -178,6 +178,10 @@ export default function ClientDetail() {
   const [timelineFilter, setTimelineFilter] = useState('All')
   const [docSearch, setDocSearch] = useState('')
   const [docFilter, setDocFilter] = useState('All')
+  const [docCategory, setDocCategory] = useState('Supporting')
+  const [docExpiryDate, setDocExpiryDate] = useState('')
+  const [showDocUploadModal, setShowDocUploadModal] = useState(false)
+  const [pendingFile, setPendingFile] = useState(null)
   const [taskFilter, setTaskFilter] = useState('All')
   const [taskView, setTaskView] = useState('mine')
 
@@ -296,16 +300,33 @@ export default function ClientDetail() {
     }
   }
 
-  const handleFileUpload = async (e) => {
+  const handleFileSelect = (e) => {
     const file = e.target.files[0]
     if (!file) return
+    setPendingFile(file)
+    setShowDocUploadModal(true)
+    e.target.value = ''
+  }
+
+  const handleConfirmUpload = async () => {
+    if (!pendingFile) return
     try {
-      await uploadDocument(clientId, file)
+      await uploadDocument(clientId, pendingFile, docCategory, docExpiryDate)
+      setShowDocUploadModal(false)
+      setPendingFile(null)
+      setDocCategory('Supporting')
+      setDocExpiryDate('')
       await refreshData()
     } catch (err) {
       alert(err.message || 'Failed to upload document')
     }
-    e.target.value = ''
+  }
+
+  const handleCancelUpload = () => {
+    setShowDocUploadModal(false)
+    setPendingFile(null)
+    setDocCategory('Supporting')
+    setDocExpiryDate('')
   }
 
   const initials = (first, last) =>
@@ -331,7 +352,7 @@ export default function ClientDetail() {
 
   const filteredDocuments = documentsList.filter((doc) => {
     const matchesSearch = !docSearch || doc.documentName?.toLowerCase().includes(docSearch.toLowerCase())
-    const matchesFilter = docFilter === 'All' || doc.documentCategory === docFilter || doc.documentType === docFilter
+    const matchesFilter = docFilter === 'All' || doc.documentType?.toLowerCase() === docFilter.toLowerCase()
     return matchesSearch && matchesFilter
   })
 
@@ -390,7 +411,7 @@ export default function ClientDetail() {
   }
 
   return (
-    <div className="space-y-6 max-w-[1440px] mx-auto">
+    <div className="space-y-6 ">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1 text-xs font-medium text-slate-400">
         <span className="cursor-pointer hover:text-slate-600" onClick={() => navigate('/admin/clients')}>
@@ -435,10 +456,6 @@ export default function ClientDetail() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button className="bg-brand-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-brand-700 transition-all flex items-center gap-2">
-              <PenLine size={16} />
-              Log Activity
-            </button>
             <button
               onClick={() => setShowPolicyModal(true)}
               className="border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-slate-50 transition-all flex items-center gap-2"
@@ -456,7 +473,7 @@ export default function ClientDetail() {
             <label className="border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium text-sm hover:bg-slate-50 transition-all flex items-center gap-2 cursor-pointer">
               <Upload size={16} />
               Upload Doc
-              <input type="file" className="hidden" onChange={handleFileUpload} />
+              <input type="file" className="hidden" onChange={handleFileSelect} />
             </label>
           </div>
         </div>
@@ -594,48 +611,6 @@ export default function ClientDetail() {
               </div>
             </div>
 
-            {/* Opportunities */}
-            <div className="bg-white border border-slate-200 rounded-xl p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
-                  <Lightbulb size={20} />
-                </div>
-                <h2 className="text-base font-bold text-slate-800">Opportunities</h2>
-              </div>
-              <div className="space-y-4">
-                {activePolicies > 0 && !policiesList.some((p) => p.policyType?.toLowerCase().includes('critical')) && (
-                  <div className="flex flex-col gap-3 p-4 bg-red-50/50 border border-red-100 rounded-lg">
-                    <div>
-                      <h3 className="text-sm font-medium text-slate-800">Missing Critical Illness Coverage</h3>
-                      <p className="text-xs text-slate-500 mt-1">Has Active policies, but no Critical Illness protection detected in the household profile.</p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase text-red-700 bg-red-100 px-2 py-0.5 rounded">High Probability</span>
-                      <button className="bg-brand-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-brand-700 transition-all">Create Task</button>
-                    </div>
-                  </div>
-                )}
-                <div className="flex flex-col gap-3 p-4 bg-blue-50/50 border border-blue-100 rounded-lg">
-                  <div>
-                    <h3 className="text-sm font-medium text-slate-800">Portfolio Review</h3>
-                    <p className="text-xs text-slate-500 mt-1">Review existing policies for coverage gaps and optimization opportunities.</p>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase text-blue-700 bg-blue-100 px-2 py-0.5 rounded">Contextual</span>
-                    <button className="bg-brand-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-brand-700 transition-all">Create Task</button>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3 p-4 border border-dashed border-slate-200 rounded-lg">
-                  <div className="flex items-center justify-center py-2 text-slate-400">
-                    <button className="text-brand-600 font-medium hover:underline text-sm flex items-center gap-1">
-                      <Shield size={16} />
-                      Run AI Portfolio Scan
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Recent Activity */}
             <div className="bg-white border border-slate-200 rounded-xl p-6">
               <h2 className="text-base font-bold text-slate-800 mb-5">Recent Activity</h2>
@@ -767,10 +742,6 @@ export default function ClientDetail() {
                 </button>
               ))}
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg font-semibold text-sm hover:bg-brand-700 transition-all">
-              <Plus size={16} />
-              Log Activity
-            </button>
           </div>
 
           {/* Activity Feed - combined from activity log and follow-ups */}
@@ -778,34 +749,35 @@ export default function ClientDetail() {
             const combinedTimeline = [
               ...activityLog,
               ...followUpsList
-                .filter(fu => fu.scheduledAt)
-                .flatMap(fu => {
-                  const entries = [{
-                    id: `task-${fu.id}`,
-                    action: 'follow_up_created',
-                    performedAt: fu.scheduledAt,
-                    performedByName: fu.assignedTo || 'System',
-                    details: { Type: fu.type, Notes: fu.notes }
-                  }]
-                  if (fu.status === 'completed' && fu.completedAt) {
-                    entries.push({
-                      id: `task-completed-${fu.id}`,
-                      action: 'follow_up_completed',
-                      performedAt: fu.completedAt,
-                      performedByName: fu.assignedTo || 'System',
-                      details: { Type: fu.type, Notes: fu.notes }
-                    })
-                  }
-                  return entries
-                })
+                .filter(fu => fu.status === 'completed' && fu.completedAt)
+                .map(fu => ({
+                  id: `task-completed-${fu.id}`,
+                  action: 'follow_up_completed',
+                  performedAt: fu.completedAt,
+                  performedByName: fu.assignedToName || 'System',
+                  details: { Type: fu.type, Notes: fu.notes }
+                }))
             ].sort((a, b) => new Date(b.performedAt) - new Date(a.performedAt))
 
-            return combinedTimeline.length === 0 ? (
+            const timelineFilterMap = {
+              'All': null,
+              'Calls': (e) => e.action?.includes('call') || e.details?.Type === 'call',
+              'Emails': (e) => e.action?.includes('email') || e.details?.Type === 'email',
+              'Notes': (e) => e.action === 'note_added',
+              'Documents': (e) => e.action === 'document_uploaded',
+              'Policy Events': (e) => e.action?.includes('policy'),
+              'Service Requests': (e) => e.action?.includes('client_') || e.details?.Type === 'task',
+            }
+            const filteredTimeline = timelineFilterMap[timelineFilter]
+              ? combinedTimeline.filter(timelineFilterMap[timelineFilter])
+              : combinedTimeline
+
+            return filteredTimeline.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-8">No activity recorded yet</p>
             ) : (
               <>
                 <div className="relative pl-[20px] before:absolute before:left-[19px] before:top-0 before:bottom-0 before:w-0.5 before:bg-slate-200 space-y-6">
-                  {combinedTimeline.map((log) => {
+                  {filteredTimeline.map((log) => {
                     const IconComp = actionIcons[log.action] || Clock
                     const style = timelineEntryStyle[log.action] || { bg: 'bg-slate-100', text: 'text-slate-500', border: 'border-slate-200' }
                     const detail = log.details && typeof log.details === 'object' ? log.details : null
@@ -895,7 +867,7 @@ export default function ClientDetail() {
             </div>
           </div>
 
-          {/* Drag & Drop Upload Zone */}
+          {/* Upload Zone */}
           <label
             className="w-full border-2 border-dashed border-slate-300 rounded-xl p-8 flex flex-col items-center justify-center bg-white cursor-pointer hover:bg-brand-50/30 hover:border-brand-400 transition-all group"
           >
@@ -904,7 +876,7 @@ export default function ClientDetail() {
             </div>
             <p className="text-sm font-semibold text-slate-700">Drag files here or click to upload</p>
             <p className="text-xs text-slate-400 mt-1">PDF, JPG, PNG up to 25MB per file</p>
-            <input type="file" className="hidden" onChange={handleFileUpload} multiple accept=".pdf,.jpg,.jpeg,.png" />
+            <input type="file" className="hidden" onChange={handleFileSelect} accept=".pdf,.jpg,.jpeg,.png" />
           </label>
 
           {/* Documents Table */}
@@ -935,7 +907,7 @@ export default function ClientDetail() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredDocuments.map((doc) => {
-                      const catStyle = docCategoryStyles[doc.documentCategory] || docCategoryStyles['Supporting']
+                      const catStyle = docCategoryStyles[doc.documentType] || docCategoryStyles['Supporting']
                       const isExpired = doc.expiryDate && new Date(doc.expiryDate) < new Date()
                       return (
                         <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
@@ -952,7 +924,7 @@ export default function ClientDetail() {
                           </td>
                           <td className="px-6 py-4">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${catStyle.badge}`}>
-                              {doc.documentCategory || doc.documentType || 'Other'}
+                              {doc.documentType || 'Other'}
                             </span>
                           </td>
                           <td className="px-6 py-4">
@@ -981,13 +953,13 @@ export default function ClientDetail() {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <a
-                                href={`/api/clients/${clientId}/documents/${doc.id}/download`}
+                              <button
+                                onClick={() => downloadDocument(clientId, doc.id)}
                                 className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors"
                                 title="Download"
                               >
                                 <Download size={16} />
-                              </a>
+                              </button>
                               <button className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors" title="More">
                                 <MoreVertical size={16} />
                               </button>
@@ -1424,6 +1396,52 @@ export default function ClientDetail() {
               </button>
               <button onClick={handleAddHousehold} className="px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 transition-colors">
                 Add Member
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Upload Modal */}
+      {showDocUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Upload Document</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">File</label>
+                <p className="text-sm text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 truncate">{pendingFile?.name}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Category</label>
+                <select
+                  value={docCategory}
+                  onChange={(e) => setDocCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-400"
+                >
+                  <option value="Application">Application</option>
+                  <option value="ID">ID</option>
+                  <option value="Policy Docs">Policy Docs</option>
+                  <option value="Signed Forms">Signed Forms</option>
+                  <option value="Supporting">Supporting</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Expiry Date</label>
+                <input
+                  type="date"
+                  value={docExpiryDate}
+                  onChange={(e) => setDocExpiryDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand-400"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={handleCancelUpload} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleConfirmUpload} className="px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 transition-colors">
+                Upload
               </button>
             </div>
           </div>

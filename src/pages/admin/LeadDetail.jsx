@@ -58,6 +58,7 @@ const formatDetails = (action, details) => {
       }
       return d.toStatus ? `Status changed to "${d.toStatus}"` : null
     case 'follow_up_added':
+    case 'follow_up_created':
       return d.type ? `Follow-up type: ${d.type}` : null
     case 'follow_up_completed':
       return d.outcome ? `Outcome: ${d.outcome}` : null
@@ -65,6 +66,12 @@ const formatDetails = (action, details) => {
       return d.reason ? `Reason: ${d.reason}` : null
     case 'note_added':
       return d.content ? `"${d.content}"` : null
+    case 'lead_assigned':
+      return d.agentName ? `Assigned to ${d.agentName}` : (d.agentId ? `Assigned to agent` : null)
+    case 'agent_unassigned':
+      return d.agentName ? `Unassigned ${d.agentName}` : null
+    case 'lead_reassigned':
+      return d.targetAgentName ? `Reassigned to ${d.targetAgentName}` : null
     case 'agent_reassigned':
       return d.reason ? `Reason: ${d.reason}` : null
     case 'lead_created_from_excel':
@@ -101,7 +108,7 @@ const formatDetails = (action, details) => {
     case 'converted':
       return null
     default: {
-      const skip = ['fromStatus', 'toStatus', 'isNew', 'reportId', 'delivered']
+      const skip = ['fromStatus', 'toStatus', 'isNew', 'reportId', 'delivered', 'leadId', 'followUpId', 'agentId', 'targetAgentId', 'fromAgentId', 'agentName', 'targetAgentName', 'fromAgentName']
       const nonMeta = Object.fromEntries(Object.entries(d).filter(([k]) => !skip.includes(k)))
       if (Object.keys(nonMeta).length === 0) return null
       return Object.entries(nonMeta).map(([k, v]) => {
@@ -117,14 +124,19 @@ const formatDetails = (action, details) => {
 
 const actionLabels = {
   lead_created: 'Lead Created',
+  lead_assigned: 'Lead Assigned',
+  agent_unassigned: 'Agent Unassigned',
+  lead_reassigned: 'Lead Reassigned',
   status_changed: 'Status Changed',
   follow_up_added: 'Follow-Up Scheduled',
+  follow_up_created: 'Follow-Up Scheduled',
   follow_up_completed: 'Follow-Up Completed',
   follow_up_skipped: 'Follow-Up Skipped',
   note_added: 'Note Added',
   agent_reassigned: 'Agent Reassigned',
   lead_created_from_excel: 'Imported from Excel',
   need_analysis_saved: 'Need Analysis Updated',
+  need_analysis_updated: 'Need Analysis Updated',
   need_analysis_sent_to_client: 'Need Analysis Sent',
   need_analysis_deleted: 'Need Analysis Deleted',
   quote_run: 'Quote Run',
@@ -377,6 +389,11 @@ export default function LeadDetail() {
 
   const handleConfirmReassign = async () => {
     setReassignState('processing')
+    alert('Lead reassignment is under implementation and will be available soon.')
+    setReassignState('idle')
+    setShowReassign(false)
+    setReassignForm({ agentId: '', split: 100, reason: '' })
+    return
     try {
       const uuid = getLeadUuid()
       if (uuid && reassignForm.agentId) {
@@ -746,11 +763,14 @@ export default function LeadDetail() {
               return (
                 <div key={i} className="px-6 py-4 hover:bg-slate-50 transition-colors">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-800">{actionLabels[log.action] || log.action}</span>
+                    <span className="text-sm font-semibold text-slate-800">{actionLabels[log.action] || log.action.replace(/_/g, ' ')}</span>
                     <span className="text-[11px] text-slate-500">{formatTimeAgo(log.performedAt)}</span>
                   </div>
                   {detailText && (
                     <p className="text-xs text-slate-600 mt-1">{detailText}</p>
+                  )}
+                  {log.performedByName && (
+                    <p className="text-[11px] text-slate-400 mt-1">by {log.performedByName}</p>
                   )}
                 </div>
               )

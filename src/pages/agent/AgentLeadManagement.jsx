@@ -21,6 +21,7 @@ import {
   getLeads,
   getTodayFollowUps,
   getTomorrowFollowUps,
+  updateFollowUp,
 } from "../../utils/leads.js";
 
 const priorityConfig = {
@@ -59,8 +60,18 @@ export default function AgentLeadManagement() {
   const [loading, setLoading] = useState(true);
   const [todayFollowUps, setTodayFollowUps] = useState([]);
   const [tomorrowFollowUps, setTomorrowFollowUps] = useState([]);
-  const [checkedTasks, setCheckedTasks] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
+
+  const fetchFollowUps = () => {
+    if (!agentId) return;
+    Promise.all([
+      getTodayFollowUps().catch(() => []),
+      getTomorrowFollowUps().catch(() => []),
+    ]).then(([todayData, tomorrowData]) => {
+      setTodayFollowUps(Array.isArray(todayData) ? todayData : []);
+      setTomorrowFollowUps(Array.isArray(tomorrowData) ? tomorrowData : []);
+    });
+  };
 
   useEffect(() => {
     if (!agentId) {
@@ -80,8 +91,13 @@ export default function AgentLeadManagement() {
       .finally(() => setLoading(false));
   }, [agentId]);
 
-  const toggleTask = (idx) => {
-    setCheckedTasks((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  const completeTask = async (task) => {
+    try {
+      await updateFollowUp(task.id, { status: 'completed', completedAt: new Date().toISOString() });
+      fetchFollowUps();
+    } catch (err) {
+      alert(err.message || 'Failed to complete task');
+    }
   };
 
   const toTitleCase = (s) =>
@@ -331,27 +347,18 @@ export default function AgentLeadManagement() {
                         todayFollowUps.map((task, idx) => (
                           <label
                             key={task.id || idx}
-                            className={`flex items-start gap-4 rounded-lg p-3 transition cursor-pointer ${
-                              checkedTasks[idx]
-                                ? "opacity-50"
-                                : "hover:bg-slate-50"
-                            }`}
+                            className="flex items-start gap-4 rounded-lg p-3 transition cursor-pointer hover:bg-slate-50"
                           >
                             <input
                               type="checkbox"
-                              checked={!!checkedTasks[idx]}
-                              onChange={() => toggleTask(idx)}
+                              onChange={() => completeTask(task)}
                               className="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
                             />
                             <div className="min-w-0">
-                              <p
-                                className={`text-sm font-bold text-slate-900 ${checkedTasks[idx] ? "line-through" : ""}`}
-                              >
+                              <p className="text-sm font-bold text-slate-900">
                                 {getTaskTitle(task)}
                               </p>
-                              <p
-                                className={`text-xs text-slate-500 mt-0.5 ${checkedTasks[idx] ? "line-through" : ""}`}
-                              >
+                              <p className="text-xs text-slate-500 mt-0.5">
                                 {task.notes || "No notes"}
                               </p>
                               <div className="flex gap-2 mt-1.5">
@@ -388,14 +395,14 @@ export default function AgentLeadManagement() {
                         </p>
                       ) : (
                         tomorrowFollowUps.map((task, idx) => (
-                          <div
+                          <label
                             key={task.id || idx}
-                            className="flex items-start gap-4 rounded-lg p-3 opacity-70"
+                            className="flex items-start gap-4 rounded-lg p-3 transition cursor-pointer hover:bg-slate-50"
                           >
                             <input
                               type="checkbox"
-                              disabled
-                              className="mt-0.5 rounded border-slate-300 bg-slate-100 text-slate-400"
+                              onChange={() => completeTask(task)}
+                              className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                             />
                             <div className="min-w-0">
                               <p className="text-sm font-bold text-slate-900">
@@ -415,7 +422,7 @@ export default function AgentLeadManagement() {
                                 </span>
                               </div>
                             </div>
-                          </div>
+                          </label>
                         ))
                       )}
                     </div>
