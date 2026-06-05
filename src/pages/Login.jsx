@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { ClearAuthMessage, LoginAsync, PasswordRecoveryAsync } from '../redux/authSlice.js'
 import { auth } from '../utils/auth.js'
+import { APP_VERSION } from '../version.js'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -254,6 +255,9 @@ export default function Login() {
           <span>PRIVACY POLICY</span>
           <span>TERMS OF USE</span>
           <span>GLOBAL SUPPORT</span>
+          <span className="ml-auto rounded bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">
+            v{APP_VERSION}
+          </span>
         </div>
       </div>
 
