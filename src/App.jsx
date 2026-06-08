@@ -30,6 +30,7 @@ import AgentRegistrationForm from "./pages/agent/AgentRegistrationForm.jsx";
 import AgentDocumentSigning from "./pages/agent/AgentDocumentSigning.jsx";
 import AgentWelcome from "./pages/agent/AgentWelcome.jsx";
 import AgentOnboardingDashboard from "./pages/agent/AgentOnboardingDashboard.jsx";
+import ManagerAgreementSigning from "./pages/manager/ManagerAgreementSigning.jsx";
 import AgentDashboard from "./pages/agent/AgentDashboard.jsx";
 import AgentLeadManagement from "./pages/agent/AgentLeadManagement.jsx";
 import AgentLeadDetail from "./pages/agent/AgentLeadDetail.jsx";
@@ -50,8 +51,7 @@ function Protected({ children }) {
 function getAgentRoute(status) {
   const step = Number(status || 2);
   if (step >= 5) return "/agent/dashboard";
-  if (step >= 4) return "/agent/onboarding-progress";
-  if (step >= 3) return "/agent/sign-documents";
+  if (step >= 3) return "/agent/onboarding-progress";
   return "/agent/registration";
 }
 
@@ -88,6 +88,10 @@ export default function App() {
         <Route
           path="/agent/account-setup/:inviteToken"
           element={<AgentAccountSetup />}
+        />
+        <Route
+          path="/manager/agreements/:token"
+          element={<ManagerAgreementSigning />}
         />
         <Route
           path="/agent/registration"

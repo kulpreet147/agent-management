@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useDispatch } from 'react-redux'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Mail, CheckCircle2, Send, X } from 'lucide-react'
+import { ShowRealtimeAlert } from '../../redux/realtimeSlice.js'
 import { auth } from '../../utils/auth.js'
 import {
   getAgent,
@@ -10,19 +12,20 @@ import {
 } from '../../utils/agents.js'
 
 const uploadedLabels = {
-  checklistPdf: 'Checklist PDF',
-  licenceDocument: 'Licence',
-  eandODocument: 'E&O',
-  idDocument: 'ID',
-  sinDocument: 'SIN',
-  transferDocument: 'Licence',
-  apexDocument: 'Checklist PDF',
-  creditReportDocument: 'ID',
+  advisorContractPdf: 'Advisor Contract PDF',
+  codeOfConductPdf: 'Code of Conduct PDF',
+  privacyConfidentialityPdf: 'Privacy & Confidentiality PDF',
+  mgaChecklistPdf: 'MGA Onboarding Checklist',
+  licenceDocument: 'Licence Copy',
+  transferDocument: 'Licence Copy',
+  eandODocument: 'E&O Policy',
+  governmentId: 'Government ID',
 }
 
 export default function AgentMGAPackage() {
   const { agentId } = useParams()
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const [agent, setAgent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editingEmail, setEditingEmail] = useState(false)
@@ -34,6 +37,20 @@ export default function AgentMGAPackage() {
   const [updatingActivation, setUpdatingActivation] = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
 
+  function buildAttachmentRows(agentData, savedKeys = null) {
+    const selectedSet = Array.isArray(savedKeys) && savedKeys.length > 0 ? new Set(savedKeys) : null
+
+    return Object.entries(agentData?.documents || {})
+      .filter(([key]) => uploadedLabels[key])
+      .map(([key, doc]) => ({
+        id: `uploaded:${key}`,
+        key,
+        name: uploadedLabels[key],
+        size: formatSize(doc?.size),
+        selected: selectedSet ? selectedSet.has(key) : true,
+      }))
+  }
+
   useEffect(() => {
     if (!agentId) return
     let mounted = true
@@ -41,21 +58,21 @@ export default function AgentMGAPackage() {
       .then(([agentData]) => {
         if (!mounted) return
         setAgent(agentData)
+        const savedSubmission = agentData?.documents?.mgaSubmission || null
+        const defaultRecipients = ['mga@elitefinancial.com']
+        const defaultSubject = `New Agent Onboarding Package - ${agentData?.name || ''}`
+        const defaultBody =
+          `Dear Elite Financial Team,\n\nPlease find attached the onboarding package for our new agent, ${agentData?.name || ''}. This package includes the generated onboarding checklist and the supporting registration documents collected during onboarding.\n\nThe agent has completed the required agreements workflow, and the admin team has reviewed the submission package for MGA processing.\n\nPlease review the attached package and advise on next steps.\n\nBest regards,\nAgent Management Admin`
 
-        const uploadedRows = Object.entries(agentData?.documents || {})
-          .filter(([key]) => uploadedLabels[key])
-          .map(([key, doc]) => ({
-            id: `uploaded:${key}`,
-            name: uploadedLabels[key],
-            size: formatSize(doc?.size),
-            selected: true,
-          }))
-
-        setAttachments(uploadedRows)
-        setSubject(`New Agent Onboarding Package - ${agentData?.name || ''}`)
-        setBody(
-          `Dear Elite Financial Team,\n\nPlease find attached the complete onboarding package for our new agent, ${agentData?.name || ''}. All required compliance documents have been reviewed by our internal team.\n\nWe look forward to your review and the subsequent activation of their portal access.\n\nBest regards,\nAgent Management Admin`,
+        setAttachments(buildAttachmentRows(agentData, savedSubmission?.attachmentDocumentKeys || null))
+        setToList(
+          Array.isArray(savedSubmission?.recipients) && savedSubmission.recipients.length > 0
+            ? savedSubmission.recipients
+            : defaultRecipients,
         )
+        setToInput('')
+        setSubject(savedSubmission?.subject || defaultSubject)
+        setBody(savedSubmission?.body || defaultBody)
       })
       .finally(() => {
         if (mounted) setLoading(false)
@@ -66,12 +83,14 @@ export default function AgentMGAPackage() {
   }, [agentId])
 
   const selectedAttachments = attachments.filter((item) => item.selected)
+  const mgaSubmission = agent?.documents?.mgaSubmission || null
+  const hasSentPackage = Boolean(mgaSubmission?.sentAt)
 
   function addRecipient() {
     const value = toInput.trim()
     if (!value) return
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-      window.alert('Please enter a valid email address.')
+      dispatch(ShowRealtimeAlert({ variant: 'warning', title: 'Invalid Email', message: 'Please enter a valid email address.' }))
       return
     }
     if (!toList.includes(value)) setToList((prev) => [...prev, value])
@@ -91,21 +110,21 @@ export default function AgentMGAPackage() {
   async function sendToMGA() {
     if (sendingEmail) return
     if (toList.length === 0) {
-      window.alert('Please add at least one recipient in "To".')
+      dispatch(ShowRealtimeAlert({ variant: 'warning', title: 'Missing Recipient', message: 'Please add at least one recipient in "To".' }))
       return
     }
     if (selectedAttachments.length === 0) {
-      window.alert('Please select at least one attachment.')
+      dispatch(ShowRealtimeAlert({ variant: 'warning', title: 'No Attachments Selected', message: 'Please select at least one attachment.' }))
       return
     }
     if (!toList.every((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))) {
-      window.alert('One or more recipient emails are invalid.')
+      dispatch(ShowRealtimeAlert({ variant: 'warning', title: 'Invalid Recipient', message: 'One or more recipient emails are invalid.' }))
       return
     }
     try {
       setSendingEmail(true)
       const session = auth.get()
-      await sendMgaPackageEmail(agentId, {
+      const response = await sendMgaPackageEmail(agentId, {
         to: toList,
         adminEmail: session?.email || undefined,
         subject,
@@ -115,9 +134,20 @@ export default function AgentMGAPackage() {
           .map((item) => item.id.replace('uploaded:', ''))
           .filter(Boolean),
       })
-      window.alert('MGA package email sent successfully.')
+      if (response?.agent) {
+        setAgent(response.agent)
+        const savedSubmission = response.agent?.documents?.mgaSubmission || null
+        setAttachments(buildAttachmentRows(response.agent, savedSubmission?.attachmentDocumentKeys || null))
+      }
+      dispatch(
+        ShowRealtimeAlert({
+          variant: 'success',
+          title: hasSentPackage ? 'MGA Email Re-sent' : 'MGA Email Sent',
+          message: hasSentPackage ? 'MGA package email re-sent successfully.' : 'MGA package email sent successfully.',
+        }),
+      )
     } catch (error) {
-      window.alert(error.message || 'Unable to send MGA package email.')
+      dispatch(ShowRealtimeAlert({ variant: 'danger', title: 'MGA Email Failed', message: error.message || 'Unable to send MGA package email.' }))
     } finally {
       setSendingEmail(false)
     }
@@ -132,11 +162,17 @@ export default function AgentMGAPackage() {
         setAgent(response.agent)
       }
       if (nextStatus === 1) {
-        window.alert('Agent activated successfully. Activation email sent to agent.')
+        dispatch(
+          ShowRealtimeAlert({
+            variant: 'success',
+            title: 'Agent Activated',
+            message: 'Agent activated successfully. Activation email sent to agent.',
+          }),
+        )
         navigate('/admin/agents')
       }
     } catch (error) {
-      window.alert(error.message || 'Unable to update activation status.')
+      dispatch(ShowRealtimeAlert({ variant: 'danger', title: 'Activation Failed', message: error.message || 'Unable to update activation status.' }))
     } finally {
       setUpdatingActivation(false)
     }
@@ -188,6 +224,16 @@ export default function AgentMGAPackage() {
               <div className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
                 <Mail size={15} /> Email Preview
               </div>
+              {hasSentPackage ? (
+                <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                  Last sent on {new Date(mgaSubmission.sentAt).toLocaleString()}
+                  {mgaSubmission.sentBy ? ` by ${mgaSubmission.sentBy}` : ''}
+                  {Array.isArray(mgaSubmission.recipients) && mgaSubmission.recipients.length > 0
+                    ? ` to ${mgaSubmission.recipients.join(', ')}`
+                    : ''}
+                  .
+                </div>
+              ) : null}
               <div className="space-y-3 text-sm text-slate-700">
                 <div>
                   <div className="mb-1 text-xs font-semibold text-slate-500">To:</div>
@@ -249,7 +295,7 @@ export default function AgentMGAPackage() {
                   onClick={sendToMGA}
                   className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400"
                 >
-                  {sendingEmail ? 'Sending...' : 'Send to MGA Now'}
+                  {sendingEmail ? 'Sending...' : hasSentPackage ? 'Re-send to MGA' : 'Send to MGA Now'}
                   <Send size={14} />
                 </button>
               </div>
@@ -280,7 +326,9 @@ export default function AgentMGAPackage() {
               </ol>
               <div className="mt-6 rounded-xl bg-slate-50 p-3">
                 <div className="text-xs uppercase tracking-wide text-slate-500">Onboarding</div>
-                <div className="mt-1 text-sm font-semibold text-slate-900">Step 6 Complete</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">
+                  {hasSentPackage ? 'MGA Package Sent' : 'Step 6 Ready'}
+                </div>
                 <div className="mt-2 text-xs text-slate-500">Current status: {Number(agent?.accountActivationStatus) === 1 ? 'Active' : Number(agent?.accountActivationStatus) === 2 ? 'Expired' : 'Under Review'}</div>
               </div>
             </div>

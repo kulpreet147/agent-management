@@ -9,6 +9,7 @@ import {
   ChevronRight, RefreshCw, Lock, Globe, Linkedin, Instagram,
   Youtube, Twitter, Plus, X, Building2, CreditCard, Hash,
 } from 'lucide-react'
+import { useToast } from '../../hooks/useToast.js'
 import { getAgent, getAgentProfile, updateAgentProfile } from '../../utils/agents.js'
 import { getAccountActivities } from '../../utils/activities.js'
 
@@ -1171,6 +1172,7 @@ function SettingsTab({ data, onSubscriptionChange }) {
 export default function AgentProfileView() {
   const { agentId } = useParams()
   const navigate = useNavigate()
+  const toast = useToast()
   const [agent, setAgent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -1270,7 +1272,7 @@ export default function AgentProfileView() {
         },
       })
     } catch (err) {
-      window.alert(err.message || 'Unable to update subscription.')
+      toast.error(err.message || 'Unable to update subscription.')
     }
   }
 

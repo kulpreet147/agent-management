@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Trash2, Keyboard, FileText, ShieldCheck, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../../utils/auth.js';
-import { saveAgentSignedDocument, updateAgentOnboardingStatus } from '../../utils/agents.js';
+import { getAgent, saveAgentSignedDocument } from '../../utils/agents.js';
 import CommonHeader from '../../components/CommonHeader.jsx';
 
 const DOCUMENTS = [
@@ -133,6 +133,8 @@ const DocumentSigningPage = () => {
     buildDraftsFromSavedDocuments(session?.signedDocuments)
   );
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [agreementsReady, setAgreementsReady] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
 
   const currentDocument = DOCUMENTS[activeDoc];
   const currentDocSigned = signedDocuments[currentDocument.id];
@@ -158,6 +160,28 @@ const DocumentSigningPage = () => {
 
   // Real-time signature preview
   const liveSignaturePreview = typeSignature.trim() || '';
+
+  // Initialize canvas
+  useEffect(() => {
+    let mounted = true;
+    if (!session?.id) {
+      setCheckingAccess(false);
+      return;
+    }
+
+    getAgent(session.id)
+      .then((agent) => {
+        if (!mounted) return;
+        setAgreementsReady(Boolean(agent?.documents?.agreementPackage?.triggeredAt));
+      })
+      .finally(() => {
+        if (mounted) setCheckingAccess(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [session?.id]);
 
   // Initialize canvas
   useEffect(() => {
@@ -295,8 +319,10 @@ const DocumentSigningPage = () => {
       auth.update({ signedDocuments: nextSignedDocuments });
 
       if (allDocumentsSigned && session?.id) {
-        await updateAgentOnboardingStatus(session.id, 4);
-        auth.update({ onboardingStatus: 4 });
+        const refreshedAgent = await getAgent(session.id);
+        auth.update({
+          onboardingStatus: refreshedAgent?.onboardingStatus ?? session?.onboardingStatus,
+        });
       }
 
       setShowSuccessModal(true);
@@ -330,6 +356,23 @@ const DocumentSigningPage = () => {
     }
     return status === 'Not started' ? '○' : '⏳';
   };
+
+  if (checkingAccess) {
+    return <div className="py-16 text-center text-sm text-slate-500">Loading agreements...</div>;
+  }
+
+  if (!agreementsReady) {
+    return (
+      <div className="py-16 text-center">
+        <div className="mx-auto max-w-xl rounded-2xl border border-amber-200 bg-amber-50 p-6">
+          <h1 className="text-lg font-bold text-slate-900">Agreements Not Yet Triggered</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            The admin team has not yet prepared your Step-2 agreement package. You will be notified when the documents are ready for signature.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-50 text-slate-950 overflow-hidden">

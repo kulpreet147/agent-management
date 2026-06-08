@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useToast } from "../../hooks/useToast.js";
 import { auth } from "../../utils/auth.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
 import CommonHeader from "../../components/CommonHeader.jsx";
@@ -361,6 +362,7 @@ const TABS = ["Personal", "Professional", "Business"];
 
 export default function AgentProfile() {
   const session = auth.get();
+  const toast = useToast();
   const [agentData, setAgentData] = useState(null);
   const agentName = agentData?.name || session?.name || "Agent";
   const agentEmail = agentData?.email || session?.email || "";
@@ -486,10 +488,10 @@ export default function AgentProfile() {
       if (nextAvatarUrl) {
         setAvatarPreview(resolveMediaUrl(`${nextAvatarUrl}?t=${Date.now()}`));
       }
-      window.alert("Profile updated successfully.");
+      toast.success("Profile updated successfully.");
       setIsEditing(false);
     } catch (error) {
-      window.alert(error.message || "Unable to update profile.");
+      toast.error(error.message || "Unable to update profile.");
     } finally {
       setSaving(false);
     }

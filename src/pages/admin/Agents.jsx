@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { Clock3, Eye, FilePlus, Search, Plus, X } from 'lucide-react'
+import { Eye, FilePlus, Search, Plus, MoreVertical, KeyRound, X } from 'lucide-react'
 import StatCard from '../../components/StatCard.jsx'
 import { formatAccountId } from '../../utils/accountId.js'
+import { adminSetAgentPassword } from '../../utils/agents.js'
 import { getAllAgentsAsync, resendAgentInviteAsync } from '../../redux/agentSlice.js'
 import { ShowRealtimeAlert } from '../../redux/realtimeSlice.js'
 
@@ -36,12 +37,14 @@ function parseLicenceExpiry(agent) {
 
 function getDocumentProgress(agent) {
   const docs = agent?.documents || {}
-  const requiredKeys = ['licenceDocument', 'transferDocument', 'eandODocument', 'apexDocument', 'creditReportDocument']
-  const hasLicenceDoc = Boolean(docs.licenceDocument || docs.transferDocument)
-  const completedCount = requiredKeys.reduce((count, key) => count + (docs[key] ? 1 : 0), 0) - (hasLicenceDoc && docs.licenceDocument && docs.transferDocument ? 1 : 0)
-  const normalizedCount = hasLicenceDoc ? completedCount : Math.max(0, completedCount)
-  const totalRequired = 4
-  return Math.min(totalRequired, normalizedCount) / totalRequired
+  const hasTransferWorkflow = Boolean(docs.transferDocument || docs.eandODocument)
+  const requiredKeys = hasTransferWorkflow
+    ? ['governmentId', 'transferDocument', 'eandODocument', 'creditReportDocument']
+    : ['governmentId', 'creditReportDocument']
+  const completedCount = requiredKeys.reduce((count, key) => count + (docs[key] ? 1 : 0), 0)
+  const totalRequired = requiredKeys.length
+  if (totalRequired === 0) return 0
+  return Math.min(totalRequired, completedCount) / totalRequired
 }
 
 function getOnboardingView(agent) {
@@ -84,13 +87,16 @@ function getOnboardingView(agent) {
 }
 
 export default function Agents() {
-  const [toast, setToast] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [inviteMode, setInviteMode] = useState(false)
   const [selectedAgentIds, setSelectedAgentIds] = useState([])
   const [sendingInvites, setSendingInvites] = useState(false)
-  const toastTimerRef = useRef(null)
+  const [openActionMenuId, setOpenActionMenuId] = useState(null)
+  const [passwordAgent, setPasswordAgent] = useState(null)
+  const [passwordValue, setPasswordValue] = useState('')
+  const [confirmPasswordValue, setConfirmPasswordValue] = useState('')
+  const [settingPassword, setSettingPassword] = useState(false)
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const { allAgentsData, getAllAgentsLoading, getAllAgentsFailed } = useSelector((state) => state.agent)
@@ -102,6 +108,12 @@ export default function Agents() {
   useEffect(() => {
     dispatch(getAllAgentsAsync())
   }, [dispatch])
+
+  useEffect(() => {
+    const handleCloseMenu = () => setOpenActionMenuId(null)
+    window.addEventListener('click', handleCloseMenu)
+    return () => window.removeEventListener('click', handleCloseMenu)
+  }, [])
 
   const invitedAgentIds = agents
     .filter((agent) => String(agent.status || '').toLowerCase() === 'invited')
@@ -175,35 +187,73 @@ export default function Agents() {
     )
   }
 
-  const showToast = (message) => {
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
-    setToast(message)
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 2500)
-  }
-
   const handleAgentView = (agent) => {
     if (inviteMode) return
 
     const activation = Number(agent?.accountActivationStatus)
-    const step = Number(agent?.onboardingStatus || 1)
-    const status = String(agent?.status || '').toLowerCase()
 
     if (activation === 1) {
       navigate(`/admin/agents/${agent.id}/profile`)
       return
     }
 
-    if (step === 5 || status === 'ready_for_mga' || status === 'ready_to_mga' || status === 'ready for mga') {
-      navigate(`/admin/agents/${agent.id}`)
+    navigate(`/admin/agents/${agent.id}`)
+  }
+
+  const canSetPassword = (agent) => {
+    return !Boolean(agent?.hasPassword || agent?.activatedAt || agent?.inviteUsedAt)
+  }
+
+  const openPasswordModal = (agent) => {
+    setPasswordAgent(agent)
+    setPasswordValue('')
+    setConfirmPasswordValue('')
+    setOpenActionMenuId(null)
+  }
+
+  const closePasswordModal = () => {
+    if (settingPassword) return
+    setPasswordAgent(null)
+    setPasswordValue('')
+    setConfirmPasswordValue('')
+  }
+
+  const handleSetPassword = async () => {
+    if (!passwordAgent?.id) return
+
+    if (!passwordValue.trim()) {
+      dispatch(ShowRealtimeAlert({ variant: 'warning', title: 'Password Required', message: 'Enter a password before saving.' }))
       return
     }
 
-    if (step === 1 || step === 2 || status === 'invited' || status === 'account_setup') {
-      showToast('User is still agent status.')
+    if (passwordValue !== confirmPasswordValue) {
+      dispatch(ShowRealtimeAlert({ variant: 'warning', title: 'Passwords Do Not Match', message: 'Password and confirm password must match.' }))
       return
     }
 
-    showToast('User is still agent status.')
+    setSettingPassword(true)
+    try {
+      await adminSetAgentPassword(passwordAgent.id, passwordValue)
+      dispatch(
+        ShowRealtimeAlert({
+          variant: 'success',
+          title: 'Password Set',
+          message: 'Agent credentials were set by admin and onboarding was moved to account setup complete.',
+        }),
+      )
+      closePasswordModal()
+      dispatch(getAllAgentsAsync())
+    } catch (error) {
+      dispatch(
+        ShowRealtimeAlert({
+          variant: 'danger',
+          title: 'Unable to Set Password',
+          message: error.message || 'Unable to set agent password.',
+        }),
+      )
+    } finally {
+      setSettingPassword(false)
+    }
   }
 
   const handleInviteAction = async () => {
@@ -213,7 +263,13 @@ export default function Agents() {
     }
 
     if (selectedAgentIds.length === 0) {
-      window.alert('Select at least one invited agent.')
+      dispatch(
+        ShowRealtimeAlert({
+          variant: 'warning',
+          title: 'No Agents Selected',
+          message: 'Select at least one invited agent.',
+        }),
+      )
       return
     }
 
@@ -241,7 +297,13 @@ export default function Agents() {
       setSelectedAgentIds([])
       dispatch(getAllAgentsAsync())
     } catch (err) {
-      window.alert(err.message || 'Unable to send invite links.')
+      dispatch(
+        ShowRealtimeAlert({
+          variant: 'danger',
+          title: 'Invite Send Failed',
+          message: err.message || 'Unable to send invite links.',
+        }),
+      )
     } finally {
       setSendingInvites(false)
     }
@@ -346,29 +408,6 @@ export default function Agents() {
           </div>
         )}
 
-        {toast && (
-          <div className="fixed right-6 top-20 z-50 w-[320px] overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-xl shadow-slate-900/10">
-            <div className="flex items-start gap-3 p-4">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-600">
-                <Clock3 size={18} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-slate-900">Agent onboarding in progress</div>
-                <div className="mt-0.5 text-xs leading-5 text-slate-500">{toast}</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setToast(null)}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                aria-label="Dismiss notification"
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <div className="h-1 bg-gradient-to-r from-amber-400 via-orange-400 to-amber-300" />
-          </div>
-        )}
-
         <div className="mt-6 min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200">
           <div className="h-full overflow-x-auto overflow-y-auto">
             <table className="min-w-full text-sm">
@@ -415,8 +454,7 @@ export default function Agents() {
                   return (
                     <tr
                       key={agent.id}
-                      className="cursor-pointer transition hover:bg-slate-50"
-                      onClick={() => handleAgentView(agent)}
+                      className="transition hover:bg-slate-50"
                     >
                       <td className="px-4 py-5">
                         <div className="flex items-center gap-3">
@@ -472,17 +510,48 @@ export default function Agents() {
                         </div>
                       </td>
                       <td className="px-4 py-5 text-right">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            handleAgentView(agent)
-                          }}
-                          className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                        >
-                          <Eye size={14} />
-                          View
-                        </button>
+                        <div className="relative inline-flex">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              setOpenActionMenuId((prev) => (prev === agent.id ? null : agent.id))
+                            }}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                            aria-label={`Open actions for ${agent.name}`}
+                          >
+                            <MoreVertical size={15} />
+                          </button>
+
+                          {openActionMenuId === agent.id && (
+                            <div
+                              className="absolute right-0 top-11 z-20 min-w-[170px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              {canSetPassword(agent) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openPasswordModal(agent)}
+                                  className="flex w-full items-center gap-2 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                                >
+                                  <KeyRound size={14} />
+                                  Set Password
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenActionMenuId(null)
+                                  handleAgentView(agent)
+                                }}
+                                className="flex w-full items-center gap-2 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                              >
+                                <Eye size={14} />
+                                View
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -534,6 +603,78 @@ export default function Agents() {
           </div>
         </div>
       </div>
+
+      {passwordAgent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Set Agent Password</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  This bypasses the email invite password setup step for {passwordAgent.name}.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closePasswordModal}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-5">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={passwordValue}
+                  onChange={(event) => setPasswordValue(event.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="Minimum 8 chars, uppercase, number, special"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPasswordValue}
+                  onChange={(event) => setConfirmPasswordValue(event.target.value)}
+                  className="h-11 w-full rounded-xl border border-slate-200 px-3.5 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  placeholder="Re-enter password"
+                />
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs leading-5 text-amber-900">
+                Admin-set credentials mark the agent account as password-ready and move onboarding to account setup complete.
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-slate-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={closePasswordModal}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={settingPassword}
+                onClick={handleSetPassword}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              >
+                {settingPassword ? 'Saving...' : 'Save Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

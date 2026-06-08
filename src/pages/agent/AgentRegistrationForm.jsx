@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Shield } from 'lucide-react'
+import { useToast } from '../../hooks/useToast.js'
 import { auth } from '../../utils/auth.js'
 import { updateAgentOnboardingStatus, updateAgentRegistrationDetails } from '../../utils/agents.js'
 import CommonHeader from '../../components/CommonHeader.jsx'
@@ -8,6 +9,7 @@ import CommonHeader from '../../components/CommonHeader.jsx'
 export default function AgentRegistrationForm() {
   const session = auth.get()
   const navigate = useNavigate()
+  const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [registrationDetails, setRegistrationDetails] = useState({
     city: '',
@@ -18,7 +20,7 @@ export default function AgentRegistrationForm() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     if (!registrationDetails.city.trim() || !registrationDetails.postalCode.trim()) {
-      window.alert('Please fill City and Postal Code.')
+      toast.warning('Please fill City and Postal Code.', 'Missing Details')
       return
     }
     setLoading(true)
@@ -26,7 +28,7 @@ export default function AgentRegistrationForm() {
       await updateAgentRegistrationDetails(session.id, registrationDetails)
       await updateAgentOnboardingStatus(session.id, 3)
       auth.update({ onboardingStatus: 3 })
-      navigate('/agent/sign-documents')
+      navigate('/agent/onboarding-progress')
     } finally {
       setLoading(false)
     }
