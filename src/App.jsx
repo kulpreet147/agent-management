@@ -211,7 +211,7 @@ export default function App() {
           </AgentProtected>
         }
       />
-      <Route
+      {/* <Route
         path="/agent/commissions"
         element={
           <AgentProtected>
@@ -221,7 +221,7 @@ export default function App() {
             />
           </AgentProtected>
         }
-      />
+      /> */}
       <Route
         path="/agent/settings"
         element={

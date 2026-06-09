@@ -10,7 +10,7 @@ const navItems = [
   { icon: BriefcaseBusiness, label: 'Client Management', path: '/agent/clients' },
   { icon: FileCheck2, label: 'Documents', path: '/agent/documents' },
   { icon: BookOpenCheck, label: 'Training', path: '/agent/training' },
-  { icon: WalletCards, label: 'Commissions', path: '/agent/commissions' },
+  // { icon: WalletCards, label: 'Commissions', path: '/agent/commissions' },
   { icon: Settings, label: 'Settings', path: '/agent/settings' },
 ]
 

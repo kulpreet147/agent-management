@@ -9,12 +9,32 @@ import { auth } from '../../utils/auth.js'
 import AgentSidebar from '../../components/AgentSidebar.jsx'
 import CommonHeader from '../../components/CommonHeader.jsx'
 import { getAgent, getAgentAgreementPreview, getAgentSignedDocuments } from '../../utils/agents.js'
+import { getAccountActivities } from '../../utils/activities.js'
 
 const documentCatalog = [
   { id: 'advisor_contract', name: 'Advisor Contract' },
   { id: 'code_of_conduct', name: 'Code of Conduct' },
   { id: 'privacy_policy', name: 'Privacy Agreement' },
 ]
+
+function selectRelevantApexaActivity(activities = []) {
+  const apexaActivities = activities.filter((activity) => activity.action === 'create_apexa_contract')
+  if (apexaActivities.length === 0) return null
+
+  const activationActivity = apexaActivities
+    .filter((activity) => activity?.details?.step === 'activation')
+    .sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime())[0]
+
+  if (activationActivity) return activationActivity
+
+  const completedActivity = apexaActivities
+    .filter((activity) => Boolean(activity?.details?.completed))
+    .sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime())[0]
+
+  if (completedActivity) return completedActivity
+
+  return apexaActivities.sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime())[0]
+}
 
 export default function AgentDashboard() {
   const session = auth.get()
@@ -29,6 +49,7 @@ export default function AgentDashboard() {
     .toUpperCase()
   const [agent, setAgent] = useState(null)
   const [signedDocs, setSignedDocs] = useState({})
+  const [activities, setActivities] = useState([])
   const [headerSearch, setHeaderSearch] = useState('')
   const [previewState, setPreviewState] = useState({
     document: null,
@@ -37,20 +58,27 @@ export default function AgentDashboard() {
     error: '',
   })
 
+  const loadDashboardState = () => {
+    if (!session?.id) return Promise.resolve()
+    return Promise.all([
+      getAgent(session.id),
+      getAgentSignedDocuments(session.id),
+      getAccountActivities('agent', session.id, { limit: 100 }).catch(() => ({ items: [] })),
+    ])
+      .then(([agentData, signedData, activityData]) => {
+        setAgent(agentData || null)
+        setSignedDocs(signedData || {})
+        setActivities(Array.isArray(activityData?.items) ? activityData.items : [])
+      })
+      .catch(() => {
+        setAgent(null)
+        setSignedDocs({})
+        setActivities([])
+      })
+  }
+
   useEffect(() => {
     if (!session?.id) return
-
-    const loadDashboardState = () => {
-      Promise.all([getAgent(session.id), getAgentSignedDocuments(session.id)])
-        .then(([agentData, signedData]) => {
-          setAgent(agentData || null)
-          setSignedDocs(signedData || {})
-        })
-        .catch(() => {
-          setAgent(null)
-          setSignedDocs({})
-        })
-    }
 
     loadDashboardState()
 
@@ -58,10 +86,21 @@ export default function AgentDashboard() {
       loadDashboardState()
     }
 
+    const handleWindowFocus = () => {
+      loadDashboardState()
+    }
+
+    const refreshInterval = window.setInterval(() => {
+      loadDashboardState()
+    }, 30000)
+
     window.addEventListener('agent:realtime-update', handleRealtimeRefresh)
+    window.addEventListener('focus', handleWindowFocus)
 
     return () => {
       window.removeEventListener('agent:realtime-update', handleRealtimeRefresh)
+      window.removeEventListener('focus', handleWindowFocus)
+      window.clearInterval(refreshInterval)
     }
   }, [session?.id])
 
@@ -101,6 +140,8 @@ export default function AgentDashboard() {
   const allApproved = documents.length > 0 && approvedCount === documents.length
   const mgaSubmission = agent?.documents?.mgaSubmission || null
   const hasMgaSubmission = Boolean(mgaSubmission?.sentAt)
+  const latestApexaActivity = useMemo(() => selectRelevantApexaActivity(activities), [activities])
+  const apexaTaskCompleted = Boolean(latestApexaActivity?.details?.completed)
 
   const onboardingSummary = useMemo(() => {
     if (accountActivationStatus === 1) {
@@ -212,8 +253,25 @@ export default function AgentDashboard() {
               ? 'amber'
               : 'slate',
       },
+      {
+        label: 'APEXA contract processing',
+        status:
+          accountActivationStatus !== 1
+            ? 'Starts After Activation'
+            : apexaTaskCompleted
+              ? 'Completed'
+              : latestApexaActivity
+                ? 'In Progress by Admin'
+                : 'Awaiting Admin',
+        tone:
+          accountActivationStatus !== 1
+            ? 'slate'
+            : apexaTaskCompleted
+              ? 'emerald'
+              : 'amber',
+      },
     ]
-  }, [accountActivationStatus, allApproved, hasMgaSubmission, rejectedCount, underReviewCount])
+  }, [accountActivationStatus, allApproved, apexaTaskCompleted, hasMgaSubmission, latestApexaActivity, rejectedCount, underReviewCount])
 
   const handleViewDocument = async (document) => {
     if (!session?.id || document.action === 'Pending') return

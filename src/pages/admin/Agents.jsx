@@ -470,7 +470,13 @@ export default function Agents() {
                               className="h-4 w-4"
                             />
                           )}
-                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
+                          <button
+                            type="button"
+                            onClick={() => handleAgentView(agent)}
+                            disabled={inviteMode}
+                            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 disabled:cursor-default disabled:hover:bg-slate-100"
+                            aria-label={`View ${agent.name || 'agent'} details`}
+                          >
                             {agent.name
                               ? agent.name
                                 .split(' ')
@@ -478,7 +484,7 @@ export default function Agents() {
                                 .slice(0, 2)
                                 .join('')
                               : 'AG'}
-                          </div>
+                          </button>
                           <div>
                             <div className="font-semibold text-slate-900">{agent.name}</div>
                             <div className="text-xs text-slate-500">

@@ -7,3 +7,13 @@ export function getAccountActivities(accountType, accountId, params = {}) {
   const qs = query.toString()
   return apiRequest(`/activities/${accountType}/${accountId}${qs ? `?${qs}` : ''}`)
 }
+
+export function updateAccountActivity(activityId, payload) {
+  return apiRequest(`/activities/${activityId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+}

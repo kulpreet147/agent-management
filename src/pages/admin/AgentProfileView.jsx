@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '../../hooks/useToast.js'
 import { getAgent, getAgentProfile, updateAgentProfile } from '../../utils/agents.js'
-import { getAccountActivities } from '../../utils/activities.js'
+import { getAccountActivities, updateAccountActivity } from '../../utils/activities.js'
 
 // ─── Mock dynamic data ────────────────────────────────────────────────────────
 
@@ -294,7 +294,10 @@ function formatActivityAction(action) {
 }
 
 function mapAccountActivity(activity) {
+  const apexaCompleted = Boolean(activity.details?.completed)
   return {
+    actionKey: activity.action,
+    details: activity.details || null,
     type: activity.action?.includes('login')
       ? 'login'
       : activity.action?.includes('document')
@@ -309,8 +312,20 @@ function mapAccountActivity(activity) {
         : activity.performedByType || 'System',
     time: activity.performedAt ? new Date(activity.performedAt).toLocaleString() : '',
     performedAt: activity.performedAt || null,
-    badge: formatActivityAction(activity.action),
-    badgeColor: activity.action?.includes('status') ? 'blue' : 'slate',
+    badge:
+      activity.action === 'create_apexa_contract'
+        ? apexaCompleted
+          ? 'Completed'
+          : 'Pending'
+        : formatActivityAction(activity.action),
+    badgeColor:
+      activity.action === 'create_apexa_contract'
+        ? apexaCompleted
+          ? 'green'
+          : 'yellow'
+        : activity.action?.includes('status')
+          ? 'blue'
+          : 'slate',
   }
 }
 
@@ -451,9 +466,18 @@ function Tag({ label, onRemove, color = 'blue' }) {
 
 // ─── Tab Contents ─────────────────────────────────────────────────────────────
 
-function OverviewTab({ data, agent }) {
+function OverviewTab({ data, agent, onOpenMgaPackage, onCompleteApexaTask, completingApexaTask }) {
   const p = data.profile.personal
   const pr = data.profile.professional
+  const latestApexaTask = [...(data.activityLog || [])]
+    .filter((entry) => entry.actionKey === 'create_apexa_contract')
+    .sort((a, b) => {
+      const aActivation = a?.details?.step === 'activation' ? 1 : 0
+      const bActivation = b?.details?.step === 'activation' ? 1 : 0
+      if (aActivation !== bActivation) return bActivation - aActivation
+      return new Date(b.performedAt || 0).getTime() - new Date(a.performedAt || 0).getTime()
+    })[0] || null
+  const apexaCompleted = Boolean(latestApexaTask?.details?.completed)
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
       <div className="space-y-5">
@@ -483,6 +507,61 @@ function OverviewTab({ data, agent }) {
             <FieldItem label="MGA" value={pr.mga} />
             <FieldItem label="Years Experience" value={pr.yearsExp ? `${pr.yearsExp} years` : ''} />
           </FieldGrid>
+        </SectionCard>
+
+        <SectionCard title="APEXA Workflow Task">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-bold text-slate-800">APEXA contract creation and approval</div>
+                <div className="mt-1 text-xs leading-5 text-slate-500">
+                  {latestApexaTask
+                    ? apexaCompleted
+                      ? `Completed on ${new Date(latestApexaTask.details?.completedAt || latestApexaTask.performedAt).toLocaleString()}`
+                      : 'Auto-created after agent activation for admin workflow tracking.'
+                    : Number(agent?.accountActivationStatus) === 1
+                      ? 'This workflow task should appear automatically after activation.'
+                      : 'This workflow task will be created automatically when the agent is activated.'}
+                </div>
+              </div>
+              <Badge
+                label={
+                  apexaCompleted
+                    ? 'Completed'
+                    : latestApexaTask
+                      ? 'Pending'
+                      : 'Not Created'
+                }
+                color={
+                  apexaCompleted
+                    ? 'green'
+                    : latestApexaTask
+                      ? 'yellow'
+                      : 'slate'
+                }
+              />
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onOpenMgaPackage}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+              >
+                Go to MGA Package
+                <ChevronRight size={14} />
+              </button>
+              {latestApexaTask && !apexaCompleted && (
+                <button
+                  type="button"
+                  onClick={() => onCompleteApexaTask(latestApexaTask)}
+                  disabled={completingApexaTask}
+                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {completingApexaTask ? 'Completing...' : 'Mark APEXA Task Completed'}
+                </button>
+              )}
+            </div>
+          </div>
         </SectionCard>
       </div>
 
@@ -1178,30 +1257,38 @@ export default function AgentProfileView() {
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('overview')
   const [mockData, setMockData] = useState(null)
+  const [completingApexaTask, setCompletingApexaTask] = useState(false)
+
+  async function loadAgentProfile(isMounted = () => true) {
+    setLoading(true)
+    setError('')
+    try {
+      const [agentData, _profileData, activityData] = await Promise.all([
+        getAgent(agentId),
+        getAgentProfile(agentId),
+        getAccountActivities('agent', agentId, { limit: 100 }).catch(() => ({ items: [] })),
+      ])
+      if (!isMounted()) return
+      const nextData = applyDynamicProfileData(buildMockData(agentData), agentData)
+      nextData.documents = buildUploadedDocuments(agentData)
+      const activities = Array.isArray(activityData?.items) ? activityData.items : []
+      const latestLoginTime = getLatestLoginTime(activities)
+      nextData.lastLogin = latestLoginTime || nextData.lastLogin
+      nextData.lastLoginWarning = !nextData.lastLogin
+      nextData.activityLog = activities.map(mapAccountActivity)
+      setAgent(agentData)
+      setMockData(nextData)
+    } catch (err) {
+      if (isMounted()) setError(err.message || 'Unable to load agent profile.')
+    } finally {
+      if (isMounted()) setLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!agentId) return
     let mounted = true
-    setLoading(true)
-    Promise.all([
-      getAgent(agentId),
-      getAgentProfile(agentId),
-      getAccountActivities('agent', agentId, { limit: 100 }).catch(() => ({ items: [] })),
-    ])
-      .then(([agentData, _profileData, activityData]) => {
-        if (!mounted) return
-        const nextData = applyDynamicProfileData(buildMockData(agentData), agentData)
-        nextData.documents = buildUploadedDocuments(agentData)
-        const activities = Array.isArray(activityData?.items) ? activityData.items : []
-        const latestLoginTime = getLatestLoginTime(activities)
-        nextData.lastLogin = latestLoginTime || nextData.lastLogin
-        nextData.lastLoginWarning = !nextData.lastLogin
-        nextData.activityLog = activities.map(mapAccountActivity)
-        setAgent(agentData)
-        setMockData(nextData)
-      })
-      .catch(err => { if (mounted) setError(err.message || 'Unable to load agent profile.') })
-      .finally(() => { if (mounted) setLoading(false) })
+    loadAgentProfile(() => mounted)
     return () => { mounted = false }
   }, [agentId])
 
@@ -1273,6 +1360,30 @@ export default function AgentProfileView() {
       })
     } catch (err) {
       toast.error(err.message || 'Unable to update subscription.')
+    }
+  }
+
+  const handleOpenMgaPackage = () => {
+    navigate(`/admin/agents/${agentId}/mga-package`)
+  }
+
+  const handleCompleteApexaTask = async (activity) => {
+    if (!activity?.id) return
+    setCompletingApexaTask(true)
+    try {
+      await updateAccountActivity(activity.id, {
+        details: {
+          ...(activity.details || {}),
+          completed: true,
+          completedAt: new Date().toISOString(),
+        },
+      })
+      await loadAgentProfile(() => true)
+      toast.success('APEXA task marked as completed.')
+    } catch (err) {
+      toast.error(err.message || 'Unable to update the APEXA task.')
+    } finally {
+      setCompletingApexaTask(false)
     }
   }
 
@@ -1362,7 +1473,15 @@ export default function AgentProfileView() {
 
       {/* Tab Content */}
       <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-10">
-        {activeTab === 'overview' && <OverviewTab data={d} agent={agent} />}
+        {activeTab === 'overview' && (
+          <OverviewTab
+            data={d}
+            agent={agent}
+            onOpenMgaPackage={handleOpenMgaPackage}
+            onCompleteApexaTask={handleCompleteApexaTask}
+            completingApexaTask={completingApexaTask}
+          />
+        )}
         {activeTab === 'performance' && <PerformanceTab data={d} />}
         {activeTab === 'profile' && <ProfileTab data={d} />}
         {activeTab === 'licensing' && <LicensingTab data={d} />}

@@ -35,6 +35,7 @@ export default function AgentOnboardingDashboard() {
 
   const agreementPackage = agent?.documents?.agreementPackage || null
   const agreementsTriggered = Boolean(agreementPackage?.triggeredAt)
+  const agreementStepUnlocked = agreementsTriggered || Number(agent?.onboardingStatus || 0) >= 3
   const managerRequired = Boolean(agreementPackage?.managerEmail)
   const agentSignedAll = AGREEMENT_DOC_IDS.every((id) => Boolean(signedDocuments?.[id]))
   const managerSigned = Boolean(agreementPackage?.managerSignedAt)
@@ -43,7 +44,7 @@ export default function AgentOnboardingDashboard() {
   const onboardingReadyForPortal = Number(agent?.onboardingStatus || 0) >= 5
 
   const flow = useMemo(() => {
-    if (!agreementsTriggered) {
+    if (!agreementStepUnlocked) {
       return {
         title: 'Waiting for Admin Trigger',
         summary: 'The admin team is preparing your Step-2 agreements package.',
@@ -66,8 +67,8 @@ export default function AgentOnboardingDashboard() {
     if (!agentSignedAll) {
       return {
         title: 'Documents Ready for Signature',
-        summary: 'Your agreement package is ready. Please review and sign the required documents.',
-        note: 'This step is part of Step-2 Digital Agreements & E-signature.',
+        summary: 'Your agreement package is ready. Please review and complete your three Step-2 agreement documents.',
+        note: 'The manager reviews this same package separately and signs one package approval.',
         actionLabel: 'Open Agreement Package',
         action: () => navigate('/agent/sign-documents'),
         progress: 55,
@@ -86,7 +87,7 @@ export default function AgentOnboardingDashboard() {
     if (managerRequired && !managerSigned) {
       return {
         title: 'Waiting for Manager Signature',
-        summary: 'Your signatures are complete. The package is now waiting for the manager signature.',
+        summary: 'Your agreement documents are complete. The package is now waiting for the manager package approval.',
         note: `Manager notification sent to ${agreementPackage.managerEmail}.`,
         actionLabel: null,
         action: null,
@@ -159,7 +160,7 @@ export default function AgentOnboardingDashboard() {
   }, [
     adminApproved,
     agreementPackage?.managerEmail,
-    agreementsTriggered,
+    agreementStepUnlocked,
     agentSignedAll,
     managerRequired,
     managerSigned,

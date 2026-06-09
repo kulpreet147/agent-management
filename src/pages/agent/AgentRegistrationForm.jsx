@@ -90,9 +90,6 @@ export default function AgentRegistrationForm() {
             </div>
 
             <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4">
-              <button type="button" className="h-9 rounded-md border border-slate-300 bg-white px-4 text-[11px] font-bold text-slate-700">
-                Save Draft
-              </button>
               <button
                 type="submit"
                 disabled={loading}
