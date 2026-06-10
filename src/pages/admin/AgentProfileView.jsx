@@ -10,7 +10,7 @@ import {
   Youtube, Twitter, Plus, X, Building2, CreditCard, Hash,
 } from 'lucide-react'
 import { useToast } from '../../hooks/useToast.js'
-import { getAgent, getAgentProfile, updateAgentProfile } from '../../utils/agents.js'
+import { getAgent, getAgentProfile, updateAgentProfile, decideAgentTierRequest } from '../../utils/agents.js'
 import { getAccountActivities, updateAccountActivity } from '../../utils/activities.js'
 
 // ─── Mock dynamic data ────────────────────────────────────────────────────────
@@ -1258,6 +1258,7 @@ export default function AgentProfileView() {
   const [activeTab, setActiveTab] = useState('overview')
   const [mockData, setMockData] = useState(null)
   const [completingApexaTask, setCompletingApexaTask] = useState(false)
+  const [decidingTier, setDecidingTier] = useState(false)
 
   async function loadAgentProfile(isMounted = () => true) {
     setLoading(true)
@@ -1324,6 +1325,30 @@ export default function AgentProfileView() {
   if (!d) return null
 
   const tierColors = { Silver: 'bg-slate-100 text-slate-600 border-slate-300', Gold: 'bg-amber-50 text-amber-600 border-amber-300', Platinum: 'bg-violet-50 text-violet-600 border-violet-300' }
+  const tierRequest = agent?.documents?.tierRequest || null
+  const pendingTierRequest = tierRequest && tierRequest.status === 'pending' ? tierRequest : null
+  const handleTierDecision = async (decision) => {
+    if (!agent?.id || decidingTier) return
+    let note = ''
+    if (decision === 'rejected') {
+      note = window.prompt('Optional note for the agent (reason for declining):') || ''
+    }
+    setDecidingTier(true)
+    try {
+      const updated = await decideAgentTierRequest(agent.id, { decision, note: note || undefined })
+      if (updated?.agent) {
+        setAgent(updated.agent)
+        if (decision === 'approved') {
+          setMockData((prev) => (prev ? { ...prev, tier: updated.agent.subscriptionTier } : prev))
+        }
+      }
+      toast.success(decision === 'approved' ? 'Tier upgrade approved.' : 'Tier upgrade declined.')
+    } catch (err) {
+      toast.error(err.message || 'Unable to update the tier request.')
+    } finally {
+      setDecidingTier(false)
+    }
+  }
   const handleSubscriptionChange = async (tier) => {
     setMockData(prev => {
       if (!prev) return prev
@@ -1396,6 +1421,43 @@ export default function AgentProfileView() {
       >
         <ArrowLeft size={13} /> Back to Agents
       </button>
+
+      {/* Pending tier upgrade request */}
+      {pendingTierRequest && (
+        <div className="shrink-0 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-bold text-amber-900">
+                <CreditCard size={15} /> Tier Upgrade Request
+              </div>
+              <p className="mt-1 text-xs text-amber-800">
+                {agent?.name || 'This agent'} requested an upgrade from
+                <span className="font-semibold"> {pendingTierRequest.fromTier || agent?.subscriptionTier || '—'} </span>
+                to <span className="font-semibold">{pendingTierRequest.requestedTier}</span>
+                {pendingTierRequest.requestedAt ? ` on ${new Date(pendingTierRequest.requestedAt).toLocaleString()}` : ''}.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={decidingTier}
+                onClick={() => handleTierDecision('approved')}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:bg-emerald-300"
+              >
+                <CheckCircle2 size={14} /> Approve
+              </button>
+              <button
+                type="button"
+                disabled={decidingTier}
+                onClick={() => handleTierDecision('rejected')}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+              >
+                <X size={14} /> Decline
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Profile Header Card */}
       <div className="shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

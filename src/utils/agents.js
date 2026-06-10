@@ -209,6 +209,36 @@ export function updateAgentProfile(agentId, payload) {
   })
 }
 
+export function requestTierUpgrade(agentId, requestedTier) {
+  return apiRequest(`/agents/${agentId}/tier-request`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ requestedTier })
+  })
+}
+
+export function decideAgentTierRequest(agentId, payload) {
+  return apiRequest(`/agents/${agentId}/tier-request`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+}
+
+export function changeAgentPassword(agentId, payload) {
+  return apiRequest(`/agents/${agentId}/change-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+}
+
 export function updateAgentRegistrationDetails(agentId, details) {
   const formData = new FormData()
   formData.set('agentId', String(agentId))
