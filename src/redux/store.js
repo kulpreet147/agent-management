@@ -4,6 +4,7 @@ import lead from './leadSlice.js'
 import agent from './agentSlice.js'
 import account from './accountSlice.js'
 import realtime from './realtimeSlice.js'
+import onboarding from './onboardingSlice.js'
 
 export const store = configureStore({
   reducer: {
@@ -12,5 +13,6 @@ export const store = configureStore({
     agent,
     account,
     realtime,
+    onboarding,
   },
 })

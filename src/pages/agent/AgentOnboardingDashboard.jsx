@@ -1,296 +1,281 @@
-import React, { useState, useEffect } from 'react';
-import { updateAgentOnboardingStatus } from '../../utils/agents';
-import { auth } from '../../utils/auth';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowRight, CheckCircle2, Clock3, FileText, LockKeyhole, Mail } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { auth } from '../../utils/auth.js'
+import { getAgent, getAgentSignedDocuments, updateAgentOnboardingStatus } from '../../utils/agents.js'
 
-const AgentOnboardingDashboard = () => {
-  const [arrowHovered, setArrowHovered] = useState(false);
-  const [stepsCompleted, setStepsCompleted] = useState([
-    { id: 1, name: 'Account Setup', completed: true },
-    { id: 2, name: 'Registration', completed: true },
-    { id: 3, name: 'Documents', completed: true },
-    { id: 4, name: 'Profile & Training', completed: false, active: true },
-  ]);
+const AGREEMENT_DOC_IDS = ['advisor_contract', 'code_of_conduct', 'privacy_policy']
 
-  const checklist = [
-    { id: 1, label: 'Account Created', status: 'completed' },
-    { id: 2, label: 'Registration Complete', status: 'completed' },
-    { id: 3, label: 'Documents Signed', status: 'completed' },
-    { id: 4, label: 'Profile Setup Pending', status: 'in-progress' },
-    { id: 5, label: 'Training Not Started', status: 'locked' },
-  ];
-
-  const progressPercentage = 60;
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed':
-        return (
-          <svg className="w-4 h-4 text-blue-700" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-          </svg>
-        );
-      case 'in-progress':
-        return (
-          <svg className="w-4 h-4 text-blue-700 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      case 'locked':
-        return (
-          <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      default:
-        return null;
-    }
-  };
+export default function AgentOnboardingDashboard() {
   const session = auth.get()
-  const displayName = session?.name || 'Agent'
   const navigate = useNavigate()
+  const [agent, setAgent] = useState(null)
+  const [signedDocuments, setSignedDocuments] = useState({})
+  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    if (!session?.id || submitting) return
-    setSubmitting(true)
-    try {
-      await updateAgentOnboardingStatus(session.id, 5)
-      auth.update({ onboardingStatus: 5 })
-      navigate('/agent/dashboard')
-    } catch (error) {
-      console.error('Error updating onboarding status:', error)
-    } finally {
-      setSubmitting(false)
+  useEffect(() => {
+    let mounted = true
+    if (!session?.id) return
+
+    Promise.all([getAgent(session.id), getAgentSignedDocuments(session.id)])
+      .then(([agentData, signedData]) => {
+        if (!mounted) return
+        setAgent(agentData)
+        setSignedDocuments(signedData || {})
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+
+    return () => {
+      mounted = false
     }
+  }, [session?.id])
+
+  const agreementPackage = agent?.documents?.agreementPackage || null
+  const agreementsTriggered = Boolean(agreementPackage?.triggeredAt)
+  const agreementStepUnlocked = agreementsTriggered || Number(agent?.onboardingStatus || 0) >= 3
+  const managerRequired = Boolean(agreementPackage?.managerEmail)
+  const agentSignedAll = AGREEMENT_DOC_IDS.every((id) => Boolean(signedDocuments?.[id]))
+  const managerSigned = Boolean(agreementPackage?.managerSignedAt)
+  const readyForReview = agentSignedAll && (!managerRequired || managerSigned)
+  const adminApproved = Number(agent?.onboardingStatus || 0) >= 4
+  const onboardingReadyForPortal = Number(agent?.onboardingStatus || 0) >= 5
+
+  const flow = useMemo(() => {
+    if (!agreementStepUnlocked) {
+      return {
+        title: 'Waiting for Admin Trigger',
+        summary: 'The admin team is preparing your Step-2 agreements package.',
+        note: 'You will be notified when your agreement documents are ready for signature.',
+        actionLabel: null,
+        action: null,
+        progress: 35,
+        checklist: [
+          { label: 'Account Created', status: 'completed' },
+          { label: 'Registration Complete', status: 'completed' },
+          { label: 'Agreements Triggered by Admin', status: 'in-progress' },
+          { label: 'Agent Signature', status: 'locked' },
+          { label: 'Admin Review & MGA Submission', status: 'locked' },
+        ],
+        badge: 'Awaiting Admin',
+        icon: Mail,
+      }
+    }
+
+    if (!agentSignedAll) {
+      return {
+        title: 'Documents Ready for Signature',
+        summary: 'Your agreement package is ready. Please review and complete your three Step-2 agreement documents.',
+        note: 'The manager reviews this same package separately and signs one package approval.',
+        actionLabel: 'Open Agreement Package',
+        action: () => navigate('/agent/sign-documents'),
+        progress: 55,
+        checklist: [
+          { label: 'Account Created', status: 'completed' },
+          { label: 'Registration Complete', status: 'completed' },
+          { label: 'Agreements Triggered by Admin', status: 'completed' },
+          { label: 'Agent Signature', status: 'in-progress' },
+          { label: 'Admin Review & MGA Submission', status: 'locked' },
+        ],
+        badge: 'Action Required',
+        icon: FileText,
+      }
+    }
+
+    if (managerRequired && !managerSigned) {
+      return {
+        title: 'Waiting for Manager Signature',
+        summary: 'Your agreement documents are complete. The package is now waiting for the manager package approval.',
+        note: `Manager notification sent to ${agreementPackage.managerEmail}.`,
+        actionLabel: null,
+        action: null,
+        progress: 70,
+        checklist: [
+          { label: 'Account Created', status: 'completed' },
+          { label: 'Registration Complete', status: 'completed' },
+          { label: 'Agreements Triggered by Admin', status: 'completed' },
+          { label: 'Agent Signature', status: 'completed' },
+          { label: 'Manager Signature', status: 'in-progress' },
+        ],
+        badge: 'Waiting for Manager',
+        icon: Clock3,
+      }
+    }
+
+    if (!adminApproved) {
+      return {
+        title: 'Pending Admin Review',
+        summary: 'All Step-2 signatures are complete. The admin team is now reviewing your agreements.',
+        note: 'After review, your onboarding package will move to MGA submission.',
+        actionLabel: null,
+        action: null,
+        progress: 82,
+        checklist: [
+          { label: 'Account Created', status: 'completed' },
+          { label: 'Registration Complete', status: 'completed' },
+          { label: 'Agreements Triggered by Admin', status: 'completed' },
+          { label: 'Agent Signature', status: 'completed' },
+          { label: 'Admin Review', status: 'in-progress' },
+        ],
+        badge: 'In Review',
+        icon: LockKeyhole,
+      }
+    }
+
+    return {
+      title: 'Onboarding Moving Forward',
+      summary: onboardingReadyForPortal
+        ? 'Your onboarding is ready to continue into the portal.'
+        : 'Your agreements are approved and the package is moving through the next onboarding steps.',
+      note: onboardingReadyForPortal
+        ? 'You can continue to your dashboard.'
+        : 'The MGA submission process is in progress.',
+      actionLabel: onboardingReadyForPortal ? 'Continue to Dashboard' : null,
+      action: onboardingReadyForPortal
+        ? async () => {
+            if (!session?.id || submitting) return
+            setSubmitting(true)
+            try {
+              await updateAgentOnboardingStatus(session.id, 5)
+              auth.update({ onboardingStatus: 5 })
+              navigate('/agent/dashboard')
+            } finally {
+              setSubmitting(false)
+            }
+          }
+        : null,
+      progress: onboardingReadyForPortal ? 100 : 90,
+      checklist: [
+        { label: 'Account Created', status: 'completed' },
+        { label: 'Registration Complete', status: 'completed' },
+        { label: 'Agreements & Signatures', status: 'completed' },
+        { label: 'Admin Review', status: 'completed' },
+        { label: onboardingReadyForPortal ? 'Portal Access' : 'MGA Submission', status: onboardingReadyForPortal ? 'completed' : 'in-progress' },
+      ],
+      badge: onboardingReadyForPortal ? 'Ready' : 'MGA In Progress',
+      icon: CheckCircle2,
+    }
+  }, [
+    adminApproved,
+    agreementPackage?.managerEmail,
+    agreementStepUnlocked,
+    agentSignedAll,
+    managerRequired,
+    managerSigned,
+    navigate,
+    onboardingReadyForPortal,
+    session?.id,
+    submitting,
+  ])
+
+  const Icon = flow.icon
+  const displayName = session?.name || agent?.name || 'Agent'
+
+  if (loading) {
+    return <div className="py-16 text-center text-sm text-slate-500">Loading onboarding progress...</div>
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex flex-col">
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col items-center justify-start py-8 px-4">
-        <div className="w-full max-w-2xl space-y-6">
-          {/* Welcome Header */}
-          <div className="text-center space-y-1 animate-fade-in">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Welcome, {displayName.split(' ')[0]} 👋
-            </h2>
-            <p className="text-sm text-gray-600">
-              Complete your onboarding to get started.
-            </p>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+      <main className="mx-auto max-w-3xl px-6 py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-900">Welcome, {displayName.split(' ')[0]}</h1>
+          <p className="mt-2 text-sm text-slate-500">Track your onboarding progress and complete the next required step.</p>
+        </div>
+
+        <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-card">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-50 text-blue-700">
+                <Icon size={26} />
+              </div>
+              <div>
+                <div className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{flow.badge}</div>
+                <h2 className="mt-1 text-2xl font-bold text-slate-900">{flow.title}</h2>
+                <p className="mt-2 text-sm text-slate-600">{flow.summary}</p>
+                <p className="mt-1 text-xs text-slate-500">{flow.note}</p>
+              </div>
+            </div>
+            <div className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+              {flow.progress}%
+            </div>
           </div>
 
-          {/* Onboarding Card */}
-          <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-5 space-y-5 animate-slide-up">
-            {/* Horizontal Stepper */}
-            <nav className="relative">
-              {/* Progress Line Background */}
-              <div className="absolute top-5 left-0 w-full h-1 bg-gray-200 -z-0 rounded-full"></div>
+          <div className="mt-6">
+            <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-500">
+              <span>Overall Progress</span>
+              <span>{flow.progress}% complete</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-500" style={{ width: `${flow.progress}%` }} />
+            </div>
+          </div>
 
-              {/* Active Progress Line with Animation */}
-              <div
-                className="absolute top-5 left-0 h-1 bg-gradient-to-r from-blue-600 to-blue-500 -z-0 rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${(stepsCompleted.filter(s => s.completed).length / stepsCompleted.length) * 100}%` }}
-              ></div>
-
-              {/* Steps */}
-              <div className="relative z-10 flex justify-between">
-                {stepsCompleted.map((step) => (
-                  <div key={step.id} className="flex flex-col items-center gap-1">
-                    {/* Step Circle */}
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 transform ${step.completed
-                        ? 'bg-blue-600 text-white scale-100 shadow-lg'
-                        : step.active
-                          ? 'border-2 border-blue-600 bg-white text-blue-600'
-                          : 'bg-gray-100 text-gray-400'
-                        }`}
-                    >
-                      {step.completed ? (
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      ) : step.active ? (
-                        step.id
-                      ) : (
-                        step.id
-                      )}
-                    </div>
-
-                    {/* Step Label */}
-                    <span className={`text-[10px] font-semibold text-center leading-tight max-w-[50px] ${step.active ? 'text-blue-600' : step.completed ? 'text-gray-700' : 'text-gray-500'
-                      }`}>
-                      {step.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </nav>
-
-            {/* Progress Section */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-semibold text-gray-700">Overall Progress</span>
-                <span className="text-xs font-bold text-blue-600">{progressPercentage}%</span>
-              </div>
-              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="text-sm font-semibold text-slate-900">Onboarding Checklist</div>
+            <div className="mt-4 space-y-3">
+              {flow.checklist.map((item) => (
                 <div
-                  className="h-full bg-gradient-to-r from-blue-600 to-blue-500 rounded-full relative transition-all duration-700 ease-out"
-                  style={{ width: `${progressPercentage}%` }}
-                >
-                  {/* Shimmer Effect */}
-                  <div
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-shimmer"
-                    style={{
-                      animation: 'shimmer 2s infinite',
-                    }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            {/* Status Info Box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex gap-3 items-start">
-              <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <p className="text-xs text-gray-700 leading-relaxed">
-                Your documents have been approved. Please complete your profile to continue.
-              </p>
-            </div>
-
-            {/* Checklist */}
-            <div className="space-y-3">
-              <h3 className="text-base font-bold text-gray-900">Onboarding Checklist</h3>
-              <div className="space-y-2">
-                {checklist.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-300 transform ${item.status === 'completed'
-                      ? 'bg-blue-50 border-blue-200 hover:shadow-md'
+                  key={item.label}
+                  className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+                    item.status === 'completed'
+                      ? 'border-emerald-200 bg-emerald-50'
                       : item.status === 'in-progress'
-                        ? 'bg-amber-50 border-amber-200 hover:shadow-md'
-                        : 'bg-gray-50 border-gray-200 opacity-75'
-                      } hover:scale-[1.02] active:scale-[0.98]`}
-                    style={{
-                      animation: `slideInLeft 0.5s ease-out ${index * 0.1}s both`,
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(item.status)}
-                      <span className={`text-xs font-medium ${item.status === 'locked' ? 'text-gray-500' : 'text-gray-900'
-                        }`}>
-                        {item.label}
-                      </span>
+                        ? 'border-amber-200 bg-amber-50'
+                        : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`grid h-8 w-8 place-items-center rounded-full ${
+                        item.status === 'completed'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : item.status === 'in-progress'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-slate-100 text-slate-400'
+                      }`}
+                    >
+                      {item.status === 'completed' ? <CheckCircle2 size={16} /> : <Clock3 size={16} />}
                     </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${item.status === 'completed'
-                      ? 'text-blue-600'
-                      : item.status === 'in-progress'
-                        ? 'text-amber-600'
-                        : 'text-gray-400'
-                      }`}>
-                      {item.status === 'completed' && 'Completed'}
-                      {item.status === 'in-progress' && 'In Progress'}
-                      {item.status === 'locked' && 'Locked'}
-                    </span>
+                    <span className="text-sm font-medium text-slate-800">{item.label}</span>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Action Section */}
-            <div className="pt-4 border-t border-gray-200">
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                onMouseEnter={() => setArrowHovered(true)}
-                onMouseLeave={() => setArrowHovered(false)}
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 disabled:from-blue-300 disabled:to-blue-300 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-all duration-300 transform hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] active:shadow-md text-sm"
-              >
-                {submitting ? 'Updating...' : 'Continue Onboarding'}
-                <svg
-                  className={`w-4 h-4 transition-transform duration-300 ${arrowHovered ? 'translate-x-1' : ''
+                  <span
+                    className={`text-xs font-bold uppercase tracking-wide ${
+                      item.status === 'completed'
+                        ? 'text-emerald-700'
+                        : item.status === 'in-progress'
+                          ? 'text-amber-700'
+                          : 'text-slate-400'
                     }`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </button>
+                  >
+                    {item.status === 'completed' ? 'Completed' : item.status === 'in-progress' ? 'In Progress' : 'Locked'}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Footer Note */}
-          <div className="text-center">
-            <p className="text-xs text-gray-500 italic">
-              You will get access to leads and full portal once onboarding is complete.
-            </p>
-          </div>
+          {flow.actionLabel && (
+            <button
+              type="button"
+              onClick={flow.action}
+              disabled={submitting}
+              className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+            >
+              {submitting ? 'Opening...' : flow.actionLabel}
+              <ArrowRight size={16} />
+            </button>
+          )}
+
+          {!flow.actionLabel && (
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+              The next action is currently with the admin team. You will receive updates here as your onboarding progresses.
+            </div>
+          )}
         </div>
       </main>
-
-      {/* Atmospheric Decoration */}
-      <div className="fixed bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 opacity-20 pointer-events-none"></div>
-
-      {/* Animations */}
-      <style>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        @keyframes slide-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes slideInLeft {
-          from {
-            opacity: 0;
-            transform: translateX(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-
-        @keyframes shimmer {
-          0% {
-            background-position: -1000px 0;
-          }
-          100% {
-            background-position: 1000px 0;
-          }
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.6s ease-out;
-        }
-
-        .animate-slide-up {
-          animation: slide-up 0.6s ease-out;
-        }
-
-        .animate-shimmer {
-          animation: shimmer 2s infinite;
-          background-size: 1000px 100%;
-        }
-      `}</style>
     </div>
-  );
-};
-
-export default AgentOnboardingDashboard;
+  )
+}

@@ -30,6 +30,7 @@ import AgentRegistrationForm from "./pages/agent/AgentRegistrationForm.jsx";
 import AgentDocumentSigning from "./pages/agent/AgentDocumentSigning.jsx";
 import AgentWelcome from "./pages/agent/AgentWelcome.jsx";
 import AgentOnboardingDashboard from "./pages/agent/AgentOnboardingDashboard.jsx";
+import ManagerAgreementSigning from "./pages/manager/ManagerAgreementSigning.jsx";
 import AgentDashboard from "./pages/agent/AgentDashboard.jsx";
 import AgentLeadManagement from "./pages/agent/AgentLeadManagement.jsx";
 import AgentLeadDetail from "./pages/agent/AgentLeadDetail.jsx";
@@ -38,10 +39,13 @@ import NeedAnalysisForm from "./components/NeedAnalysisForm.jsx";
 import AgentProfile from "./pages/agent/AgentProfile.jsx";
 import AgentClientManagement from "./pages/agent/AgentClientManagement.jsx";
 import AgentClientDetail from "./pages/agent/AgentClientDetail.jsx";
+import AgentLicensing from "./pages/agent/AgentLicensing.jsx";
+import AgentMarketing from "./pages/agent/AgentMarketing.jsx";
 import Analytics from "./pages/admin/Analytics.jsx";
 import AgentUnderImplementation from "./pages/agent/AgentUnderImplementation.jsx";
 import SocketActionManager from "./components/SocketActionManager.jsx";
 import RealtimeAlertBar from "./components/RealtimeAlertBar.jsx";
+import ImpersonationBanner from "./components/ImpersonationBanner.jsx";
 
 function Protected({ children }) {
   return auth.isAuthenticated() ? children : <Navigate to="/login" replace />;
@@ -50,8 +54,7 @@ function Protected({ children }) {
 function getAgentRoute(status) {
   const step = Number(status || 2);
   if (step >= 5) return "/agent/dashboard";
-  if (step >= 4) return "/agent/onboarding-progress";
-  if (step >= 3) return "/agent/sign-documents";
+  if (step >= 3) return "/agent/onboarding-progress";
   return "/agent/registration";
 }
 
@@ -79,6 +82,7 @@ export default function App() {
   return (
     <>
       <SocketActionManager />
+      <ImpersonationBanner />
       <RealtimeAlertBar />
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -88,6 +92,10 @@ export default function App() {
         <Route
           path="/agent/account-setup/:inviteToken"
           element={<AgentAccountSetup />}
+        />
+        <Route
+          path="/manager/agreements/:token"
+          element={<ManagerAgreementSigning />}
         />
         <Route
           path="/agent/registration"
@@ -197,23 +205,28 @@ export default function App() {
         }
       />
       <Route
+        path="/agent/licensing"
+        element={
+          <AgentProtected>
+            <AgentLicensing />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/marketing"
+        element={
+          <AgentProtected>
+            <AgentMarketing />
+          </AgentProtected>
+        }
+      />
+      <Route
         path="/agent/training"
         element={
           <AgentProtected>
             <AgentUnderImplementation
               title="Training"
               breadcrumb="Agents > Training"
-            />
-          </AgentProtected>
-        }
-      />
-      <Route
-        path="/agent/commissions"
-        element={
-          <AgentProtected>
-            <AgentUnderImplementation
-              title="Commissions"
-              breadcrumb="Agents > Commissions"
             />
           </AgentProtected>
         }

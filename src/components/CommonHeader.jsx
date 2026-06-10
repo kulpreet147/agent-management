@@ -1,5 +1,6 @@
 import { Bell, Search, Settings } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useToast } from '../hooks/useToast.js'
 import { auth } from '../utils/auth.js'
 
 function getInitials(name) {
@@ -20,12 +21,13 @@ export default function CommonHeader({
   compact = false,
 }) {
   const navigate = useNavigate()
+  const toast = useToast()
   const session = auth.get()
   const initials = getInitials(session?.name)
   const showSearch = typeof onSearchChange === 'function'
 
   const showUnderImplementation = () => {
-    window.alert('Under implementation')
+    toast.info('This section is still under implementation.', 'Coming Soon')
   }
 
   const handleProfileClick = () => {
