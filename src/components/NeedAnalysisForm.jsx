@@ -20,6 +20,7 @@ import {
   Eye,
   X,
   Mail,
+  Calculator,
 } from 'lucide-react'
 import { getNeedAnalysis, saveNeedAnalysis, getLead, sendNeedAnalysisToClient } from '../utils/leads'
 import { auth } from '../utils/auth.js'
@@ -28,6 +29,7 @@ import { previewNeedAnalysisPDF, getNeedAnalysisPDFBlob } from '../utils/needAna
 const emptyAsset = { description: '', value: 0 }
 const emptyPolicy = { provider: '', type: '', coverageAmount: 0, premium: 0 }
 const emptyChild = { name: '', dob: '' }
+const emptyRecommendedProduct = { product: '', coverageAmount: null, proposedPremium: null }
 
 function num(val) {
   const n = Number(String(val).replace(/[^0-9.\-]/g, ''))
@@ -157,7 +159,10 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
     desiredCoverage: null,
     budgetMonthly: null,
     coverageNotes: '',
+    recommendedProducts: [],
   })
+
+  const isMarried = lead?.maritalStatus === 'Married'
 
   const set = (key) => (val) => setForm((prev) => ({ ...prev, [key]: val }))
 
@@ -205,6 +210,7 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
             desiredCoverage: analysis.desiredCoverage,
             budgetMonthly: analysis.budgetMonthly,
             coverageNotes: analysis.coverageNotes || '',
+            recommendedProducts: Array.isArray(analysis.recommendedProducts) ? analysis.recommendedProducts : [],
           })
         } else if (leadData) {
           setForm((prev) => ({
@@ -220,6 +226,19 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
     }
     load()
   }, [leadId])
+
+  useEffect(() => {
+    if (!isMarried) {
+      setForm((prev) => ({
+        ...prev,
+        spouseName: '',
+        spouseDOB: '',
+        spouseOccupation: '',
+        spouseIncome: null,
+        annualIncomeSpouse: null,
+      }))
+    }
+  }, [isMarried])
 
   const handleSave = async () => {
     setSaving(true)
@@ -251,6 +270,11 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
   const removeChild = (i) => setForm((p) => ({ ...p, children: p.children.filter((_, idx) => idx !== i) }))
   const updateChild = (i, key, val) =>
     setForm((p) => ({ ...p, children: p.children.map((c, idx) => (idx === i ? { ...c, [key]: val } : c)) }))
+
+  const addRecommendedProduct = () => setForm((p) => ({ ...p, recommendedProducts: [...p.recommendedProducts, { ...emptyRecommendedProduct }] }))
+  const removeRecommendedProduct = (i) => setForm((p) => ({ ...p, recommendedProducts: p.recommendedProducts.filter((_, idx) => idx !== i) }))
+  const updateRecommendedProduct = (i, key, val) =>
+    setForm((p) => ({ ...p, recommendedProducts: p.recommendedProducts.map((r, idx) => (idx === i ? { ...r, [key]: val } : r)) }))
 
   const sections = useMemo(() => [
     {
@@ -294,11 +318,16 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
       key: 'family',
       label: 'Family Details',
       weight: 1,
-      filled: Boolean(
-        form.spouseName || form.spouseDOB || form.spouseOccupation || form.spouseIncome ||
-        (form.children || []).some((c) => c.name) ||
-        hasBeenSaved
-      ),
+      filled: isMarried
+        ? Boolean(
+            form.spouseName || form.spouseDOB || form.spouseOccupation || form.spouseIncome ||
+            (form.children || []).some((c) => c.name) ||
+            hasBeenSaved
+          )
+        : Boolean(
+            (form.children || []).some((c) => c.name) ||
+            hasBeenSaved
+          ),
     },
     {
       key: 'coverage',
@@ -555,9 +584,11 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
       {/* Section 3: Income */}
       <section className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
         <SectionHeader icon={TrendingUp} title="Income" color="blue" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className={`grid gap-4 ${isMarried ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <CurrencyInput label="Annual Income (Primary)" value={form.annualIncomePrimary} onChange={set('annualIncomePrimary')} />
-          <CurrencyInput label="Annual Income (Spouse)" value={form.annualIncomeSpouse} onChange={set('annualIncomeSpouse')} />
+          {isMarried && (
+            <CurrencyInput label="Annual Income (Spouse)" value={form.annualIncomeSpouse} onChange={set('annualIncomeSpouse')} />
+          )}
           <CurrencyInput label="Total Household Income" value={form.totalHouseholdIncome} onChange={set('totalHouseholdIncome')} />
         </div>
       </section>
@@ -646,25 +677,35 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
       <section className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
         <SectionHeader icon={Users} title="Family Details" color="orange" />
 
-        {/* Spouse */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Spouse Name</label>
-            <input type="text" value={form.spouseName} onChange={(e) => set('spouseName')(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+        {isMarried && (
+          <>
+            {/* Spouse */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Spouse Name</label>
+                <input type="text" value={form.spouseName} onChange={(e) => set('spouseName')(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Spouse DOB</label>
+                <input type="date" value={form.spouseDOB} onChange={(e) => set('spouseDOB')(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Spouse Occupation</label>
+                <input type="text" value={form.spouseOccupation} onChange={(e) => set('spouseOccupation')(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              </div>
+              <CurrencyInput label="Spouse Income" value={form.spouseIncome} onChange={set('spouseIncome')} />
+            </div>
+          </>
+        )}
+
+        {!isMarried && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700">
+            Spouse details are only applicable for married clients. Only dependent children can be added.
           </div>
-          <div>
-            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Spouse DOB</label>
-            <input type="date" value={form.spouseDOB} onChange={(e) => set('spouseDOB')(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Spouse Occupation</label>
-            <input type="text" value={form.spouseOccupation} onChange={(e) => set('spouseOccupation')(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          </div>
-          <CurrencyInput label="Spouse Income" value={form.spouseIncome} onChange={set('spouseIncome')} />
-        </div>
+        )}
 
         {/* Children */}
         <div>
@@ -716,6 +757,95 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
             placeholder="e.g. If I'm no longer around, I want my wife and children to be able to live comfortably for the next 20 years."
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
           />
+        </div>
+
+        {/* Recommended Insurance Products */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-slate-700">Recommended Insurance Products</span>
+            <button onClick={addRecommendedProduct} className="text-blue-600 text-xs font-bold flex items-center gap-1 hover:underline">
+              <Plus size={14} /> Add Product
+            </button>
+          </div>
+          {form.recommendedProducts.length === 0 && (
+            <p className="text-xs text-slate-400 italic">No recommended products added yet</p>
+          )}
+          {form.recommendedProducts.length > 0 && (
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left">
+                  <th className="py-2 text-[11px] font-bold text-slate-500 uppercase">Product</th>
+                  <th className="py-2 text-[11px] font-bold text-slate-500 uppercase text-right">Coverage Amount</th>
+                  <th className="py-2 text-[11px] font-bold text-slate-500 uppercase text-right">Proposed Premium</th>
+                  <th className="w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {form.recommendedProducts.map((r, i) => (
+                  <tr key={i} className="border-b border-slate-100">
+                    <td className="py-2">
+                      <select
+                        value={r.product}
+                        onChange={(e) => updateRecommendedProduct(i, 'product', e.target.value)}
+                        className="w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                      >
+                        <option value="">Select product...</option>
+                        <option value="Term Life">Term Life</option>
+                        <option value="Whole Life">Whole Life</option>
+                        <option value="Universal Life">Universal Life</option>
+                        <option value="Critical Illness">Critical Illness</option>
+                        <option value="Disability">Disability</option>
+                        <option value="Health Insurance">Health Insurance</option>
+                        <option value="Travel Insurance">Travel Insurance</option>
+                        <option value="Annuities">Annuities</option>
+                      </select>
+                    </td>
+                    <td className="py-2">
+                      <input
+                        type="text"
+                        value={r.coverageAmount || ''}
+                        onChange={(e) => updateRecommendedProduct(i, 'coverageAmount', parseNum(e.target.value))}
+                        className="w-full px-2 py-1 border border-slate-200 rounded text-sm text-right focus:ring-1 focus:ring-blue-500 outline-none"
+                      />
+                    </td>
+                    <td className="py-2">
+                      <input
+                        type="text"
+                        value={r.proposedPremium || ''}
+                        onChange={(e) => updateRecommendedProduct(i, 'proposedPremium', parseNum(e.target.value))}
+                        className="w-full px-2 py-1 border border-slate-200 rounded text-sm text-right focus:ring-1 focus:ring-blue-500 outline-none"
+                      />
+                    </td>
+                    <td className="py-2 text-center">
+                      <button onClick={() => removeRecommendedProduct(i)} className="text-slate-400 hover:text-red-600">
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* WinQuote Coming Soon Banner */}
+        <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5">
+          <div className="flex items-center gap-4">
+            <div className="grid h-12 w-12 place-items-center rounded-full bg-blue-100 text-blue-600 shrink-0">
+              <Calculator size={22} />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h4 className="text-sm font-bold text-slate-800">Live Insurance Quotes</h4>
+                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold uppercase rounded-full tracking-wider">
+                  Coming Soon
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Run live quotes directly from WinQuote (Canadian life insurance rate engine) and compare rates from multiple carriers — right from the Need Analysis form.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 

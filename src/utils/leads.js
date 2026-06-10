@@ -210,3 +210,37 @@ export function deleteQuote(leadId, quoteInternalId) {
     method: 'DELETE',
   })
 }
+
+// ── WinQuote (Canadian life insurance) ──────────────────
+
+export function runWinquoteQuote(leadId, params = {}) {
+  return apiRequest(`/leads/${leadId}/winquote-quotes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+}
+
+export function listWinquoteQuotes(leadId) {
+  return apiRequest(`/leads/${leadId}/winquote-quotes`)
+}
+
+export function selectWinquoteQuote(leadId, quoteInternalId) {
+  return apiRequest(`/leads/${leadId}/winquote-quotes/${quoteInternalId}/select`, {
+    method: 'POST',
+  })
+}
+
+export function emailWinquoteQuote(leadId, quoteInternalId, clientEmail) {
+  return apiRequest(`/leads/${leadId}/winquote-quotes/${quoteInternalId}/email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientEmail }),
+  })
+}
+
+export function deleteWinquoteQuote(leadId, quoteInternalId) {
+  return apiRequest(`/leads/${leadId}/winquote-quotes/${quoteInternalId}`, {
+    method: 'DELETE',
+  })
+}
