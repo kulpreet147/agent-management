@@ -205,6 +205,14 @@ export function emailQuote(leadId, quoteInternalId, clientEmail) {
   })
 }
 
+export function updateQuoteStatus(leadId, quoteInternalId, status) {
+  return apiRequest(`/leads/${leadId}/quotes/${quoteInternalId}/status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  })
+}
+
 export function deleteQuote(leadId, quoteInternalId) {
   return apiRequest(`/leads/${leadId}/quotes/${quoteInternalId}`, {
     method: 'DELETE',

@@ -29,11 +29,19 @@ import {
   Calendar,
   Clock,
   Users,
-  StickyNote
+  StickyNote,
+  Activity,
+  Shield,
 } from 'lucide-react'
-import { addFollowUp, reassignAgent, addNote, getLead, getFollowUps, getActivityLog, updateLeadStatus } from '../../utils/leads.js'
+import { addFollowUp, reassignAgent, addNote, getLead, getFollowUps, getActivityLog, updateLeadStatus, listQuotes } from '../../utils/leads.js'
 import { getAgents } from '../../utils/agents.js'
+import { getPersonByPersonId, getQuotes } from '../../utils/persons.js'
 import QuoteModal from '../../components/QuoteModal.jsx'
+import LeadFamilyTab from '../../components/tabs/LeadFamilyTab.jsx'
+import LeadQuotesTab from '../../components/tabs/LeadQuotesTab.jsx'
+import LeadDocumentsTab from '../../components/tabs/LeadDocumentsTab.jsx'
+import LeadNotesTab from '../../components/tabs/LeadNotesTab.jsx'
+import LeadStatusHistoryTab from '../../components/tabs/LeadStatusHistoryTab.jsx'
 
 const formatTimeAgo = (dateString) => {
   if (!dateString) return 'Unknown'
@@ -157,6 +165,7 @@ export default function LeadDetail() {
   const [followUpsList, setFollowUpsList] = useState([])
   const [activityLog, setActivityLog] = useState([])
   const [leadStatus, setLeadStatus] = useState('new')
+  const [personUuid, setPersonUuid] = useState(null)
   const [showQuoteModal, setShowQuoteModal] = useState(false)
 
   useEffect(() => {
@@ -197,6 +206,9 @@ export default function LeadDetail() {
           setFollowUpsList(Array.isArray(followUps) ? followUps : [])
           setActivityLog(Array.isArray(activityData?.logs) ? activityData.logs : [])
           setLeadStatus(apiData.status || 'new')
+          getPersonByPersonId(apiData.leadId)
+            .then((person) => setPersonUuid(person.id))
+            .catch(() => setPersonUuid(null))
         }
       })
       .catch(() => navigate('/admin/leads', { replace: true }))
@@ -238,8 +250,46 @@ export default function LeadDetail() {
       alert('This lead is already converted.')
       return
     }
-    if (!window.confirm(`Mark "${lead.name}" as converted? This will create a new client profile from this lead's data.`)) return
+
+    // Check for accepted quotes before conversion
     try {
+      let quotes = []
+      // Try person_quotes first
+      if (personUuid) {
+        const personData = await getQuotes(personUuid)
+        const personQuotes = Array.isArray(personData) ? personData : []
+        if (personQuotes.length > 0) {
+          quotes = personQuotes
+        }
+      }
+      // Fallback to lead_quotes
+      if (quotes.length === 0) {
+        const leadData = await listQuotes(lead.id)
+        const leadQuotes = Array.isArray(leadData?.quotes) ? leadData.quotes : Array.isArray(leadData) ? leadData : []
+        quotes = leadQuotes
+      }
+      const acceptedQuotes = quotes.filter(q => q.status === 'accepted')
+
+      if (acceptedQuotes.length === 0) {
+        alert('No accepted quote found. Please accept a quote before converting this lead.')
+        return
+      }
+
+      if (acceptedQuotes.length > 1) {
+        alert('Multiple quotes are accepted. Please reject the ones you don\'t want before converting.')
+        return
+      }
+
+      const selectedQuote = acceptedQuotes[0]
+      const confirmed = window.confirm(
+        `Convert "${lead.name}" with this quote?\n\n` +
+        `Carrier: ${selectedQuote.carrier || 'N/A'}\n` +
+        `Product: ${selectedQuote.model || selectedQuote.product || 'N/A'}\n` +
+        `Premium: ${selectedQuote.currency || 'CHF'} ${Number(selectedQuote.premiumMonthly || selectedQuote.premium || 0).toLocaleString()}/mo\n\n` +
+        `This will create a new client profile and policy.`
+      )
+      if (!confirmed) return
+
       await updateLeadStatus(lead.id, 'converted', 'Marked as converted from Quick Actions')
       const updatedLead = await getLead(lead.id)
       setLead({
@@ -300,9 +350,15 @@ export default function LeadDetail() {
   }
 
   const tabs = [
-    { label: 'Basic Info', icon: Info, to: null },
+    { label: 'Profile', icon: Info, to: null },
+    { label: 'Family', icon: Users, to: null },
+    { label: 'Quotes', icon: Calculator, to: null },
     { label: 'Need Analysis', icon: Brain, to: 'need-analysis' },
-    { label: 'Activity Log', icon: ClipboardList, to: null }
+    { label: 'Follow-ups', icon: Calendar, to: null },
+    { label: 'Activity Log', icon: ClipboardList, to: null },
+    { label: 'Documents', icon: FileText, to: null },
+    { label: 'Notes', icon: StickyNote, to: null },
+    { label: 'Status History', icon: Activity, to: null },
   ]
 
   const formatActivityDate = (d) => {
@@ -625,64 +681,8 @@ export default function LeadDetail() {
           </div>
         </div>
 
-        {/* Bottom Left: Follow-Up History */}
-        <div className="col-span-12 lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-800">Follow-Up History</h3>
-            <button className="text-blue-600 text-xs font-bold flex items-center gap-1">
-              View All <ExternalLink size={14} />
-            </button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
-                  <th className="px-6 py-3">Recorded</th>
-                  <th className="px-6 py-3">Action</th>
-                  <th className="px-6 py-3">Outcome</th>
-                  <th className="px-6 py-3">Agent</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {followups.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="px-6 py-8 text-center text-sm text-slate-500">No follow-ups recorded yet.</td>
-                  </tr>
-                ) : (
-                  followups.map((f, i) => {
-                    const ActionIcon = f.actionIcon
-                    return (
-                      <tr key={i} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-semibold text-slate-800">{f.date}</p>
-                          <p className="text-[11px] text-slate-500">{f.time}</p>
-                          {f.scheduledDate && f.scheduledDate !== f.date && (
-                            <p className="text-[10px] text-blue-500 mt-0.5">Scheduled: {f.scheduledDate}</p>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <ActionIcon size={16} className={f.actionColor} />
-                            <span className="text-sm text-slate-700">{f.action}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${f.outcomeStyle}`}>
-                            {f.outcome}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-700">{f.agent}</td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Bottom Right: Quick Actions + Lead Health */}
-        <div className="col-span-12 lg:col-span-5 space-y-6">
+        {/* Bottom: Quick Actions + Lead Health */}
+        <div className="col-span-12 space-y-6">
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
             <h3 className="text-sm font-bold text-slate-800 mb-6">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-4">
@@ -748,8 +748,77 @@ export default function LeadDetail() {
       </div>
       )}
 
+      {/* ==================== TAB: FAMILY ==================== */}
+      {activeTab === 1 && personUuid && <LeadFamilyTab personId={personUuid} lead={lead} />}
+      {activeTab === 1 && !personUuid && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+          <p className="text-sm text-amber-700 font-semibold">Person data not available. Please refresh the page.</p>
+        </div>
+      )}
+
+      {/* ==================== TAB: QUOTES ==================== */}
+      {activeTab === 2 && <LeadQuotesTab personId={personUuid} lead={lead} />}
+
+      {/* ==================== TAB: FOLLOW-UPS ==================== */}
+      {activeTab === 4 && (
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Calendar size={18} className="text-blue-600" />
+            <h3 className="text-sm font-bold text-slate-800">Follow-Up History</h3>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+                <th className="px-6 py-3">Recorded</th>
+                <th className="px-6 py-3">Action</th>
+                <th className="px-6 py-3">Outcome</th>
+                <th className="px-6 py-3">Agent</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {followups.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="px-6 py-8 text-center text-sm text-slate-500">No follow-ups recorded yet.</td>
+                </tr>
+              ) : (
+                followups.map((f, i) => {
+                  const ActionIcon = f.actionIcon
+                  return (
+                    <tr key={i} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-semibold text-slate-800">{f.date}</p>
+                        <p className="text-[11px] text-slate-500">{f.time}</p>
+                        {f.scheduledDate && f.scheduledDate !== f.date && (
+                          <p className="text-[10px] text-blue-500 mt-0.5">Scheduled: {f.scheduledDate}</p>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <ActionIcon size={16} className={f.actionColor} />
+                          <span className="text-sm text-slate-700">{f.action}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${f.outcomeStyle}`}>
+                          {f.outcome}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-700">{f.agent}</td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      )}
+
       {/* ==================== TAB: ACTIVITY LOG ==================== */}
-      {activeTab === 2 && (
+      {activeTab === 5 && (
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-200">
           <h3 className="text-sm font-bold text-slate-800">Activity Log</h3>
@@ -778,6 +847,30 @@ export default function LeadDetail() {
           )}
         </div>
       </div>
+      )}
+
+      {/* ==================== TAB: DOCUMENTS ==================== */}
+      {activeTab === 6 && personUuid && <LeadDocumentsTab personId={personUuid} lead={lead} />}
+      {activeTab === 6 && !personUuid && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+          <p className="text-sm text-amber-700 font-semibold">Person data not available. Please refresh the page.</p>
+        </div>
+      )}
+
+      {/* ==================== TAB: NOTES ==================== */}
+      {activeTab === 7 && personUuid && <LeadNotesTab personId={personUuid} lead={lead} />}
+      {activeTab === 7 && !personUuid && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+          <p className="text-sm text-amber-700 font-semibold">Person data not available. Please refresh the page.</p>
+        </div>
+      )}
+
+      {/* ==================== TAB: STATUS HISTORY ==================== */}
+      {activeTab === 8 && personUuid && <LeadStatusHistoryTab personId={personUuid} lead={lead} />}
+      {activeTab === 8 && !personUuid && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+          <p className="text-sm text-amber-700 font-semibold">Person data not available. Please refresh the page.</p>
+        </div>
       )}
 
       {/* ==================== FOLLOW-UP MODAL ==================== */}

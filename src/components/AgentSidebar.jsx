@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Home, FileCheck2, BookOpenCheck, WalletCards, Settings, Users, LogOut, Shield, BriefcaseBusiness,Lock  } from 'lucide-react'
+import { Home, FileCheck2, BookOpenCheck, WalletCards, Settings, Users, LogOut, Shield, BriefcaseBusiness, Lock } from 'lucide-react'
 import { auth } from '../utils/auth.js'
 import { APP_VERSION } from '../version.js'
 

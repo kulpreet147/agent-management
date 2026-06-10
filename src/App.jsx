@@ -43,6 +43,7 @@ import AgentUnderImplementation from "./pages/agent/AgentUnderImplementation.jsx
 import SocketActionManager from "./components/SocketActionManager.jsx";
 import RealtimeAlertBar from "./components/RealtimeAlertBar.jsx";
 
+
 function Protected({ children }) {
   return auth.isAuthenticated() ? children : <Navigate to="/login" replace />;
 }
@@ -460,7 +461,8 @@ export default function App() {
           </Protected>
         }
       />
-        <Route path="*" element={<Navigate to="/" replace />} />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
