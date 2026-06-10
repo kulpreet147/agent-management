@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { Eye, FilePlus, Search, Plus, MoreVertical, KeyRound, X } from 'lucide-react'
 import StatCard from '../../components/StatCard.jsx'
+import AgentAvatar from '../../components/AgentAvatar.jsx'
 import { formatAccountId } from '../../utils/accountId.js'
 import { adminSetAgentPassword } from '../../utils/agents.js'
 import { getAllAgentsAsync, resendAgentInviteAsync } from '../../redux/agentSlice.js'
@@ -470,21 +471,24 @@ export default function Agents() {
                               className="h-4 w-4"
                             />
                           )}
-                          <button
-                            type="button"
-                            onClick={() => handleAgentView(agent)}
-                            disabled={inviteMode}
-                            className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 disabled:cursor-default disabled:hover:bg-slate-100"
-                            aria-label={`View ${agent.name || 'agent'} details`}
-                          >
-                            {agent.name
-                              ? agent.name
-                                .split(' ')
-                                .map((part) => part[0]?.toUpperCase())
-                                .slice(0, 2)
-                                .join('')
-                              : 'AG'}
-                          </button>
+                          <div className="relative shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleAgentView(agent)}
+                              disabled={inviteMode}
+                              className="block rounded-full ring-2 ring-white shadow-sm transition hover:scale-105 disabled:cursor-default disabled:hover:scale-100"
+                              aria-label={`View ${agent.name || 'agent'} details`}
+                              title={inviteMode ? '' : `View ${agent.name || 'agent'} profile`}
+                            >
+                              <AgentAvatar agent={agent} size={44} />
+                            </button>
+                            {Number(agent?.accountActivationStatus) === 1 && (
+                              <span
+                                className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500"
+                                title="Active"
+                              />
+                            )}
+                          </div>
                           <div>
                             <div className="font-semibold text-slate-900">{agent.name}</div>
                             <div className="text-xs text-slate-500">

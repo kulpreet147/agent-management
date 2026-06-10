@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Home, FileCheck2, BookOpenCheck, WalletCards, Settings, Users, LogOut, Shield, BriefcaseBusiness,Lock  } from 'lucide-react'
+import { Home, FileCheck2, BookOpenCheck, Settings, Users, LogOut, Shield, BriefcaseBusiness, Lock, BadgeCheck, Megaphone } from 'lucide-react'
 import { useToast } from '../hooks/useToast.js'
 import { auth } from '../utils/auth.js'
 import { APP_VERSION } from '../version.js'
@@ -9,8 +9,9 @@ const navItems = [
   { icon: Users, label: 'Lead Management', path: '/agent/leads' },
   { icon: BriefcaseBusiness, label: 'Client Management', path: '/agent/clients' },
   { icon: FileCheck2, label: 'Documents', path: '/agent/documents' },
+  { icon: BadgeCheck, label: 'Licensing', path: '/agent/licensing' },
+  { icon: Megaphone, label: 'Marketing', path: '/agent/marketing' },
   { icon: BookOpenCheck, label: 'Training', path: '/agent/training' },
-  // { icon: WalletCards, label: 'Commissions', path: '/agent/commissions' },
   { icon: Settings, label: 'Settings', path: '/agent/settings' },
 ]
 

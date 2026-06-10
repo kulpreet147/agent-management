@@ -10,7 +10,8 @@ import {
   Youtube, Twitter, Plus, X, Building2, CreditCard, Hash,
 } from 'lucide-react'
 import { useToast } from '../../hooks/useToast.js'
-import { getAgent, getAgentProfile, updateAgentProfile, decideAgentTierRequest } from '../../utils/agents.js'
+import { auth } from '../../utils/auth.js'
+import { getAgent, getAgentProfile, updateAgentProfile, decideAgentTierRequest, getAgentPerformance } from '../../utils/agents.js'
 import { getAccountActivities, updateAccountActivity } from '../../utils/activities.js'
 
 // ─── Mock dynamic data ────────────────────────────────────────────────────────
@@ -63,6 +64,43 @@ function readAvatarPathFromAgent(agent) {
   return ''
 }
 
+// Flattens the structured residential address (new profile shape) into one line.
+function formatAddressLine(addr) {
+  if (!addr || typeof addr !== 'object') return ''
+  return [
+    addr.unit,
+    [addr.streetNumber, addr.streetName].filter(Boolean).join(' '),
+    addr.city,
+    addr.province,
+    addr.postalCode,
+    addr.country,
+  ]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(', ')
+}
+
+// Emergency contact may be a string (legacy) or an object {name, phone, relationship}
+// (new profile shape). Always return plain strings so it can render as a React child.
+function deriveEmergency(personal = {}, relationships = {}) {
+  const ec = personal.emergencyContact
+  const obj = ec && typeof ec === 'object' ? ec : null
+  const contact =
+    (obj ? obj.name : ec) ||
+    personal.emergencyContactName ||
+    relationships.spouse?.name ||
+    personal.spouseName ||
+    ''
+  const phone =
+    (obj ? obj.phone : '') || personal.emergencyContactPhone || personal.emergencyPhone || ''
+  const relation =
+    (obj ? obj.relationship : '') ||
+    personal.emergencyRelation ||
+    personal.emergencyContactRelation ||
+    (contact ? 'Spouse' : '')
+  return { contact: String(contact || ''), phone: String(phone || ''), relation: String(relation || '') }
+}
+
 function buildMockData(agent) {
   const name = agent?.name || 'Agent'
   const initials = name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
@@ -70,11 +108,14 @@ function buildMockData(agent) {
   const personal = savedProfile.personal || {}
   const professional = savedProfile.professional || {}
   const business = savedProfile.business || {}
+  const online = savedProfile.online || {}
+  const settingsBlock = savedProfile.settings || {}
   const relationships = savedProfile.relationships || {}
-  const socials = business.socials || business.social || {}
+  const socials = business.socials || business.social || online || {}
   const licenceDetails = parseLicenceDetails(professional.licenceDetails)
-  const emergencyContact = personal.emergencyContact || personal.emergencyContactName || relationships.spouse?.name || personal.spouseName || ''
-  const emergencyRelation = personal.emergencyRelation || personal.emergencyContactRelation || (emergencyContact ? 'Spouse' : '')
+  const emergency = deriveEmergency(personal, relationships)
+  const emergencyContact = emergency.contact
+  const emergencyRelation = emergency.relation
   const subscriptionTier = agent?.subscriptionTier || savedProfile.settings?.subscriptionTier || savedProfile.subscriptionTier || 'Silver'
   return {
     initials,
@@ -115,45 +156,74 @@ function buildMockData(agent) {
 
     profile: {
       personal: {
-        fullName: name,
-        personalEmail: agent?.email || personal.personalEmail || '',
-        personalPhone: personal.personalPhone || agent?.phone || '',
-        businessPhone: personal.businessPhone || '',
-        mailingAddress: personal.businessAddress || personal.mailingAddress || '',
-        city: personal.city || '',
-        province: personal.province || '',
-        postalCode: personal.postalCode || '',
+        fullName: name !== 'Agent' ? name : [personal.firstName, personal.lastName].filter(Boolean).join(' ') || name,
+        firstName: personal.firstName || '',
+        lastName: personal.lastName || '',
+        preferredName: personal.preferredName || '',
+        gender: personal.gender || '',
+        maritalStatus: personal.maritalStatus || '',
+        personalEmail: agent?.email || personal.email || personal.personalEmail || '',
+        personalPhone: personal.primaryPhone || personal.personalPhone || agent?.phone || '',
+        secondaryPhone: personal.secondaryPhone || '',
+        businessPhone: business.businessPhone || personal.businessPhone || '',
+        mailingAddress: business.mailingAddress || personal.businessAddress || personal.mailingAddress || formatAddressLine(personal.address) || '',
+        address: {
+          unit: personal.address?.unit || '',
+          streetNumber: personal.address?.streetNumber || '',
+          streetName: personal.address?.streetName || '',
+          city: personal.address?.city || personal.city || '',
+          province: personal.address?.province || personal.province || '',
+          country: personal.address?.country || '',
+          postalCode: personal.address?.postalCode || personal.postalCode || '',
+        },
+        city: personal.address?.city || personal.city || '',
+        province: personal.address?.province || personal.province || '',
+        postalCode: personal.address?.postalCode || personal.postalCode || '',
         residence: personal.residence || '',
         emergencyContact,
-        emergencyPhone: personal.emergencyContactPhone || personal.emergencyPhone || '',
+        emergencyPhone: emergency.phone,
         emergencyRelation,
-        dob: formatDateValue(personal.dateOfBirth || personal.dob || ''),
-        bio: professional.bio || '',
-        expertise: normalizeList(professional.expertise || business.expertise || personal.expertise),
+        dob: formatDateValue(personal.dob || personal.dateOfBirth || ''),
+        bio: business.bio || professional.bio || '',
+        expertise: normalizeList((business.specializations?.length ? business.specializations : null) || professional.expertise || business.expertise || personal.expertise),
       },
+      family: Array.isArray(savedProfile.family) ? savedProfile.family : [],
       professional: {
         licenceNo: agent?.agentId || 'LIC-99021-X',
         licenceType: agent?.licenceType || licenceDetails.type || '',
         licenceExpiry: professional.licenceExpiry || licenceDetails.expiry || '',
         company: agent?.insuranceCompany || '',
         agentCode: agent?.agentCode || '',
-        yearsExp: professional.yearsOfExperience || '',
+        yearsExp: business.yearsExperience || professional.yearsOfExperience || '',
         mga: agent?.mga || agent?.insuranceCompany || '',
-        designations: normalizeDesignations(professional.designations),
+        designations: normalizeDesignations((business.designations?.length ? business.designations : null) || professional.designations),
         certifications: ['LLQP — Life Licence Qualification', 'AML Compliance (2024)', 'E&O Coverage Active'],
         awards: ['Top Producer 2023 — HUB Financial', 'Client Satisfaction Award Q2 2023'],
       },
       business: {
-        businessName: 'Johnson Insurance Services Inc.',
-        businessAddress: '88 King St W, Suite 500, Toronto ON',
-        website: 'https://mikejohnson.ca',
+        businessName: '',
+        operatingName: business.operatingName || '',
+        mailingAddress: business.mailingAddress || '',
+        businessPhone: business.businessPhone || personal.businessPhone || '',
+        businessEmail: business.businessEmail || '',
+        businessAddress: '',
+        website: '',
+        yearsExperience: business.yearsExperience || professional.yearsOfExperience || '',
+        specializations: normalizeList(business.specializations),
+        products: normalizeList(business.productsOffered || business.products),
+        serviceAreas: normalizeList(business.serviceAreas),
+        languages: normalizeList(business.languages),
+        awards: normalizeList(business.awards),
         social: {
-          linkedin: 'https://linkedin.com/in/mikejohnson',
-          facebook: 'https://facebook.com/mikejinsurance',
-          instagram: 'https://instagram.com/mikejinsurance',
-          twitter: 'https://twitter.com/mikejinsurance',
+          linkedin: '',
+          facebook: '',
+          instagram: '',
+          twitter: '',
           youtube: '',
           tiktok: '',
+          website: '',
+          otherProfiles: '',
+          bookingLink: '',
         },
       },
     },
@@ -196,11 +266,11 @@ function buildMockData(agent) {
 
     settings: {
       tier: subscriptionTier,
-      notifications: { email: true, sms: false, portal: true },
-      twoFactor: true,
-      status: 'Active',
-      createdAt: 'January 12, 2024',
-      lastPasswordChange: 'March 5, 2026',
+      notifications: settingsBlock.notifications || {},
+      timezone: settingsBlock.timezone || '',
+      username: agent?.email || '',
+      status: agent?.accountActivationStatus === 1 ? 'Active' : agent?.status || 'Invited',
+      createdAt: agent?.createdAt ? new Date(agent.createdAt).toLocaleDateString() : 'N/A',
     },
   }
 }
@@ -212,37 +282,47 @@ function applyDynamicProfileData(data, agent) {
   const personal = savedProfile.personal || {}
   const professional = savedProfile.professional || {}
   const business = savedProfile.business || {}
+  const online = savedProfile.online || {}
   const relationships = savedProfile.relationships || {}
   const socials = business.socials || business.social || {}
   const licenceDetails = parseLicenceDetails(professional.licenceDetails)
-  const emergencyContact = personal.emergencyContact || personal.emergencyContactName || relationships.spouse?.name || personal.spouseName || ''
+  const emergency = deriveEmergency(personal, relationships)
+  const pick = (...vals) => vals.find((v) => v) || ''
 
-  data.profile.professional.certifications = normalizeList(professional.certifications)
-  data.profile.professional.awards = normalizeList(professional.awards)
-  data.profile.business.businessName = business.businessName || agent?.insuranceCompany || ''
-  data.profile.business.businessAddress = business.businessAddress || personal.businessAddress || ''
-  data.profile.business.website = socials.website || business.website || ''
+  data.profile.professional.certifications = normalizeList(business.certifications || professional.certifications)
+  data.profile.professional.awards = normalizeList((business.awards?.length ? business.awards : null) || professional.awards)
+  data.profile.business.businessName = business.operatingName || business.businessName || agent?.insuranceCompany || ''
+  data.profile.business.businessAddress = business.mailingAddress || business.businessAddress || personal.businessAddress || formatAddressLine(personal.address) || ''
+  data.profile.business.website = online.website || socials.website || business.website || ''
   data.profile.business.social = {
-    linkedin: socials.linkedin || '',
-    facebook: socials.facebook || '',
-    instagram: socials.instagram || '',
-    twitter: socials.twitter || '',
-    youtube: socials.youtube || '',
-    tiktok: socials.tiktok || '',
+    linkedin: pick(online.linkedin, socials.linkedin),
+    facebook: pick(online.facebook, socials.facebook),
+    instagram: pick(online.instagram, socials.instagram),
+    twitter: pick(online.twitter, socials.twitter),
+    youtube: pick(online.youtube, socials.youtube),
+    tiktok: pick(online.tiktok, socials.tiktok),
+    website: pick(online.website, socials.website, business.website),
+    otherProfiles: pick(online.otherProfiles, socials.otherProfiles),
+    bookingLink: pick(online.bookingLink, socials.bookingLink),
   }
-  data.profile.personal.emergencyContact = emergencyContact
-  data.profile.personal.emergencyPhone = personal.emergencyContactPhone || personal.emergencyPhone || ''
-  data.profile.personal.emergencyRelation = personal.emergencyRelation || personal.emergencyContactRelation || (emergencyContact ? 'Spouse' : '')
+  data.profile.personal.emergencyContact = emergency.contact
+  data.profile.personal.emergencyPhone = emergency.phone
+  data.profile.personal.emergencyRelation = emergency.relation
   data.profile.professional.licenceExpiry = professional.licenceExpiry || licenceDetails.expiry || ''
 
   return data
 }
 
-function val(v) { return v || 'N/A' }
+function val(v) {
+  if (v === null || v === undefined || v === '') return 'N/A'
+  if (typeof v === 'object') return Array.isArray(v) ? v.join(', ') || 'N/A' : (v.name || v.label || JSON.stringify(v))
+  return v
+}
 
 const uploadedDocumentMeta = {
+  governmentId: { label: 'Government ID', category: 'Identity' },
   licenceDocument: { label: 'Licence Document', category: 'Licence' },
-  transferDocument: { label: 'Transfer Document', category: 'Licence' },
+  transferDocument: { label: 'Transfer / Licence Document', category: 'Licence' },
   eandODocument: { label: 'E&O Policy Certificate', category: 'E&O' },
   apexDocument: { label: 'APEXA Document', category: 'APEXA' },
   creditReportDocument: { label: 'Credit Report', category: 'Financial' },
@@ -269,12 +349,19 @@ function resolveUploadUrl(doc) {
 
 function buildUploadedDocuments(agent) {
   const documents = agent?.documents || {}
+  const seen = new Set()
   return Object.entries(uploadedDocumentMeta)
     .map(([key, meta]) => {
       const doc = documents[key]
       if (!doc) return null
+      // De-dupe the same physical file surfaced under multiple keys
+      // (e.g. governmentId aliased to otherSupporting during registration).
+      const fingerprint = doc.fileName || doc.path
+      if (fingerprint && seen.has(fingerprint)) return null
+      if (fingerprint) seen.add(fingerprint)
       return {
         id: key,
+        type: meta.label,
         name: doc.originalName || doc.fileName || meta.label,
         category: meta.category,
         size: formatFileSize(doc.size),
@@ -295,31 +382,44 @@ function formatActivityAction(action) {
 
 function mapAccountActivity(activity) {
   const apexaCompleted = Boolean(activity.details?.completed)
+  // An action is "delegated" when an admin/master_admin performed it on the agent.
+  const isDelegated =
+    activity.details?.delegated === true ||
+    activity.performedByType === 'admin' ||
+    activity.performedByType === 'master_admin'
+  const actorName =
+    activity.details?.actorName ||
+    (activity.performedByType === 'master_admin' ? 'Master Admin' : 'Admin')
   return {
     actionKey: activity.action,
     details: activity.details || null,
-    type: activity.action?.includes('login')
-      ? 'login'
-      : activity.action?.includes('document')
-        ? 'licence'
-        : activity.action?.includes('profile')
-          ? 'profile'
-          : 'system',
+    type: isDelegated
+      ? 'delegation'
+      : activity.action?.includes('login')
+        ? 'login'
+        : activity.action?.includes('document')
+          ? 'licence'
+          : activity.action?.includes('profile')
+            ? 'profile'
+            : 'system',
     action: activity.title || formatActivityAction(activity.action),
-    by:
-      activity.performedByType === activity.accountType && activity.performedById === activity.accountId
+    by: isDelegated
+      ? actorName
+      : activity.performedByType === activity.accountType && activity.performedById === activity.accountId
         ? 'Agent'
         : activity.performedByType || 'System',
     time: activity.performedAt ? new Date(activity.performedAt).toLocaleString() : '',
     performedAt: activity.performedAt || null,
-    badge:
-      activity.action === 'create_apexa_contract'
+    badge: isDelegated
+      ? 'Admin Action'
+      : activity.action === 'create_apexa_contract'
         ? apexaCompleted
           ? 'Completed'
           : 'Pending'
         : formatActivityAction(activity.action),
-    badgeColor:
-      activity.action === 'create_apexa_contract'
+    badgeColor: isDelegated
+      ? 'orange'
+      : activity.action === 'create_apexa_contract'
         ? apexaCompleted
           ? 'green'
           : 'yellow'
@@ -461,6 +561,23 @@ function Tag({ label, onRemove, color = 'blue' }) {
       {label}
       {onRemove && <X size={10} className="cursor-pointer opacity-60 hover:opacity-100" onClick={onRemove} />}
     </span>
+  )
+}
+
+// Read-only labelled list of pill tags (with an empty state).
+function TagList({ label, items }) {
+  const list = Array.isArray(items) ? items.filter(Boolean) : []
+  return (
+    <div className="mt-4">
+      <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-2">{label}</div>
+      {list.length === 0 ? (
+        <span className="text-xs text-slate-400">N/A</span>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {list.map((item, i) => <Tag key={`${item}-${i}`} label={item} color="slate" />)}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -626,30 +743,46 @@ function OverviewTab({ data, agent, onOpenMgaPackage, onCompleteApexaTask, compl
   )
 }
 
-function PerformanceTab({ data }) {
-  const { alert, stats, notes } = data.performance
+function PerformanceTab({ data, perf }) {
   const [noteText, setNoteText] = useState('')
+  const p = perf || {}
+  const fmt = (n) => (n === null || n === undefined ? '—' : String(n))
+  const stats = [
+    { label: 'Login Activity (30d)', value: fmt(p.loginCount30d ?? 0), unit: 'logins', delta: p.lastLogin ? `Last login ${new Date(p.lastLogin).toLocaleDateString()}` : 'No logins recorded', deltaUp: (p.loginCount30d || 0) > 0, icon: Activity, color: 'blue' },
+    { label: 'Leads Assigned', value: fmt(p.leadsAssigned ?? 0), unit: '', delta: `${p.leadsConverted ?? 0} converted`, deltaUp: true, icon: Target, color: 'green' },
+    { label: 'Conversion Rate', value: `${p.conversionRate ?? 0}%`, unit: '', delta: `${p.leadsConverted ?? 0} of ${p.leadsAssigned ?? 0} leads`, deltaUp: (p.conversionRate || 0) >= 15, icon: TrendingUp, color: 'violet' },
+    { label: 'Quotes Generated', value: fmt(p.quotesGenerated ?? 0), unit: '', delta: 'Across assigned leads', deltaUp: true, icon: BarChart2, color: 'sky' },
+    { label: 'Policies Sold', value: fmt(p.policiesSold ?? 0), unit: '', delta: `${p.clientsCount ?? 0} active clients`, deltaUp: true, icon: Award, color: 'emerald' },
+    { label: 'Training Completed', value: '—', unit: '', delta: 'Not tracked yet', deltaUp: null, icon: BookOpen, color: 'amber' },
+    { label: 'CE Credits', value: '—', unit: '', delta: 'Not tracked yet', deltaUp: null, icon: BookOpen, color: 'slate' },
+  ]
+  const alert = p.isInactive
+    ? { title: 'Inactive Agent', body: 'No login activity recorded in the last 30 days. Consider reaching out to re-engage this agent.' }
+    : null
+  const notes = []
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
       <div className="space-y-5">
-        {/* Alert */}
-        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-100">
-            <AlertTriangle size={16} className="text-red-600" />
+        {/* Inactivity alert (only when the agent is flagged inactive) */}
+        {alert && (
+          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-100">
+              <AlertTriangle size={16} className="text-red-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-red-700">{alert.title}</p>
+              <p className="mt-1 text-xs text-red-600 leading-relaxed">{alert.body}</p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-red-700">{alert.title}</p>
-            <p className="mt-1 text-xs text-red-600 leading-relaxed">{alert.body}</p>
-          </div>
-          <button className="shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700">
-            Handle Now
-          </button>
-        </div>
+        )}
 
         {/* Stats grid */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {stats.map(s => <StatCard key={s.label} stat={s} />)}
         </div>
+        {!perf && (
+          <p className="text-xs text-slate-400">Live metrics unavailable — showing zeros. Login, leads, quotes, clients and policies are computed from real activity; training and CE credits are not tracked yet.</p>
+        )}
 
         {/* Trend chart placeholder */}
         <div className="rounded-xl border border-slate-200 bg-white p-5">
@@ -661,7 +794,7 @@ function PerformanceTab({ data }) {
               ))}
             </div>
           </div>
-          <p className="text-xs text-slate-400 mb-4">Quote volume vs Conversion Rate (Last 6 Months)</p>
+          <p className="text-xs text-slate-400 mb-4">Illustrative trend — historical time-series charting coming soon.</p>
           {/* SVG mini chart */}
           <svg viewBox="0 0 600 120" className="w-full" preserveAspectRatio="none">
             <defs>
@@ -713,6 +846,9 @@ function PerformanceTab({ data }) {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          {notes.length === 0 && (
+            <div className="p-6 text-center text-xs text-slate-400">No operational notes yet.</div>
+          )}
           {notes.map((n, i) => (
             <div key={i} className="p-4">
               <div className="flex items-start gap-2.5">
@@ -736,28 +872,33 @@ function PerformanceTab({ data }) {
   )
 }
 
-function ProfileTab({ data }) {
+function ProfileTab({ data, section }) {
   const [sub, setSub] = useState('personal')
+  const activeSub = section || sub
   const p = data.profile.personal
   const pr = data.profile.professional
   const b = data.profile.business
+  const fam = data.profile.family || []
+  const addr = p.address || {}
   const subTabs = ['Personal', 'Business', 'Credentials', 'Social Media', 'Documents']
   return (
     <div>
-      {/* Sub-tab bar */}
-      <div className="mb-5 flex gap-1 rounded-xl bg-slate-100 p-1 w-fit">
-        {subTabs.map(t => (
-          <button
-            key={t}
-            onClick={() => setSub(t.toLowerCase().replace(' ', '-'))}
-            className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition ${sub === t.toLowerCase().replace(' ', '-') ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+      {/* Sub-tab bar (hidden when this tab is driven by a top-level section) */}
+      {!section && (
+        <div className="mb-5 flex gap-1 rounded-xl bg-slate-100 p-1 w-fit">
+          {subTabs.map(t => (
+            <button
+              key={t}
+              onClick={() => setSub(t.toLowerCase().replace(' ', '-'))}
+              className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition ${sub === t.toLowerCase().replace(' ', '-') ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {sub === 'personal' && (
+      {activeSub === 'personal' && (
         <div className="grid gap-5 lg:grid-cols-[200px_1fr]">
           <div className="flex flex-col items-center gap-3">
             <div
@@ -784,16 +925,33 @@ function ProfileTab({ data }) {
             </div>
           </div>
           <div className="space-y-5">
+            <SectionCard title="Personal Information">
+              <FieldGrid>
+                <FieldItem label="First Name" value={p.firstName || p.fullName} />
+                <FieldItem label="Last Name" value={p.lastName} />
+                <FieldItem label="Preferred Name" value={p.preferredName} />
+                <FieldItem label="Date of Birth" value={p.dob} />
+                <FieldItem label="Gender" value={p.gender} />
+                <FieldItem label="Marital Status" value={p.maritalStatus} />
+              </FieldGrid>
+            </SectionCard>
             <SectionCard title="Contact Information">
               <FieldGrid>
-                <FieldItem label="Full Name" value={p.fullName} />
-                <FieldItem label="Date of Birth" value={p.dob} />
                 <FieldItem label="Personal Email" value={p.personalEmail} />
-                <FieldItem label="Personal Phone" value={p.personalPhone} />
+                <FieldItem label="Primary Phone" value={p.personalPhone} />
+                <FieldItem label="Secondary Phone" value={p.secondaryPhone} />
                 <FieldItem label="Business Phone" value={p.businessPhone} />
-                <FieldItem label="Mailing Address" value={p.mailingAddress} />
-                <FieldItem label="City" value={p.city} />
-                <FieldItem label="Postal Code" value={p.postalCode} />
+              </FieldGrid>
+            </SectionCard>
+            <SectionCard title="Residential Address">
+              <FieldGrid>
+                <FieldItem label="Unit" value={addr.unit} />
+                <FieldItem label="Street Number" value={addr.streetNumber} />
+                <FieldItem label="Street Name" value={addr.streetName} />
+                <FieldItem label="City" value={addr.city} />
+                <FieldItem label="Province" value={addr.province} />
+                <FieldItem label="Postal Code" value={addr.postalCode} />
+                <FieldItem label="Country" value={addr.country} />
                 <FieldItem label="Residence Type" value={p.residence} />
               </FieldGrid>
             </SectionCard>
@@ -804,35 +962,62 @@ function ProfileTab({ data }) {
                 <FieldItem label="Emergency Relation" value={p.emergencyRelation} />
               </FieldGrid>
             </SectionCard>
+            <SectionCard title={`Family Information${fam.length ? ` · ${fam.length}` : ''}`}>
+              {fam.length === 0 ? (
+                <p className="text-sm text-slate-400">No family members added.</p>
+              ) : (
+                <div className="space-y-3">
+                  {fam.map((m, i) => (
+                    <div key={i} className="rounded-xl border border-slate-200 p-3.5">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-sm font-bold text-slate-800">
+                          {[m.firstName, m.lastName].filter(Boolean).join(' ') || 'Family member'}
+                        </span>
+                        {m.relationship && <Badge label={m.relationship} color="blue" />}
+                      </div>
+                      <FieldGrid>
+                        <FieldItem label="Preferred Name" value={m.preferredName} />
+                        <FieldItem label="Date of Birth" value={formatDateValue(m.dob)} />
+                        <FieldItem label="Gender" value={m.gender} />
+                        <FieldItem label="Phone" value={m.phone} />
+                        <FieldItem label="Email" value={m.email} />
+                        <FieldItem label="Occupation" value={m.occupation} />
+                      </FieldGrid>
+                      {m.notes && <p className="mt-2 text-xs text-slate-500">{m.notes}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
           </div>
         </div>
       )}
 
-      {sub === 'business' && (
+      {activeSub === 'business' && (
         <SectionCard title="Business Profile">
           <FieldGrid>
-            <FieldItem label="Business Name" value={b.businessName} />
+            <FieldItem label="Business / Operating Name" value={b.operatingName || b.businessName} />
             <FieldItem label="Business Address" value={b.businessAddress} />
+            <FieldItem label="Mailing Address" value={b.mailingAddress} />
+            <FieldItem label="Business Phone" value={b.businessPhone} />
+            <FieldItem label="Business Email" value={b.businessEmail} />
             <FieldItem label="Website" value={b.website} />
+            <FieldItem label="Years of Experience" value={b.yearsExperience ? `${b.yearsExperience} years` : ''} />
           </FieldGrid>
           <div className="mt-4">
             <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Professional Bio</div>
-            <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 rounded-xl p-3 border border-slate-100">{p.bio}</p>
-            <p className="text-right text-[11px] text-slate-400 mt-1">247 / 500</p>
+            <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 rounded-xl p-3 border border-slate-100">{p.bio || 'N/A'}</p>
           </div>
-          <div className="mt-4">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-2">Areas of Expertise</div>
-            <div className="flex flex-wrap gap-1.5">
-              {p.expertise.map(e => <Tag key={e} label={e} color="slate" />)}
-              <button className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-400 hover:bg-slate-50">
-                <Plus size={10} /> Add
-              </button>
-            </div>
-          </div>
+          <TagList label="Areas of Specialization" items={b.specializations} />
+          <TagList label="Insurance Products Offered" items={b.products} />
+          <TagList label="Service Areas / Provinces" items={b.serviceAreas} />
+          <TagList label="Languages Spoken" items={b.languages} />
+          <TagList label="Professional Designations" items={(pr.designations || []).map((d) => d.name || d).filter(Boolean)} />
+          <TagList label="Awards & Achievements" items={pr.awards} />
         </SectionCard>
       )}
 
-      {sub === 'credentials' && (
+      {activeSub === 'credentials' && (
         <div className="space-y-5">
           <SectionCard title="Licence Information">
             <div className="flex items-center gap-2 mb-3 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
@@ -890,7 +1075,7 @@ function ProfileTab({ data }) {
         </div>
       )}
 
-      {sub === 'social-media' && (
+      {activeSub === 'social-media' && (
         <SectionCard title="Social Media & Online Presence">
           <div className="grid gap-3 sm:grid-cols-2">
             {[
@@ -899,7 +1084,10 @@ function ProfileTab({ data }) {
               { label: 'Instagram', key: 'instagram', Icon: Instagram, color: 'text-pink-500' },
               { label: 'Twitter / X', key: 'twitter', Icon: Twitter, color: 'text-sky-500' },
               { label: 'YouTube', key: 'youtube', Icon: Youtube, color: 'text-red-500' },
+              { label: 'TikTok', key: 'tiktok', Icon: Globe, color: 'text-slate-700' },
               { label: 'Website', key: 'website', Icon: Globe, color: 'text-slate-500' },
+              { label: 'Other Profile', key: 'otherProfiles', Icon: Globe, color: 'text-indigo-500' },
+              { label: 'Booking / Calendar', key: 'bookingLink', Icon: Calendar, color: 'text-amber-500' },
             ].map(({ label, key, Icon: Ic, color }) => (
               <div key={key}>
                 <label className="text-[10px] font-bold uppercase tracking-wide text-slate-400 block mb-1.5">{label}</label>
@@ -922,20 +1110,21 @@ function ProfileTab({ data }) {
         </SectionCard>
       )}
 
-      {sub === 'documents' && <DocumentsTabContent data={data} />}
+      {activeSub === 'documents' && <DocumentsTabContent data={data} />}
     </div>
   )
 }
 
 function DocumentsTabContent({ data }) {
-  const catColors = { Licence: 'blue', 'E&O': 'violet', APEXA: 'sky', Financial: 'emerald', Supporting: 'slate' }
+  const toast = useToast()
+  const catColors = { Licence: 'blue', 'E&O': 'violet', APEXA: 'sky', Financial: 'emerald', Identity: 'amber', Supporting: 'slate' }
+
+  const notImplemented = () => toast.info('Document view & download is under implementation.')
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-500">{data.documents.length} documents on file</p>
-        <button type="button" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
-          <Upload size={14} /> Upload Document
-        </button>
       </div>
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 border-b border-slate-100 bg-slate-50 px-5 py-2.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
@@ -953,7 +1142,10 @@ function DocumentsTabContent({ data }) {
                   <FileText size={14} className="text-red-500" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 truncate">{doc.name}</p>
+                  <p className="text-sm font-semibold text-slate-800 truncate">{doc.type || doc.name}</p>
+                  {doc.type && doc.name !== doc.type && (
+                    <p className="text-xs text-slate-500 truncate">{doc.name}</p>
+                  )}
                   <div className="flex items-center gap-2 mt-0.5">
                     <Badge label={doc.version} color="blue" />
                     <Badge label={doc.status} color="green" />
@@ -964,23 +1156,22 @@ function DocumentsTabContent({ data }) {
               <span className="text-xs text-slate-500">{doc.size}</span>
               <span className="text-xs text-slate-500">{doc.date}</span>
               <div className="flex items-center gap-1">
-                <a
-                  href={doc.url || undefined}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={notImplemented}
                   title="View document"
-                  className={`flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 ${doc.url ? '' : 'pointer-events-none opacity-40'}`}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600"
                 >
                   <Eye size={13} />
-                </a>
-                <a
-                  href={doc.url || undefined}
-                  download={doc.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={notImplemented}
                   title="Download document"
-                  className={`flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 ${doc.url ? '' : 'pointer-events-none opacity-40'}`}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600"
                 >
                   <Download size={13} />
-                </a>
+                </button>
               </div>
             </div>
           ))}
@@ -1246,6 +1437,42 @@ function SettingsTab({ data, onSubscriptionChange }) {
   )
 }
 
+// Read-only mirror of the agent's System Settings section.
+function SystemSettingsInfoTab({ data, agent }) {
+  const s = data.settings || {}
+  const n = s.notifications || {}
+  const yn = (v) => (v ? 'On' : 'Off')
+  return (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <SectionCard title="Notification Preferences">
+        <FieldGrid>
+          <FieldItem label="Email Notifications" value={yn(n.email?.enabled)} />
+          <FieldItem label="SMS Notifications" value={yn(n.sms?.enabled)} />
+          <FieldItem label="WhatsApp Notifications" value={yn(n.whatsapp?.enabled)} />
+          <FieldItem label="Time Zone" value={s.timezone} />
+        </FieldGrid>
+        {n.email?.enabled && (
+          <div className="mt-2">
+            <FieldGrid>
+              <FieldItem label="Transactional Emails" value={yn(n.email?.transactional)} />
+              <FieldItem label="Marketing Emails" value={yn(n.email?.marketing)} />
+            </FieldGrid>
+          </div>
+        )}
+      </SectionCard>
+      <SectionCard title="Security & Login">
+        <FieldGrid>
+          <FieldItem label="Username" value={s.username || agent?.email} />
+          <FieldItem label="Account Status" value={s.status} />
+          <FieldItem label="Member Since" value={s.createdAt} />
+          <FieldItem label="MFA" value="Not enabled" />
+        </FieldGrid>
+        <p className="mt-3 text-xs text-slate-400">Login &amp; device history appear in the Activity Log tab.</p>
+      </SectionCard>
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AgentProfileView() {
@@ -1259,15 +1486,18 @@ export default function AgentProfileView() {
   const [mockData, setMockData] = useState(null)
   const [completingApexaTask, setCompletingApexaTask] = useState(false)
   const [decidingTier, setDecidingTier] = useState(false)
+  const [perf, setPerf] = useState(null)
+  const [actingOnBehalf, setActingOnBehalf] = useState(false)
 
   async function loadAgentProfile(isMounted = () => true) {
     setLoading(true)
     setError('')
     try {
-      const [agentData, _profileData, activityData] = await Promise.all([
+      const [agentData, _profileData, activityData, perfData] = await Promise.all([
         getAgent(agentId),
         getAgentProfile(agentId),
         getAccountActivities('agent', agentId, { limit: 100 }).catch(() => ({ items: [] })),
+        getAgentPerformance(agentId).catch(() => null),
       ])
       if (!isMounted()) return
       const nextData = applyDynamicProfileData(buildMockData(agentData), agentData)
@@ -1279,6 +1509,7 @@ export default function AgentProfileView() {
       nextData.activityLog = activities.map(mapAccountActivity)
       setAgent(agentData)
       setMockData(nextData)
+      setPerf(perfData || null)
     } catch (err) {
       if (isMounted()) setError(err.message || 'Unable to load agent profile.')
     } finally {
@@ -1295,12 +1526,17 @@ export default function AgentProfileView() {
 
   const TABS = [
     { id: 'overview', label: 'Overview' },
+    // Mirror of the agent's own profile sections
+    { id: 'tier', label: 'Tier Level' },
+    { id: 'personal', label: 'Personal Profile' },
+    { id: 'business', label: 'Business Profile' },
+    { id: 'online', label: 'Online Profile' },
+    { id: 'system', label: 'System Settings' },
+    // Admin-only tabs
     { id: 'performance', label: 'Performance' },
-    { id: 'profile', label: 'Profile' },
     { id: 'licensing', label: 'Licensing' },
     { id: 'documents', label: 'Documents' },
     { id: 'activity', label: 'Activity Log' },
-    { id: 'settings', label: 'Settings' },
   ]
 
   if (loading) return (
@@ -1349,6 +1585,25 @@ export default function AgentProfileView() {
       setDecidingTier(false)
     }
   }
+  const handleActOnBehalf = async () => {
+    if (!agent?.id || actingOnBehalf) return
+    if (Number(agent?.accountActivationStatus) !== 1) {
+      toast.error('This agent is not active yet, so you cannot act on their behalf.')
+      return
+    }
+    if (!window.confirm(`Act on behalf of ${agent?.name || 'this agent'}? You'll operate their portal until you choose to return. This is recorded in the audit log.`)) return
+    setActingOnBehalf(true)
+    try {
+      const data = await auth.impersonateAgent(agent.id)
+      auth.startImpersonation(data)
+      // Full reload so the whole app re-reads the agent session.
+      window.location.href = '/agent/dashboard'
+    } catch (err) {
+      toast.error(err.message || 'Unable to start the delegation session.')
+      setActingOnBehalf(false)
+    }
+  }
+
   const handleSubscriptionChange = async (tier) => {
     setMockData(prev => {
       if (!prev) return prev
@@ -1488,8 +1743,13 @@ export default function AgentProfileView() {
             </div>
             {/* Actions */}
             <div className="flex items-center gap-2 mb-5">
-              <button className="inline-flex items-center gap-2 rounded-xl border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-100 transition">
-                <Users size={14} /> Act on Behalf
+              <button
+                type="button"
+                onClick={handleActOnBehalf}
+                disabled={actingOnBehalf}
+                className="inline-flex items-center gap-2 rounded-xl border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-100 transition disabled:opacity-60"
+              >
+                <Users size={14} /> {actingOnBehalf ? 'Starting…' : 'Act on Behalf'}
               </button>
               {/* <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">
                 <Edit2 size={14} /> Edit Profile
@@ -1544,12 +1804,15 @@ export default function AgentProfileView() {
             completingApexaTask={completingApexaTask}
           />
         )}
-        {activeTab === 'performance' && <PerformanceTab data={d} />}
-        {activeTab === 'profile' && <ProfileTab data={d} />}
+        {activeTab === 'tier' && <SettingsTab data={d} onSubscriptionChange={handleSubscriptionChange} />}
+        {activeTab === 'personal' && <ProfileTab data={d} section="personal" />}
+        {activeTab === 'business' && <ProfileTab data={d} section="business" />}
+        {activeTab === 'online' && <ProfileTab data={d} section="social-media" />}
+        {activeTab === 'system' && <SystemSettingsInfoTab data={d} agent={agent} />}
+        {activeTab === 'performance' && <PerformanceTab data={d} perf={perf} />}
         {activeTab === 'licensing' && <LicensingTab data={d} />}
         {activeTab === 'documents' && <DocumentsTab data={d} />}
         {activeTab === 'activity' && <ActivityLogTab data={d} />}
-        {activeTab === 'settings' && <SettingsTab data={d} onSubscriptionChange={handleSubscriptionChange} />}
       </div>
     </div>
   )

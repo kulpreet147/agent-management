@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import StatCard from '../components/StatCard.jsx'
 import StatusPill from '../components/StatusPill.jsx'
+import AgentAvatar from '../components/AgentAvatar.jsx'
 import { getAgents } from '../utils/agents.js'
 import { auth } from '../utils/auth.js'
 import { dashboardModuleCounts } from '../data/dummy.js'
@@ -90,6 +91,8 @@ export default function AdminDashboard() {
       .slice(0, 5)
       .map((agent) => ({
         id: agent.id,
+        raw: agent,
+        active: Number(agent?.accountActivationStatus) === 1,
         name: agent.name || 'Unknown Agent',
         email: agent.email || '-',
         contact: agent.phone || agent.email || '-',
@@ -161,8 +164,14 @@ function RecentAgentsPanel({ agents, total, loading, error }) {
                 <tr key={a.id} className="hover:bg-slate-50/60 transition">
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 grid place-items-center text-white text-sm font-bold">
-                        {a.initials}
+                      <div className="relative shrink-0">
+                        <AgentAvatar agent={a.raw} name={a.name} size={40} />
+                        {a.active && (
+                          <span
+                            className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500"
+                            title="Active"
+                          />
+                        )}
                       </div>
                       <div>
                         <div className="font-semibold text-slate-800">{a.name}</div>

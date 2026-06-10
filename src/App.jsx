@@ -39,10 +39,13 @@ import NeedAnalysisForm from "./components/NeedAnalysisForm.jsx";
 import AgentProfile from "./pages/agent/AgentProfile.jsx";
 import AgentClientManagement from "./pages/agent/AgentClientManagement.jsx";
 import AgentClientDetail from "./pages/agent/AgentClientDetail.jsx";
+import AgentLicensing from "./pages/agent/AgentLicensing.jsx";
+import AgentMarketing from "./pages/agent/AgentMarketing.jsx";
 import Analytics from "./pages/admin/Analytics.jsx";
 import AgentUnderImplementation from "./pages/agent/AgentUnderImplementation.jsx";
 import SocketActionManager from "./components/SocketActionManager.jsx";
 import RealtimeAlertBar from "./components/RealtimeAlertBar.jsx";
+import ImpersonationBanner from "./components/ImpersonationBanner.jsx";
 
 function Protected({ children }) {
   return auth.isAuthenticated() ? children : <Navigate to="/login" replace />;
@@ -79,6 +82,7 @@ export default function App() {
   return (
     <>
       <SocketActionManager />
+      <ImpersonationBanner />
       <RealtimeAlertBar />
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -201,6 +205,22 @@ export default function App() {
         }
       />
       <Route
+        path="/agent/licensing"
+        element={
+          <AgentProtected>
+            <AgentLicensing />
+          </AgentProtected>
+        }
+      />
+      <Route
+        path="/agent/marketing"
+        element={
+          <AgentProtected>
+            <AgentMarketing />
+          </AgentProtected>
+        }
+      />
+      <Route
         path="/agent/training"
         element={
           <AgentProtected>
@@ -211,17 +231,6 @@ export default function App() {
           </AgentProtected>
         }
       />
-      {/* <Route
-        path="/agent/commissions"
-        element={
-          <AgentProtected>
-            <AgentUnderImplementation
-              title="Commissions"
-              breadcrumb="Agents > Commissions"
-            />
-          </AgentProtected>
-        }
-      /> */}
       <Route
         path="/agent/settings"
         element={

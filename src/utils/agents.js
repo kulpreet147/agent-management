@@ -209,6 +209,10 @@ export function updateAgentProfile(agentId, payload) {
   })
 }
 
+export function getAgentPerformance(agentId) {
+  return apiRequest(`/agents/${agentId}/performance`)
+}
+
 export function requestTierUpgrade(agentId, requestedTier) {
   return apiRequest(`/agents/${agentId}/tier-request`, {
     method: 'POST',
