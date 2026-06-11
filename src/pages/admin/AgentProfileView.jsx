@@ -12,7 +12,7 @@ import {
 import { useToast } from '../../hooks/useToast.js'
 import { auth } from '../../utils/auth.js'
 import { confirmDialog } from '../../utils/confirmDialog.js'
-import { getAgent, getAgentProfile, updateAgentProfile, decideAgentTierRequest, getAgentPerformance, updateAgentLicensing, updateAgentTaxDocuments } from '../../utils/agents.js'
+import { getAgent, getAgentProfile, updateAgentProfile, decideAgentTierRequest, getAgentPerformance, updateAgentLicensing, updateAgentTaxDocuments, updateAgentLifecycleStatus } from '../../utils/agents.js'
 import { getAccountActivities, updateAccountActivity } from '../../utils/activities.js'
 
 // ─── Mock dynamic data ────────────────────────────────────────────────────────
@@ -28,6 +28,12 @@ function normalizeDesignations(value) {
   return value
     .map(item => (typeof item === 'string' ? { name: item, full: item, date: '', status: '' } : item))
     .filter(item => item?.name || item?.full)
+}
+
+function toTitleCase(value) {
+  return String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 function formatDateValue(value) {
@@ -124,7 +130,7 @@ function buildMockData(agent) {
     initials,
     avatarUrl: resolveMediaUrl(readAvatarPathFromAgent(agent)),
     tier: subscriptionTier,
-    status: agent?.accountActivationStatus === 1 ? 'Active' : agent?.status || 'Invited',
+    status: agent?.lifecycleStatus ? toTitleCase(agent.lifecycleStatus) : agent?.accountActivationStatus === 1 ? 'Active' : agent?.status || 'Invited',
     title: agent?.agentLevel || 'Agent',
     licenceNo: agent?.agentId || 'LIC-99021-X',
     licenceStatus: 'Valid',
@@ -276,7 +282,7 @@ function buildMockData(agent) {
       notifications: settingsBlock.notifications || {},
       timezone: settingsBlock.timezone || '',
       username: agent?.email || '',
-      status: agent?.accountActivationStatus === 1 ? 'Active' : agent?.status || 'Invited',
+      status: agent?.lifecycleStatus ? toTitleCase(agent.lifecycleStatus) : agent?.accountActivationStatus === 1 ? 'Active' : agent?.status || 'Invited',
       createdAt: agent?.createdAt ? new Date(agent.createdAt).toLocaleDateString() : 'N/A',
     },
   }
@@ -1566,7 +1572,7 @@ const SUBSCRIPTIONS = [
   },
 ]
 
-function SettingsTab({ data, onSubscriptionChange }) {
+function SettingsTab({ data, onSubscriptionChange, onStatusChange, statusSaving }) {
   const s = data.settings
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -1577,8 +1583,13 @@ function SettingsTab({ data, onSubscriptionChange }) {
               <p className="text-sm font-semibold text-slate-800">Account Status</p>
               <p className="text-xs text-slate-400">Current status of this agent account</p>
             </div>
-            <select defaultValue={s.status} className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100">
-              {['Active', 'Inactive', 'Suspended', 'Terminated'].map(v => <option key={v}>{v}</option>)}
+            <select
+              value={s.status}
+              disabled={statusSaving}
+              onChange={(e) => onStatusChange?.(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+            >
+              {['Prospect', 'Onboarding', 'Active', 'Inactive', 'Suspended', 'Terminated'].map(v => <option key={v}>{v}</option>)}
             </select>
           </div>
         </div>
@@ -1695,6 +1706,7 @@ export default function AgentProfileView() {
   const [decidingTier, setDecidingTier] = useState(false)
   const [perf, setPerf] = useState(null)
   const [actingOnBehalf, setActingOnBehalf] = useState(false)
+  const [statusSaving, setStatusSaving] = useState(false)
 
   async function loadAgentProfile(isMounted = () => true) {
     setLoading(true)
@@ -1804,7 +1816,7 @@ export default function AgentProfileView() {
   const handleActOnBehalf = async () => {
     if (!agent?.id || actingOnBehalf) return
     if (Number(agent?.accountActivationStatus) !== 1) {
-      toast.error('This agent is not active yet, so you cannot act on their behalf.')
+      toast.error('This agent is not active yet, so you cannot act on their behalf.', 'Agent Must Be Active')
       return
     }
     const ok = await confirmDialog({
@@ -1820,7 +1832,7 @@ export default function AgentProfileView() {
       // Full reload so the whole app re-reads the agent session.
       window.location.href = '/agent/dashboard'
     } catch (err) {
-      toast.error(err.message || 'Unable to start the delegation session.')
+      toast.error(err.message || 'Unable to start the delegation session.', 'Act on Behalf Unavailable')
       setActingOnBehalf(false)
     }
   }
@@ -1861,6 +1873,41 @@ export default function AgentProfileView() {
       })
     } catch (err) {
       toast.error(err.message || 'Unable to update subscription.')
+    }
+  }
+
+  const handleLifecycleStatusChange = async (nextStatusLabel) => {
+    if (!agent?.id || statusSaving) return
+    const nextStatus = String(nextStatusLabel || '').trim().toLowerCase()
+    const currentStatus = String(agent?.lifecycleStatus || '').trim().toLowerCase()
+    if (!nextStatus || nextStatus === currentStatus) return
+
+    setStatusSaving(true)
+    setMockData(prev => (
+      prev
+        ? {
+            ...prev,
+            status: nextStatusLabel,
+            settings: {
+              ...prev.settings,
+              status: nextStatusLabel,
+            },
+          }
+        : prev
+    ))
+
+    try {
+      const updated = await updateAgentLifecycleStatus(agent.id, { status: nextStatus })
+      if (updated?.agent) {
+        setAgent(updated.agent)
+      }
+      await loadAgentProfile(() => true)
+      toast.success(`Agent status updated to ${nextStatusLabel}.`)
+    } catch (err) {
+      toast.error(err.message || 'Unable to update agent status.')
+      await loadAgentProfile(() => true)
+    } finally {
+      setStatusSaving(false)
     }
   }
 
@@ -2025,7 +2072,14 @@ export default function AgentProfileView() {
             completingApexaTask={completingApexaTask}
           />
         )}
-        {activeTab === 'tier' && <SettingsTab data={d} onSubscriptionChange={handleSubscriptionChange} />}
+        {activeTab === 'tier' && (
+          <SettingsTab
+            data={d}
+            onSubscriptionChange={handleSubscriptionChange}
+            onStatusChange={handleLifecycleStatusChange}
+            statusSaving={statusSaving}
+          />
+        )}
         {activeTab === 'personal' && <ProfileTab data={d} section="personal" />}
         {activeTab === 'business' && <ProfileTab data={d} section="business" />}
         {activeTab === 'online' && <ProfileTab data={d} section="social-media" />}

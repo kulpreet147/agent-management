@@ -7,7 +7,7 @@ import {
   getPersonAsync,
   clearSelectedPerson,
 } from '../../redux/personSlice.js'
-import { getAgents } from '../../utils/agents.js'
+import { formatAgentLifecycleStatus, getAgents, isAgentAssignable } from '../../utils/agents.js'
 import {
   ArrowLeft,
   User,
@@ -58,10 +58,7 @@ export default function PersonCreate() {
     getAgents()
       .then((data) => {
         const list = Array.isArray(data) ? data : (data?.agents || [])
-        const active = list.filter(
-          (a) => a.status === 'active' && a.accountActivationStatus === 1
-        )
-        setAvailableAgents(active)
+        setAvailableAgents(list)
       })
       .catch(() => setAvailableAgents([]))
       .finally(() => setAgentsLoading(false))
@@ -98,6 +95,8 @@ export default function PersonCreate() {
   const unassigned = availableAgents.filter(
     (a) => !agents.some((assigned) => assigned.agentId === a.agentId)
   )
+  const assignableUnassigned = unassigned.filter((agent) => isAgentAssignable(agent))
+  const blockedUnassigned = unassigned.filter((agent) => !isAgentAssignable(agent))
 
   const balanceSplits = (count) => {
     const even = Math.floor(100 / count)
@@ -587,25 +586,47 @@ export default function PersonCreate() {
                   {agentsLoading ? (
                     <div className="px-4 py-6 text-center text-sm text-slate-500">Loading agents…</div>
                   ) : unassigned.length === 0 ? (
-                    <div className="px-4 py-6 text-center text-sm text-slate-500">All available agents have been assigned.</div>
+                    <div className="px-4 py-6 text-center text-sm text-slate-500">All agents have already been added.</div>
                   ) : (
-                    unassigned.map((agent) => (
-                      <button
-                        key={agent.id}
-                        type="button"
-                        onClick={() => addAgent(agent)}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left"
-                      >
-                        <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600">
-                          {(agent.name || '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    <>
+                      {assignableUnassigned.map((agent) => (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          onClick={() => addAgent(agent)}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600">
+                            {(agent.name || '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800">{agent.name}</p>
+                            <p className="text-xs text-slate-500">{agent.agentLevel || 'Agent'}</p>
+                          </div>
+                          <UserPlus size={16} className="ml-auto text-slate-400" />
+                        </button>
+                      ))}
+                      {blockedUnassigned.map((agent) => (
+                        <div
+                          key={agent.id}
+                          className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 text-left"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-500">
+                            {(agent.name || '?').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-500">{agent.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-slate-400">{agent.agentLevel || 'Agent'}</p>
+                              <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-600">
+                                {formatAgentLifecycleStatus(agent)}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="ml-auto text-[11px] font-semibold text-slate-400">Not assignable</span>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-800">{agent.name}</p>
-                          <p className="text-xs text-slate-500">{agent.agentLevel || 'Agent'}</p>
-                        </div>
-                        <UserPlus size={16} className="ml-auto text-slate-400" />
-                      </button>
-                    ))
+                      ))}
+                    </>
                   )}
                 </div>
               </div>
@@ -617,7 +638,7 @@ export default function PersonCreate() {
                 className="w-full py-4 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 hover:text-blue-600 hover:border-blue-500 hover:bg-blue-50/30 transition-all flex items-center justify-center gap-2"
               >
                 <UserPlus size={20} />
-                <span className="text-sm font-bold">Add Another Agent</span>
+                <span className="text-sm font-bold">{assignableUnassigned.length > 0 ? 'Add Another Agent' : 'No More Assignable Agents'}</span>
               </button>
             )}
           </div>

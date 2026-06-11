@@ -117,7 +117,7 @@ export default function Login() {
         setRecoverySent(true)
         setResendCooldown(60)
       }
-    } catch {}
+    } catch { }
   }
 
   return (
@@ -146,21 +146,18 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setLoginAsAgent((value) => !value)}
-                className={`flex w-full items-center justify-between rounded-xl border p-1 text-sm font-semibold transition ${
-                  loginAsAgent ? 'border-brand-200 bg-brand-50' : 'border-slate-200 bg-slate-50'
-                }`}
+                className={`flex w-full items-center justify-between rounded-xl border p-1 text-sm font-semibold transition ${loginAsAgent ? 'border-brand-200 bg-brand-50' : 'border-slate-200 bg-slate-50'
+                  }`}
               >
                 <span
-                  className={`flex-1 rounded-lg py-2 text-center ${
-                    !loginAsAgent ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'
-                  }`}
+                  className={`flex-1 rounded-lg py-2 text-center ${!loginAsAgent ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'
+                    }`}
                 >
                   Admin
                 </span>
                 <span
-                  className={`flex-1 rounded-lg py-2 text-center ${
-                    loginAsAgent ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'
-                  }`}
+                  className={`flex-1 rounded-lg py-2 text-center ${loginAsAgent ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'
+                    }`}
                 >
                   Login as Agent
                 </span>
@@ -212,10 +209,10 @@ export default function Login() {
                     {sendingRecovery
                       ? 'Sending recovery link...'
                       : resendCooldown > 0
-                      ? `Resend in ${resendCooldown}s`
-                      : recoverySent
-                      ? 'Resend recovery link'
-                      : 'Account Recovery'}
+                        ? `Resend in ${resendCooldown}s`
+                        : recoverySent
+                          ? 'Resend recovery link'
+                          : 'Account Recovery'}
                   </button>
                   {sendingRecovery ? (
                     <span className="text-slate-500">Sending link...</span>
@@ -306,7 +303,7 @@ export default function Login() {
           </div>
 
           <div className="text-[11px] text-white/50 tracking-wide">
-            (c) 2024 Insurely TECHNOLOGIES INC. - ALL RIGHTS RESERVED.
+            © {new Date().getFullYear()} Insurely TECHNOLOGIES INC. - ALL RIGHTS RESERVED.
           </div>
         </div>
       </div>

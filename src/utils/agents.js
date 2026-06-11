@@ -62,6 +62,23 @@ export function getAgent(id) {
   return apiRequest(`/agents/${id}`)
 }
 
+export function getAgentLifecycleStatus(agent) {
+  const saved = String(agent?.lifecycleStatus || '').trim().toLowerCase()
+  if (saved) return saved
+  if (Number(agent?.accountActivationStatus) === 1) return 'active'
+  if (String(agent?.status || '').trim().toLowerCase() === 'invited') return 'prospect'
+  return 'onboarding'
+}
+
+export function isAgentAssignable(agent) {
+  return getAgentLifecycleStatus(agent) === 'active'
+}
+
+export function formatAgentLifecycleStatus(agent) {
+  const status = getAgentLifecycleStatus(agent)
+  return status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
 export function getAgentInvite(token) {
   return apiRequest(`/agents/invites/${token}`)
 }
@@ -239,6 +256,16 @@ export function updateAgentTaxDocuments(agentId, taxDocuments) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ taxDocuments })
+  })
+}
+
+export function updateAgentLifecycleStatus(agentId, payload) {
+  return apiRequest(`/agents/${agentId}/lifecycle-status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
   })
 }
 
