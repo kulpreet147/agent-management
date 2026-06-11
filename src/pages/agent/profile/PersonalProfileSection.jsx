@@ -64,6 +64,7 @@ export default function PersonalProfileSection({ ctx, agentName, agentEmail, tie
     emPhone: V.phone(personal.emergencyContact.phone),
   };
   const familyErrors = family.map((m) => ({
+    firstName: V.required(m.firstName) || V.maxLen(m.firstName, V.LIMITS.name),
     relationship: V.required(m.relationship),
     email: V.email(m.email),
     phone: V.phone(m.phone),
@@ -264,8 +265,8 @@ export default function PersonalProfileSection({ ctx, agentName, agentEmail, tie
                 {editing && <button type="button" style={css.btnDanger} onClick={() => removeMember(idx)}>Remove</button>}
               </div>
               <div style={css.formGrid(3)}>
-                <Field label="First Name">
-                  <input style={inp()} maxLength={V.LIMITS.name} disabled={ro} value={m.firstName} onChange={(e) => updateMember(idx, { firstName: e.target.value })} />
+                <Field label="First Name" required error={fe.firstName}>
+                  <input style={{ ...css.input, ...(fe.firstName ? css.inputError : {}), ...(ro ? css.inputReadonly : {}) }} maxLength={V.LIMITS.name} disabled={ro} value={m.firstName} onChange={(e) => updateMember(idx, { firstName: e.target.value })} />
                 </Field>
                 <Field label="Last Name">
                   <input style={inp()} maxLength={V.LIMITS.name} disabled={ro} value={m.lastName} onChange={(e) => updateMember(idx, { lastName: e.target.value })} />

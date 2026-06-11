@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { createClient, getClient, updateClient, addHouseholdMember } from '../../utils/clients.js'
 import { getAgents } from '../../utils/agents.js'
+import { notify } from '../../utils/notify.js'
 
 const TAG_OPTIONS = ['VIP', 'High Value', 'Family', 'Corporate', 'Prospect', 'Renewal Due']
 
@@ -276,7 +277,7 @@ export default function ClientCreate() {
 
       navigate(`/admin/clients/${newClientId}`)
     } catch (err) {
-      alert(err.message || 'Failed to save client')
+      notify.error(err.message || 'Failed to save client')
     } finally {
       setSaving(false)
     }

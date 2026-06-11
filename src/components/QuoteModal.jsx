@@ -8,7 +8,7 @@ import {
   selectWinquoteQuote as apiSelectWinquoteQuote,
   emailWinquoteQuote as apiEmailWinquoteQuote,
 } from '../utils/leads.js'
-
+import { notify } from '../utils/notify.js'
 const PROVINCES = [
   { code: 'AB', name: 'Alberta' },
   { code: 'BC', name: 'British Columbia' },
@@ -200,13 +200,13 @@ export default function QuoteModal({ lead, onClose, onQuoteSaved }) {
       }
       if (onQuoteSaved) onQuoteSaved(log)
       if (emailResult) {
-        alert(`Quote ${selected.quoteId} saved and emailed to ${emailResult.clientEmail} (${selected.premiumMonthly} ${selected.currency}/mo)`)
+        notify.success(`Quote ${selected.quoteId} saved and emailed to ${emailResult.clientEmail} (${selected.premiumMonthly} ${selected.currency}/mo)`)
       } else {
-        alert(`Quote ${selected.quoteId} saved, but the email could not be sent.\n\n${emailError || ''}\n\nCheck SMTP configuration.`)
+        notify.warning(`Quote ${selected.quoteId} saved, but the email could not be sent.\n\n${emailError || ''}\n\nCheck SMTP configuration.`)
       }
       onClose()
     } catch (err) {
-      alert(err.message || 'Failed to save quote')
+      notify.error(err.message || 'Failed to save quote')
     } finally {
       setQuoteSaving(false)
     }
@@ -247,11 +247,10 @@ export default function QuoteModal({ lead, onClose, onQuoteSaved }) {
                 <button
                   type="button"
                   onClick={() => { setProvider('primai'); setQuoteResults([]); setQuoteError(null) }}
-                  className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors border-2 ${
-                    provider === 'primai'
+                  className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors border-2 ${provider === 'primai'
                       ? 'border-blue-600 bg-blue-50 text-blue-700'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                  }`}
+                    }`}
                 >
                   PrimAI (Swiss Health)
                 </button>
@@ -396,13 +395,12 @@ export default function QuoteModal({ lead, onClose, onQuoteSaved }) {
               {quoteResults.map((q) => (
                 <div
                   key={q.internalId || q.quoteId}
-                  className={`relative p-4 rounded-lg border-2 transition-all ${
-                    selectedQuote?.internalId === q.internalId
+                  className={`relative p-4 rounded-lg border-2 transition-all ${selectedQuote?.internalId === q.internalId
                       ? 'border-blue-600 bg-blue-50'
                       : q.isBest
                         ? 'border-green-300 bg-green-50/50'
                         : 'border-slate-200 bg-white hover:border-blue-300'
-                  }`}
+                    }`}
                 >
                   {q.isBest && (
                     <span className="absolute -top-2 right-3 bg-green-600 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">
@@ -438,11 +436,10 @@ export default function QuoteModal({ lead, onClose, onQuoteSaved }) {
                       <button
                         type="button"
                         onClick={() => handleSelectQuote(q)}
-                        className={`mt-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-                          selectedQuote?.internalId === q.internalId
+                        className={`mt-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${selectedQuote?.internalId === q.internalId
                             ? 'bg-blue-600 text-white'
                             : 'bg-slate-900 text-white hover:bg-black'
-                        }`}
+                          }`}
                       >
                         {selectedQuote?.internalId === q.internalId ? 'Selected' : 'Select'}
                       </button>

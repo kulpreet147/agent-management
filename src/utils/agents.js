@@ -213,6 +213,26 @@ export function getAgentPerformance(agentId) {
   return apiRequest(`/agents/${agentId}/performance`)
 }
 
+export function updateAgentLicensing(agentId, payload) {
+  return apiRequest(`/agents/${agentId}/licensing`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateAgentTaxDocuments(agentId, taxDocuments) {
+  return apiRequest(`/agents/${agentId}/tax-documents`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ taxDocuments })
+  })
+}
+
 export function requestTierUpgrade(agentId, requestedTier) {
   return apiRequest(`/agents/${agentId}/tier-request`, {
     method: 'POST',

@@ -52,6 +52,8 @@ import {
   getHouseholdMembers,
   removeHouseholdMember,
 } from '../../utils/clients.js'
+import { notify } from '../../utils/notify.js'
+import { confirmDialog } from '../../utils/confirmDialog.js'
 import { getPersonByPersonId } from '../../utils/persons.js'
 import LeadFamilyTab from '../../components/tabs/LeadFamilyTab.jsx'
 import LeadFamilyDashboardTab from '../../components/tabs/LeadFamilyDashboardTab.jsx'
@@ -250,13 +252,13 @@ export default function ClientDetail() {
       setNewNote('')
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to add note')
+      notify.error(err.message || 'Failed to add note')
     }
   }
 
   const handleAddPolicy = async () => {
     if (!policyForm.policyNumber || !policyForm.policyType) {
-      alert('Policy number and type are required')
+      notify.warning('Policy number and type are required')
       return
     }
     try {
@@ -265,13 +267,13 @@ export default function ClientDetail() {
       setPolicyForm({ policyNumber: '', policyType: '', carrier: '', product: '', effectiveDate: '', renewalDate: '', expiryDate: '', premium: '', status: 'active' })
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to add policy')
+      notify.error(err.message || 'Failed to add policy')
     }
   }
 
   const handleAddFollowUp = async () => {
     if (!followUpForm.scheduledAt) {
-      alert('Scheduled date is required')
+      notify.warning('Scheduled date is required')
       return
     }
     try {
@@ -280,13 +282,13 @@ export default function ClientDetail() {
       setFollowUpForm({ type: 'call', scheduledAt: '', notes: '', assignedTo: '' })
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to add follow-up')
+      notify.error(err.message || 'Failed to add follow-up')
     }
   }
 
   const handleAddHousehold = async () => {
     if (!householdForm.firstName || !householdForm.lastName) {
-      alert('First and last name are required')
+      notify.warning('First and last name are required')
       return
     }
     try {
@@ -295,17 +297,18 @@ export default function ClientDetail() {
       setHouseholdForm({ firstName: '', lastName: '', relationship: '', dateOfBirth: '', email: '', phone: '' })
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to add household member')
+      notify.error(err.message || 'Failed to add household member')
     }
   }
 
   const handleRemoveHousehold = async (memberId) => {
-    if (!window.confirm('Remove this household member?')) return
+    const ok = await confirmDialog({ title: 'Remove member', message: 'Remove this household member?', confirmText: 'Remove', variant: 'danger' })
+    if (!ok) return
     try {
       await removeHouseholdMember(clientId, memberId)
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to remove household member')
+      notify.error(err.message || 'Failed to remove household member')
     }
   }
 
@@ -327,7 +330,7 @@ export default function ClientDetail() {
       setDocExpiryDate('')
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to upload document')
+      notify.error(err.message || 'Failed to upload document')
     }
   }
 
@@ -714,7 +717,8 @@ export default function ClientDetail() {
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={async () => {
-                          if (!window.confirm('Remove this policy?')) return
+                          const ok = await confirmDialog({ title: 'Remove policy', message: 'Remove this policy?', confirmText: 'Remove', variant: 'danger' })
+                          if (!ok) return
                           await removePolicy(clientId, policy.id)
                           await refreshData()
                         }}

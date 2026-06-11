@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createLead } from '../../utils/leads.js'
 import { getAgents } from '../../utils/agents.js'
+import { notify } from '../../utils/notify.js'
 import {
   ArrowLeft,
   User,
@@ -156,7 +157,7 @@ export default function LeadRecordCreation() {
       await createLead(payload)
       navigate('/admin/leads')
     } catch (err) {
-      alert(err.message || 'Failed to create lead.')
+      notify.error(err.message || 'Failed to create lead.')
     } finally {
       setSubmitting(false)
     }

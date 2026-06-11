@@ -4,6 +4,7 @@ import { auth } from "../../utils/auth.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
 import CommonHeader from "../../components/CommonHeader.jsx";
 import { getAgent, getAgentProfile, updateAgentProfile } from "../../utils/agents.js";
+import { confirmDialog } from "../../utils/confirmDialog.js";
 import { css } from "./profile/profileStyles.js";
 import { formatUsCaPhone } from "./profile/profileValidation.js";
 import TierLevelSection from "./profile/TierLevelSection.jsx";
@@ -11,8 +12,9 @@ import PersonalProfileSection from "./profile/PersonalProfileSection.jsx";
 import BusinessProfileSection from "./profile/BusinessProfileSection.jsx";
 import OnlineProfileSection from "./profile/OnlineProfileSection.jsx";
 import SystemSettingsSection from "./profile/SystemSettingsSection.jsx";
+import LicensingSection from "./profile/LicensingSection.jsx";
 
-const TABS = ["Tier Level", "Personal Profile", "Business Profile", "Online Profile", "System Settings"];
+const TABS = ["Tier Level", "Personal Profile", "Business Profile", "Licensing", "Online Profile", "System Settings"];
 
 function resolveMediaUrl(url) {
   if (!url) return "";
@@ -180,11 +182,17 @@ export default function AgentProfile() {
   }, [session?.id]);
 
   // --- Edit-lock + dirty guard --------------------------------------------
-  const requestTab = (tab) => {
+  const requestTab = async (tab) => {
     if (tab === activeTab) return;
     if (editingTab) {
-      if (isDirty && !window.confirm("You have unsaved changes in this section. Discard them and switch sections?")) {
-        return;
+      if (isDirty) {
+        const ok = await confirmDialog({
+          title: "Discard unsaved changes?",
+          message: "You have unsaved changes in this section. Discard them and switch sections?",
+          confirmText: "Discard & switch",
+          variant: "danger",
+        });
+        if (!ok) return;
       }
       resetEdit();
     }
@@ -314,6 +322,9 @@ export default function AgentProfile() {
               )}
               {activeTab === "Business Profile" && (
                 <BusinessProfileSection ctx={sectionCtx("Business Profile")} />
+              )}
+              {activeTab === "Licensing" && (
+                <LicensingSection agentData={agentData} />
               )}
               {activeTab === "Online Profile" && (
                 <OnlineProfileSection ctx={sectionCtx("Online Profile")} />
