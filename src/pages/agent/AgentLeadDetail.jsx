@@ -18,11 +18,13 @@ import {
   ClipboardCheck,
   Calculator,
   Star,
+  Users,
 } from "lucide-react";
 import { auth } from "../../utils/auth.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
 import CommonHeader from "../../components/CommonHeader.jsx";
 import QuoteModal from "../../components/QuoteModal.jsx";
+import LeadFamilyTab from "../../components/tabs/LeadFamilyTab.jsx";
 import {
   getLead,
   addFollowUp,
@@ -32,6 +34,7 @@ import {
   addNote,
 } from "../../utils/leads.js";
 import { getNeedAnalysis, saveNeedAnalysis } from "../../utils/leads.js";
+import { getPersonByPersonId, getOrCreatePersonByLeadId } from "../../utils/persons.js";
 
 const actionTypes = [
   { value: "call", label: "Call" },
@@ -78,6 +81,7 @@ export default function AgentLeadDetail() {
   const [followUps, setFollowUps] = useState([]);
   const [activityLog, setActivityLog] = useState([]);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [personUuid, setPersonUuid] = useState(null);
 
   useEffect(() => {
     if (!leadId) {
@@ -95,6 +99,9 @@ export default function AgentLeadDetail() {
         setLeadStatus(leadData.status || "new");
         setFollowUps(Array.isArray(followUpData) ? followUpData : []);
         setActivityLog(activityData?.logs || []);
+        getOrCreatePersonByLeadId(leadData)
+          .then((person) => setPersonUuid(person.id))
+          .catch(() => setPersonUuid(null));
       })
       .catch(() => navigate("/agent/leads", { replace: true }))
       .finally(() => setLoading(false));
@@ -156,6 +163,7 @@ export default function AgentLeadDetail() {
 
   const tabs = [
     { key: "overview", label: "Overview" },
+    { key: "family", label: "Family" },
     { key: "need-analysis", label: "Need Analysis" },
     { key: "documents", label: "Documents" },
     { key: "timeline", label: "Activity Log" },
@@ -546,6 +554,10 @@ export default function AgentLeadDetail() {
                         )}
                       </div>
                     </div>
+                  )}
+
+                  {activeTab === "family" && (
+                    <LeadFamilyTab personId={personUuid} lead={lead} />
                   )}
 
                   {activeTab === "need-analysis" && (

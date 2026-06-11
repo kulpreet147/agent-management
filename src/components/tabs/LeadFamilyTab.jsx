@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
-import { Users, Plus, Trash2, RefreshCw, X, User, Calendar, Mail, Phone, ChevronDown } from 'lucide-react'
-import { getFamilyMembers, addFamilyMember, updateFamilyMember, removeFamilyMember } from '../../utils/persons.js'
+import { useState, useEffect, useCallback } from 'react'
+import { Users, Plus, Trash2, RefreshCw, X, User, Calendar, Mail, Phone } from 'lucide-react'
+import { getFamilyMembers, addFamilyMember, updateFamilyMember, removeFamilyMember, getOrCreatePersonByLeadId } from '../../utils/persons.js'
 
 export default function LeadFamilyTab({ personId, lead }) {
   const [familyMembers, setFamilyMembers] = useState([])
@@ -8,17 +8,22 @@ export default function LeadFamilyTab({ personId, lead }) {
   const [showModal, setShowModal] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
   const [form, setForm] = useState({ firstName: '', lastName: '', relationship: '', dateOfBirth: '', email: '', phone: '' })
+  const [submitting, setSubmitting] = useState(false)
 
-  const loadFamily = () => {
-    if (!personId) return
+  const loadFamily = useCallback(() => {
+    if (!personId) {
+      setFamilyMembers([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     getFamilyMembers(personId)
       .then((data) => setFamilyMembers(Array.isArray(data) ? data : []))
       .catch(() => setFamilyMembers([]))
       .finally(() => setLoading(false))
-  }
+  }, [personId])
 
-  useEffect(() => { loadFamily() }, [personId])
+  useEffect(() => { loadFamily() }, [loadFamily])
 
   const openAdd = () => {
     setEditingMember(null)
@@ -41,21 +46,32 @@ export default function LeadFamilyTab({ personId, lead }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setSubmitting(true)
     try {
+      let pid = personId
+      if (!pid) {
+        const person = await getOrCreatePersonByLeadId(lead)
+        pid = person.id
+      }
       if (editingMember) {
-        await updateFamilyMember(personId, editingMember.id, form)
+        await updateFamilyMember(pid, editingMember.id, form)
       } else {
-        await addFamilyMember(personId, form)
+        await addFamilyMember(pid, form)
       }
       setShowModal(false)
-      loadFamily()
+      if (pid) {
+        setFamilyMembers(await getFamilyMembers(pid).catch(() => []))
+      }
     } catch (err) {
       alert(err.message || 'Failed to save family member')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const handleRemove = async (memberId, name) => {
     if (!window.confirm(`Remove ${name} from family members?`)) return
+    if (!personId) return
     try {
       await removeFamilyMember(personId, memberId)
       loadFamily()

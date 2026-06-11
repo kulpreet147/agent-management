@@ -35,7 +35,7 @@ import {
 } from 'lucide-react'
 import { addFollowUp, reassignAgent, addNote, getLead, getFollowUps, getActivityLog, updateLeadStatus, listQuotes } from '../../utils/leads.js'
 import { getAgents } from '../../utils/agents.js'
-import { getPersonByPersonId, getQuotes } from '../../utils/persons.js'
+import { getPersonByPersonId, getQuotes, getOrCreatePersonByLeadId } from '../../utils/persons.js'
 import QuoteModal from '../../components/QuoteModal.jsx'
 import LeadFamilyTab from '../../components/tabs/LeadFamilyTab.jsx'
 import LeadQuotesTab from '../../components/tabs/LeadQuotesTab.jsx'
@@ -206,7 +206,7 @@ export default function LeadDetail() {
           setFollowUpsList(Array.isArray(followUps) ? followUps : [])
           setActivityLog(Array.isArray(activityData?.logs) ? activityData.logs : [])
           setLeadStatus(apiData.status || 'new')
-          getPersonByPersonId(apiData.leadId)
+          getOrCreatePersonByLeadId(apiData)
             .then((person) => setPersonUuid(person.id))
             .catch(() => setPersonUuid(null))
         }
@@ -749,12 +749,7 @@ export default function LeadDetail() {
       )}
 
       {/* ==================== TAB: FAMILY ==================== */}
-      {activeTab === 1 && personUuid && <LeadFamilyTab personId={personUuid} lead={lead} />}
-      {activeTab === 1 && !personUuid && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-          <p className="text-sm text-amber-700 font-semibold">Person data not available. Please refresh the page.</p>
-        </div>
-      )}
+      {activeTab === 1 && <LeadFamilyTab personId={personUuid} lead={lead} />}
 
       {/* ==================== TAB: QUOTES ==================== */}
       {activeTab === 2 && <LeadQuotesTab personId={personUuid} lead={lead} />}

@@ -10,6 +10,33 @@ export function createPerson(data) {
   })
 }
 
+export async function getOrCreatePersonByLeadId(leadData) {
+  const leadIdentifier = leadData.leadId || leadData.id
+  try {
+    const person = await getPersonByPersonId(leadIdentifier)
+    return person
+  } catch {
+    let firstName = leadData.firstName
+    let lastName = leadData.lastName
+    if (!firstName && leadData.name) {
+      const parts = leadData.name.trim().split(/\s+/)
+      firstName = parts[0] || ''
+      lastName = parts.slice(1).join(' ') || ''
+    }
+    const newPerson = await createPerson({
+      firstName: firstName || '',
+      lastName: lastName || '',
+      email: leadData.email || '',
+      phone: leadData.phone || '',
+      dateOfBirth: leadData.dateOfBirth || null,
+      maritalStatus: leadData.maritalStatus || '',
+      address: leadData.address || '',
+    })
+    const personId = newPerson?.id || newPerson?.personId || newPerson?._id
+    return { id: personId, ...newPerson }
+  }
+}
+
 export function getPersons(params = {}) {
   const query = new URLSearchParams()
   if (params.phase) query.set('phase', params.phase)
