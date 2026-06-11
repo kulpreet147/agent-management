@@ -1,4 +1,5 @@
 import { apiRequest } from './api.js'
+import { notify } from './notify.js'
 
 export function createClient(data) {
   return apiRequest('/clients', {
@@ -106,7 +107,7 @@ export function downloadDocument(clientId, docId) {
         a.click()
         URL.revokeObjectURL(blobUrl)
       })
-      .catch(err => alert(err.message || 'Download failed'))
+      .catch(err => notify.error(err.message || 'Download failed'))
   } else {
     a.click()
   }

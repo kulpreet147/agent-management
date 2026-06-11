@@ -15,6 +15,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { auth } from "../../utils/auth.js";
+import { notify } from "../../utils/notify.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
 import CommonHeader from "../../components/CommonHeader.jsx";
 import {
@@ -96,7 +97,7 @@ export default function AgentLeadManagement() {
       await updateFollowUp(task.id, { status: 'completed', completedAt: new Date().toISOString() });
       fetchFollowUps();
     } catch (err) {
-      alert(err.message || 'Failed to complete task');
+      notify.error(err.message || 'Failed to complete task');
     }
   };
 

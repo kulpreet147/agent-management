@@ -46,6 +46,8 @@ import {
   removeHouseholdMember,
 } from '../../utils/clients.js'
 import { auth } from '../../utils/auth.js'
+import { notify } from '../../utils/notify.js'
+import { confirmDialog } from '../../utils/confirmDialog.js'
 import AgentSidebar from '../../components/AgentSidebar.jsx'
 import CommonHeader from '../../components/CommonHeader.jsx'
 
@@ -232,13 +234,13 @@ export default function AgentClientDetail() {
       setNewNote('')
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to add note')
+      notify.error(err.message || 'Failed to add note')
     }
   }
 
   const handleAddPolicy = async () => {
     if (!policyForm.policyNumber || !policyForm.policyType) {
-      alert('Policy number and type are required')
+      notify.warning('Policy number and type are required')
       return
     }
     try {
@@ -247,13 +249,13 @@ export default function AgentClientDetail() {
       setPolicyForm({ policyNumber: '', policyType: '', carrier: '', product: '', effectiveDate: '', renewalDate: '', expiryDate: '', premium: '', status: 'active' })
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to add policy')
+      notify.error(err.message || 'Failed to add policy')
     }
   }
 
   const handleAddFollowUp = async () => {
     if (!followUpForm.scheduledAt) {
-      alert('Scheduled date is required')
+      notify.warning('Scheduled date is required')
       return
     }
     try {
@@ -262,7 +264,7 @@ export default function AgentClientDetail() {
       setFollowUpForm({ type: 'call', scheduledAt: '', notes: '' })
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to add follow-up')
+      notify.error(err.message || 'Failed to add follow-up')
     }
   }
 
@@ -284,7 +286,7 @@ export default function AgentClientDetail() {
       setDocExpiryDate('')
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to upload document')
+      notify.error(err.message || 'Failed to upload document')
     }
   }
 
@@ -314,23 +316,24 @@ export default function AgentClientDetail() {
       setShowEditClientModal(false)
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to update client')
+      notify.error(err.message || 'Failed to update client')
     }
   }
 
   const handleRemovePolicy = async (policyId) => {
-    if (!window.confirm('Are you sure you want to remove this policy?')) return
+    const ok = await confirmDialog({ title: 'Remove Policy', message: 'Are you sure you want to remove this policy?', confirmText: 'Remove', variant: 'danger' })
+    if (!ok) return
     try {
       await removePolicy(clientId, policyId)
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to remove policy')
+      notify.error(err.message || 'Failed to remove policy')
     }
   }
 
   const handleAddHouseholdMember = async () => {
     if (!householdForm.firstName || !householdForm.lastName) {
-      alert('First name and last name are required')
+      notify.warning('First name and last name are required')
       return
     }
     try {
@@ -339,17 +342,18 @@ export default function AgentClientDetail() {
       setHouseholdForm({ firstName: '', lastName: '', relationship: '', dateOfBirth: '', phone: '', email: '' })
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to add household member')
+      notify.error(err.message || 'Failed to add household member')
     }
   }
 
   const handleRemoveHouseholdMember = async (memberId) => {
-    if (!window.confirm('Remove this household member?')) return
+    const ok = await confirmDialog({ title: 'Remove Member', message: 'Remove this household member?', confirmText: 'Remove', variant: 'danger' })
+    if (!ok) return
     try {
       await removeHouseholdMember(clientId, memberId)
       await refreshData()
     } catch (err) {
-      alert(err.message || 'Failed to remove household member')
+      notify.error(err.message || 'Failed to remove household member')
     }
   }
 

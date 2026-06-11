@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { RefreshCw, X, TrendingUp, Send, CheckCircle, Calculator } from 'lucide-react'
 import { runQuote, selectQuote as apiSelectQuote, emailQuote as apiEmailQuote } from '../utils/leads.js'
+import { notify } from '../utils/notify.js'
 
 export default function QuoteModal({ lead, onClose, onQuoteSaved }) {
   const [quoteLoading, setQuoteLoading] = useState(false)
@@ -91,13 +92,13 @@ export default function QuoteModal({ lead, onClose, onQuoteSaved }) {
       }
       if (onQuoteSaved) onQuoteSaved(log)
       if (emailResult) {
-        alert(`Quote ${selected.quoteId} saved and emailed to ${emailResult.clientEmail} (${selected.premiumMonthly} ${selected.currency}/mo)`)
+        notify.success(`Quote ${selected.quoteId} saved and emailed to ${emailResult.clientEmail} (${selected.premiumMonthly} ${selected.currency}/mo)`)
       } else {
-        alert(`Quote ${selected.quoteId} saved, but the email could not be sent.\n\n${emailError || ''}\n\nCheck SMTP configuration.`)
+        notify.warning(`Quote ${selected.quoteId} saved, but the email could not be sent.\n\n${emailError || ''}\n\nCheck SMTP configuration.`)
       }
       onClose()
     } catch (err) {
-      alert(err.message || 'Failed to save quote')
+      notify.error(err.message || 'Failed to save quote')
     } finally {
       setQuoteSaving(false)
     }

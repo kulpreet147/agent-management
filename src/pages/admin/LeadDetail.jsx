@@ -34,6 +34,8 @@ import {
 import { addFollowUp, reassignAgent, addNote, getLead, getFollowUps, getActivityLog, updateLeadStatus } from '../../utils/leads.js'
 import { getAgents } from '../../utils/agents.js'
 import QuoteModal from '../../components/QuoteModal.jsx'
+import { notify } from '../../utils/notify.js'
+import { confirmDialog } from '../../utils/confirmDialog.js'
 
 const formatTimeAgo = (dateString) => {
   if (!dateString) return 'Unknown'
@@ -235,10 +237,15 @@ export default function LeadDetail() {
   const handleMarkConverted = async () => {
     if (!lead) return
     if (lead.status?.toLowerCase?.() === 'converted') {
-      alert('This lead is already converted.')
+      notify.info('This lead is already converted.')
       return
     }
-    if (!window.confirm(`Mark "${lead.name}" as converted? This will create a new client profile from this lead's data.`)) return
+    const ok = await confirmDialog({
+      title: 'Convert lead',
+      message: `Mark "${lead.name}" as converted? This will create a new client profile from this lead's data.`,
+      confirmText: 'Convert',
+    })
+    if (!ok) return
     try {
       await updateLeadStatus(lead.id, 'converted', 'Marked as converted from Quick Actions')
       const updatedLead = await getLead(lead.id)
@@ -252,19 +259,22 @@ export default function LeadDetail() {
       const activity = await getActivityLog(lead.id).catch(() => ({ logs: [] }))
       setActivityLog(Array.isArray(activity?.logs) ? activity.logs : [])
 
-      const goToList = window.confirm(
-        `"${lead.name}" has been converted to a client successfully!\n\nClick OK to go to Client Management.`
-      )
+      const goToList = await confirmDialog({
+        title: 'Lead converted',
+        message: `"${lead.name}" has been converted to a client successfully! Go to Client Management?`,
+        confirmText: 'Go to Clients',
+        cancelText: 'Stay here',
+      })
       if (goToList) {
         navigate('/admin/clients')
       }
     } catch (err) {
-      alert(err.message || 'Failed to mark as converted')
+      notify.error(err.message || 'Failed to mark as converted')
     }
   }
 
   const handleAddNoteAdmin = async () => {
-    const content = window.prompt('Add a note about this lead:')
+    const content = await confirmDialog({ title: 'Add note', message: 'Add a note about this lead:', input: { placeholder: 'Type your note...' } })
     if (!content?.trim()) return
     try {
       const result = await addNote(lead.id, { content: content.trim() })
@@ -281,7 +291,7 @@ export default function LeadDetail() {
         ])
       }
     } catch (err) {
-      alert(err.message || 'Failed to add note')
+      notify.error(err.message || 'Failed to add note')
     }
   }
 
@@ -378,7 +388,7 @@ export default function LeadDetail() {
         setNewFollowUps([])
       } catch (err) {
         console.error('Failed to persist follow-up:', err)
-        alert(err.message || 'Failed to save follow-up. Please try again.')
+        notify.error(err.message || 'Failed to save follow-up. Please try again.')
         setNewFollowUps((prev) => prev.slice(1))
       }
     }
@@ -389,7 +399,7 @@ export default function LeadDetail() {
 
   const handleConfirmReassign = async () => {
     setReassignState('processing')
-    alert('Lead reassignment is under implementation and will be available soon.')
+    notify.info('Lead reassignment is under implementation and will be available soon.')
     setReassignState('idle')
     setShowReassign(false)
     setReassignForm({ agentId: '', split: 100, reason: '' })
@@ -432,7 +442,7 @@ export default function LeadDetail() {
       }, 800)
     } catch (err) {
       console.error('Reassign failed:', err)
-      alert(err.message || 'Reassign failed')
+      notify.error(err.message || 'Reassign failed')
       setReassignState('idle')
     }
   }

@@ -46,6 +46,7 @@ import AgentUnderImplementation from "./pages/agent/AgentUnderImplementation.jsx
 import SocketActionManager from "./components/SocketActionManager.jsx";
 import RealtimeAlertBar from "./components/RealtimeAlertBar.jsx";
 import ImpersonationBanner from "./components/ImpersonationBanner.jsx";
+import ConfirmHost from "./components/ConfirmHost.jsx";
 
 function Protected({ children }) {
   return auth.isAuthenticated() ? children : <Navigate to="/login" replace />;
@@ -84,6 +85,7 @@ export default function App() {
       <SocketActionManager />
       <ImpersonationBanner />
       <RealtimeAlertBar />
+      <ConfirmHost />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/recover/:token" element={<PasswordReset />} />
