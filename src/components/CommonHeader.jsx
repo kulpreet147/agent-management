@@ -35,7 +35,6 @@ export default function CommonHeader({
       navigate('/agent/profile')
       return
     }
-
     showUnderImplementation()
   }
 
@@ -44,7 +43,6 @@ export default function CommonHeader({
       navigate('/master/settings')
       return
     }
-
     showUnderImplementation()
   }
 
