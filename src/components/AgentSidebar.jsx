@@ -31,8 +31,8 @@ export default function AgentSidebar({ agentName, initials }) {
         ? 'Ready for MGA'
         : 'Onboarding In Progress'
 
-  const handleLogout = () => {
-    auth.logout()
+  const handleLogout = async () => {
+    await auth.endSession()
     navigate('/login', { replace: true })
   }
 

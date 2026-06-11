@@ -76,6 +76,13 @@ export const auth = {
     return apiRequest('/auth/me')
   },
 
+  async endSession() {
+    try {
+      await apiRequest('/auth/logout', { method: 'POST' })
+    } catch {}
+    this.logout()
+  },
+
   logout() {
     getStorage().removeItem(KEY)
     window.localStorage.removeItem(KEY)

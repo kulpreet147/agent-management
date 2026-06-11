@@ -17,27 +17,39 @@ const passwordRules = [
   { test: (v) => /[^A-Za-z0-9]/.test(v), label: "One special character" },
 ];
 
-function ScaffoldCard({ icon, title, description }) {
+function InfoCard({ icon, title, description, children }) {
   return (
     <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 16, display: "flex", gap: 12, alignItems: "flex-start" }}>
       <div style={{ width: 34, height: 34, borderRadius: 8, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", flexShrink: 0 }}>{icon}</div>
       <div style={{ flex: 1 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0f172a" }}>{title}</div>
-          <span style={css.badge("#f1f5f9", "#64748b", "#cbd5e1")}>Coming soon</span>
         </div>
         <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{description}</div>
+        {children ? <div style={{ marginTop: 12 }}>{children}</div> : null}
       </div>
     </div>
   );
 }
 
-export default function SystemSettingsSection({ ctx, agentId, agentEmail }) {
+function fmtDate(value) {
+  if (!value) return "Still active";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
+}
+
+function EmptyState({ message }) {
+  return <div style={{ fontSize: 12, color: "#94a3b8" }}>{message}</div>;
+}
+
+export default function SystemSettingsSection({ ctx, agentId, agentEmail, securityHistory }) {
   const toast = useToast();
   const { draft, update, editing, canEdit, saving, onEdit, onDiscard, onSave } = ctx;
   const settings = draft.settings;
   const notif = settings.notifications;
   const ro = !editing;
+  const loginHistory = Array.isArray(securityHistory?.loginHistory) ? securityHistory.loginHistory : [];
+  const deviceHistory = Array.isArray(securityHistory?.deviceHistory) ? securityHistory.deviceHistory : [];
 
   const setSettings = (patch) => update((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
   const setNotif = (channel, patch) =>
@@ -169,9 +181,57 @@ export default function SystemSettingsSection({ ctx, agentId, agentEmail }) {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <ScaffoldCard icon={<Lock size={16} />} title="Multi-Factor Authentication (MFA)" description="Add an extra layer of security with an authenticator app. Setup will be available soon." />
-          <ScaffoldCard icon={<History size={16} />} title="Login History" description="A record of recent sign-ins will appear here once tracking is enabled." />
-          <ScaffoldCard icon={<Smartphone size={16} />} title="Device History" description="Devices that have accessed your account will be listed here." />
+          <InfoCard icon={<Lock size={16} />} title="Multi-Factor Authentication (MFA)" description="Add an extra layer of security with an authenticator app. Setup will be available soon." />
+          <InfoCard icon={<History size={16} />} title="Login History" description="Recent sign-in sessions for this agent account.">
+            {loginHistory.length === 0 ? (
+              <EmptyState message="No login history recorded yet." />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {loginHistory.slice(0, 8).map((entry) => (
+                  <div key={entry.id} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, background: "#f8fafc" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{entry.deviceName || "Unknown device"}</div>
+                      <span style={css.badge("#eff6ff", "#1d4ed8", "#bfdbfe")}>{entry.ipAddress || "IP unavailable"}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#475569", marginTop: 6 }}>
+                      Login: {fmtDate(entry.loginAt)}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>
+                      Logout: {fmtDate(entry.logoutAt)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+                      {entry.operatingSystem || "Unknown OS"} · {entry.browser || "Unknown Browser"} · {entry.deviceType || "Unknown"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </InfoCard>
+          <InfoCard icon={<Smartphone size={16} />} title="Device History" description="Devices that have accessed this account.">
+            {deviceHistory.length === 0 ? (
+              <EmptyState message="No device history recorded yet." />
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {deviceHistory.slice(0, 8).map((device) => (
+                  <div key={device.fingerprint} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 12, background: "#f8fafc" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{device.deviceName || "Unknown device"}</div>
+                      <span style={css.badge("#f0fdf4", "#166534", "#bbf7d0")}>{device.loginCount || 0} login{device.loginCount === 1 ? "" : "s"}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#475569", marginTop: 6 }}>
+                      Last seen: {fmtDate(device.lastSeenAt)}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>
+                      First seen: {fmtDate(device.firstSeenAt)}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+                      {device.operatingSystem || "Unknown OS"} · {device.browser || "Unknown Browser"} · {device.deviceType || "Unknown"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </InfoCard>
         </div>
       </div>
 

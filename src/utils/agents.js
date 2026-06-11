@@ -4,6 +4,8 @@ export function createAgent({ form, docs, mode }) {
   const payload = new FormData()
   const allowedFields = [
     'name',
+    'firstName',
+    'lastName',
     'email',
     'phone',
     'agentId',
@@ -27,13 +29,16 @@ export function createAgent({ form, docs, mode }) {
     'notes',
     'commissionOverride',
     'segFundsOverride',
-    'insuranceCompany'
+    'insuranceCompany',
+    'profile'
   ]
 
   allowedFields.forEach((key) => {
     const value =
       (key === 'commissionOverride' || key === 'segFundsOverride') && !form[key]
         ? '0'
+        : key === 'profile' && form[key] && typeof form[key] !== 'string'
+          ? JSON.stringify(form[key])
         : form[key]
     payload.append(key, value ?? '')
   })
@@ -153,6 +158,10 @@ export function sendMgaPackageEmail(agentId, payload) {
 
 export function getAgentProfile(agentId) {
   return apiRequest(`/agents/${agentId}/profile`).catch(() => apiRequest(`/agents/${agentId}`))
+}
+
+export function getAgentSecurityHistory(agentId) {
+  return apiRequest(`/agents/${agentId}/security-history`)
 }
 
 export function triggerAgentAgreements(agentId, payload = {}) {
