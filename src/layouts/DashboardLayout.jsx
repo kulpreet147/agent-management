@@ -8,7 +8,7 @@ import {
   LogOut,
   TrendingUp,
   Activity,
-  BriefcaseBusiness
+  BriefcaseBusiness,
 } from 'lucide-react'
 import { useDispatch } from 'react-redux'
 

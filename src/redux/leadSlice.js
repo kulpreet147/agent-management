@@ -12,6 +12,8 @@ import {
   listQuotes,
   runQuote,
   saveNeedAnalysis,
+  listWinquoteQuotes,
+  runWinquoteQuote,
 } from '../utils/leads.js'
 
 const initialState = {
@@ -51,6 +53,7 @@ const initialState = {
   leadStatusHistory: [],
   leadNeedAnalysis: null,
   leadQuotes: [],
+  leadWinquoteQuotes: [],
 }
 
 const buildPagination = (items, totalCount, currentPage, perPage) => {
@@ -162,6 +165,9 @@ export const leadSlice = createSlice({
     },
     Store_Lead_Quotes: (state, action) => {
       state.leadQuotes = action.payload
+    },
+    Store_Lead_Winquote_Quotes: (state, action) => {
+      state.leadWinquoteQuotes = action.payload
     },
   },
 })
@@ -282,6 +288,15 @@ export const getLeadQuotesAsync = (leadId, params) => async (dispatch) => {
   return response
 }
 
+export const getLeadWinquoteQuotesAsync = (leadId, params) => async (dispatch) => {
+  const response = params
+    ? await runWinquoteQuote(leadId, params)
+    : await listWinquoteQuotes(leadId)
+  const rows = Array.isArray(response) ? response : response?.quotes || []
+  dispatch(Store_Lead_Winquote_Quotes(rows))
+  return response
+}
+
 export const {
   getAllLeads,
   getAllLeadsSuccess,
@@ -304,6 +319,7 @@ export const {
   Store_Lead_Status_History,
   Store_Lead_Need_Analysis,
   Store_Lead_Quotes,
+  Store_Lead_Winquote_Quotes,
 } = leadSlice.actions
 
 export default leadSlice.reducer

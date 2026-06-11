@@ -54,6 +54,9 @@ import {
 } from '../../utils/clients.js'
 import { notify } from '../../utils/notify.js'
 import { confirmDialog } from '../../utils/confirmDialog.js'
+import { getPersonByPersonId } from '../../utils/persons.js'
+import LeadFamilyTab from '../../components/tabs/LeadFamilyTab.jsx'
+import LeadFamilyDashboardTab from '../../components/tabs/LeadFamilyDashboardTab.jsx'
 
 const formatTimeAgo = (dateString) => {
   if (!dateString) return 'Unknown'
@@ -137,7 +140,7 @@ const docCategoryStyles = {
   Supporting: { badge: 'bg-amber-50 text-amber-600', iconBg: 'bg-amber-50', iconText: 'text-amber-600' },
 }
 
-const tabs = ['Overview', 'Policies', 'Timeline', 'Documents', 'Tasks', 'Compliance']
+const tabs = ['Overview', 'Policies', 'Timeline', 'Documents', 'Tasks', 'Compliance', 'Family', 'Family Dashboard']
 
 const tagColors = {
   VIP: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -161,6 +164,7 @@ export default function ClientDetail() {
   const [notesList, setNotesList] = useState([])
   const [followUpsList, setFollowUpsList] = useState([])
   const [householdList, setHouseholdList] = useState([])
+  const [personUuid, setPersonUuid] = useState(null)
 
   const [showPolicyModal, setShowPolicyModal] = useState(false)
   const [showFollowUpModal, setShowFollowUpModal] = useState(false)
@@ -211,6 +215,11 @@ export default function ClientDetail() {
         setNotesList(Array.isArray(notes) ? notes : [])
         setDocumentsList(Array.isArray(docs) ? docs : [])
         setHouseholdList(Array.isArray(household) ? household : [])
+        if (clientData) {
+          getPersonByPersonId(clientData.clientId)
+            .then((person) => setPersonUuid(person.id))
+            .catch(() => setPersonUuid(null))
+        }
       })
       .catch(() => navigate('/admin/clients', { replace: true }))
       .finally(() => setLoading(false))
@@ -1249,6 +1258,22 @@ export default function ClientDetail() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ==================== TAB: FAMILY ==================== */}
+      {activeTab === 6 && personUuid && <LeadFamilyTab personId={personUuid} lead={client} />}
+      {activeTab === 6 && !personUuid && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+          <p className="text-sm text-amber-700 font-semibold">Person data not available.</p>
+        </div>
+      )}
+
+      {/* ==================== TAB: FAMILY DASHBOARD ==================== */}
+      {activeTab === 7 && personUuid && <LeadFamilyDashboardTab personId={personUuid} lead={client} />}
+      {activeTab === 7 && !personUuid && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+          <p className="text-sm text-amber-700 font-semibold">Person data not available.</p>
         </div>
       )}
 
