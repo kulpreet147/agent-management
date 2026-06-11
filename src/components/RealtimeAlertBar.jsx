@@ -1,6 +1,8 @@
 import { AlertTriangle, BellRing, CheckCircle2, X } from 'lucide-react'
+import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
+import { ClearRealtimeAlert } from '../redux/realtimeSlice.js'
 import { handleRealtimeAlertAction } from '../socket/socketActions.js'
 
 const styles = {
@@ -25,6 +27,16 @@ export default function RealtimeAlertBar() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const alert = useSelector((state) => state.realtime.activeAlert)
+
+  useEffect(() => {
+    if (!alert || alert.actionType === 'logout') return undefined
+
+    const timer = window.setTimeout(() => {
+      dispatch(ClearRealtimeAlert())
+    }, 3500)
+
+    return () => window.clearTimeout(timer)
+  }, [alert, dispatch])
 
   if (!alert) return null
 

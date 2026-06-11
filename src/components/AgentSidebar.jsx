@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Home, FileCheck2, BookOpenCheck, WalletCards, Settings, Users, LogOut, Shield, BriefcaseBusiness, Lock } from 'lucide-react'
+import { Home, FileCheck2, BookOpenCheck, Settings, Users, LogOut, Shield, BriefcaseBusiness, Lock, BadgeCheck, Megaphone } from 'lucide-react'
+import { useToast } from '../hooks/useToast.js'
 import { auth } from '../utils/auth.js'
 import { APP_VERSION } from '../version.js'
 
@@ -8,14 +9,16 @@ const navItems = [
   { icon: Users, label: 'Lead Management', path: '/agent/leads' },
   { icon: BriefcaseBusiness, label: 'Client Management', path: '/agent/clients' },
   { icon: FileCheck2, label: 'Documents', path: '/agent/documents' },
+  { icon: BadgeCheck, label: 'Licensing', path: '/agent/licensing' },
+  { icon: Megaphone, label: 'Marketing', path: '/agent/marketing' },
   { icon: BookOpenCheck, label: 'Training', path: '/agent/training' },
-  { icon: WalletCards, label: 'Commissions', path: '/agent/commissions' },
   { icon: Settings, label: 'Settings', path: '/agent/settings' },
 ]
 
 export default function AgentSidebar({ agentName, initials }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const toast = useToast()
   const session = auth.get()
   const isActiveAgent = Number(session?.accountActivationStatus) === 1
   const lockedSectionMessage =
@@ -61,7 +64,7 @@ export default function AgentSidebar({ agentName, initials }) {
               onClick={(event) => {
                 if (isLocked) {
                   event.preventDefault()
-                  window.alert(lockedSectionMessage)
+                  toast.warning(lockedSectionMessage, 'Section Locked')
                 }
               }}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${

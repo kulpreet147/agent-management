@@ -1,28 +1,42 @@
-import { apiRequest } from './api.js'
+import { apiBinaryRequest, apiRequest } from './api.js'
 
-export function createAgent({ form, docs, level, mode }) {
+export function createAgent({ form, docs, mode }) {
   const payload = new FormData()
   const allowedFields = [
     'name',
     'email',
+    'phone',
     'agentId',
     'licenceType',
+    'requireSponsorship',
+    'haveApexa',
+    'apexaId',
     'eo',
     'apex',
-    'creditReport',
+    'creditScore',
     'sin',
     'mga',
+    'accessCode',
+    'status',
+    'comment',
+    'licenceExpiryDate',
+    'eoPolicyNumber',
+    'eoPolicyCompany',
+    'eoPolicyExpiryDate',
+    'referralSource',
+    'notes',
     'commissionOverride',
-    'insuranceCompany',
-    'agentCode'
+    'segFundsOverride',
+    'insuranceCompany'
   ]
 
   allowedFields.forEach((key) => {
-    const value = key === 'commissionOverride' && !form[key] ? '0' : form[key]
+    const value =
+      (key === 'commissionOverride' || key === 'segFundsOverride') && !form[key]
+        ? '0'
+        : form[key]
     payload.append(key, value ?? '')
   })
-
-  payload.append('agentLevel', level)
   payload.append('licenceWorkflow', mode)
 
   Object.entries(docs).forEach(([key, file]) => {
@@ -70,6 +84,16 @@ export function updateAgentOnboardingStatus(agentId, status) {
 export function resendAgentInvite(agentId) {
   return apiRequest(`/agents/${agentId}/resend-invite`, {
     method: 'POST'
+  })
+}
+
+export function adminSetAgentPassword(agentId, password) {
+  return apiRequest(`/agents/${agentId}/admin-set-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ password })
   })
 }
 
@@ -131,6 +155,47 @@ export function getAgentProfile(agentId) {
   return apiRequest(`/agents/${agentId}/profile`).catch(() => apiRequest(`/agents/${agentId}`))
 }
 
+export function triggerAgentAgreements(agentId, payload = {}) {
+  return apiRequest(`/agents/${agentId}/trigger-agreements`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+}
+
+export function markManagerAgreementComplete(agentId, payload = {}) {
+  return apiRequest(`/agents/${agentId}/agreements/manager-complete`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+}
+
+export function getManagerAgreementPackage(token) {
+  return apiRequest(`/agents/manager-agreements/${token}`, {
+    skipAuth: true,
+  })
+}
+
+export function submitManagerAgreementPackage(token, payload) {
+  return apiRequest(`/agents/manager-agreements/${token}/sign`, {
+    method: 'POST',
+    skipAuth: true,
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+}
+
+export function getAgentAgreementPreview(agentId, documentId) {
+  return apiBinaryRequest(`/agents/${agentId}/agreement-preview/${documentId}`)
+}
+
 export function updateAgentProfile(agentId, payload) {
   if (!(payload instanceof FormData)) {
     throw new Error('Profile update requires FormData payload.')
@@ -141,6 +206,40 @@ export function updateAgentProfile(agentId, payload) {
   return apiRequest('/agents/UpdateProfile', {
     method: 'POST',
     body: payload,
+  })
+}
+
+export function getAgentPerformance(agentId) {
+  return apiRequest(`/agents/${agentId}/performance`)
+}
+
+export function requestTierUpgrade(agentId, requestedTier) {
+  return apiRequest(`/agents/${agentId}/tier-request`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ requestedTier })
+  })
+}
+
+export function decideAgentTierRequest(agentId, payload) {
+  return apiRequest(`/agents/${agentId}/tier-request`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+}
+
+export function changeAgentPassword(agentId, payload) {
+  return apiRequest(`/agents/${agentId}/change-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
   })
 }
 
