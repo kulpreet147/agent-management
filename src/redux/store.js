@@ -4,6 +4,7 @@ import lead from './leadSlice.js'
 import agent from './agentSlice.js'
 import account from './accountSlice.js'
 import realtime from './realtimeSlice.js'
+import person from './personSlice.js'
 import onboarding from './onboardingSlice.js'
 
 export const store = configureStore({
@@ -13,6 +14,7 @@ export const store = configureStore({
     agent,
     account,
     realtime,
+    person,
     onboarding,
   },
 })

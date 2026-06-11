@@ -151,10 +151,14 @@ export function generateNeedAnalysisPDF(form, lead, agent) {
 
   // Family Details
   sectionTitle('6', 'Family Details')
-  labelValue('Spouse Name', form.spouseName)
-  labelValue('Spouse DOB', form.spouseDOB)
-  labelValue('Spouse Occupation', form.spouseOccupation)
-  labelValue('Spouse Income', fmtCurrency(form.spouseIncome))
+  if (lead?.maritalStatus === 'Married') {
+    labelValue('Spouse Name', form.spouseName)
+    labelValue('Spouse DOB', form.spouseDOB)
+    labelValue('Spouse Occupation', form.spouseOccupation)
+    labelValue('Spouse Income', fmtCurrency(form.spouseIncome))
+  } else {
+    paragraph(`Marital Status: ${lead?.maritalStatus || 'N/A'}. Spouse details are not applicable.`)
+  }
   if (form.children && form.children.length > 0) {
     form.children.forEach((c, i) => {
       if (c.name) {
@@ -170,6 +174,40 @@ export function generateNeedAnalysisPDF(form, lead, agent) {
   labelValue('Monthly Budget', fmtCurrency(form.budgetMonthly))
   if (form.coverageNotes) {
     paragraph(form.coverageNotes)
+  }
+
+  // Recommended Insurance Products
+  if (form.recommendedProducts && form.recommendedProducts.length > 0) {
+    ensureSpace(30)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(7, 54, 164)
+    doc.text('RECOMMENDED PRODUCTS', margin, y)
+    y += 16
+
+    // Table header
+    ensureSpace(40)
+    doc.setFillColor(241, 245, 249)
+    doc.rect(margin, y, pageWidth - margin * 2, 18, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.setTextColor(100, 116, 139)
+    doc.text('PRODUCT', margin + 6, y + 12)
+    doc.text('COVERAGE', margin + 220, y + 12)
+    doc.text('PROPOSED PREMIUM', margin + 360, y + 12)
+    y += 22
+
+    form.recommendedProducts.forEach((r) => {
+      if (!r.product) return
+      ensureSpace(16)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setTextColor(15, 23, 42)
+      doc.text(r.product, margin + 6, y + 10)
+      doc.text(fmtCurrency(r.coverageAmount), margin + 220, y + 10)
+      doc.text(`${fmtCurrency(r.proposedPremium)}/mo`, margin + 360, y + 10)
+      y += 16
+    })
   }
   y += 8
 
@@ -208,6 +246,69 @@ export function generateNeedAnalysisPDF(form, lead, agent) {
     doc.text(s.value, x, y + 50)
   })
   y += 96
+
+  // Disclosure
+  sectionTitle('9', 'Important Disclosure')
+
+  const disclosureLines = [
+    'DISCLAIMER — FOR INFORMATIONAL PURPOSES ONLY',
+    '',
+    'This Need Analysis Report is prepared for general informational and educational purposes only. ' +
+    'The information contained herein is based on the details provided by the client and is accurate only ' +
+    'as of the date of preparation. This report does not constitute financial, legal, tax, or insurance advice.',
+    '',
+    'The coverage recommendations, premium estimates, and financial summaries presented in this report are ' +
+    'approximations based on the information known at the time of preparation and may not reflect the most ' +
+    'current market conditions, underwriting criteria, or regulatory requirements.',
+    '',
+    'Clients are strongly encouraged to consult with a licensed financial advisor or insurance professional ' +
+    'before making any decisions regarding insurance coverage. All final policy terms, conditions, premiums, ' +
+    'and eligibility are subject to the underwriting review and approval by the respective insurance provider.',
+  ]
+
+  // Pre-calculate the height the disclosure text will need
+  const disclosureContentWidth = pageWidth - margin * 2 - 20
+  let disclosureTextHeight = 0
+  for (let i = 1; i < disclosureLines.length; i++) {
+    if (disclosureLines[i] === '') {
+      disclosureTextHeight += 6
+      continue
+    }
+    const wrapped = doc.splitTextToSize(disclosureLines[i], disclosureContentWidth)
+    disclosureTextHeight += wrapped.length * 11
+  }
+  const disclosurePaddingTop = 16
+  const disclosureTitleGap = 8
+  const disclosurePaddingBottom = 12
+  const disclosureBoxHeight = disclosurePaddingTop + 10 + disclosureTitleGap + disclosureTextHeight + disclosurePaddingBottom
+
+  ensureSpace(disclosureBoxHeight + 36)
+  doc.setFillColor(255, 251, 235)
+  doc.rect(margin, y, pageWidth - margin * 2, disclosureBoxHeight, 'F')
+  doc.setDrawColor(253, 230, 138)
+  doc.rect(margin, y, pageWidth - margin * 2, disclosureBoxHeight, 'S')
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(146, 64, 14)
+  doc.text(disclosureLines[0].toUpperCase(), margin + 10, y + disclosurePaddingTop)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(113, 63, 18)
+  let disclosureY = y + disclosurePaddingTop + 10 + disclosureTitleGap
+  for (let i = 1; i < disclosureLines.length; i++) {
+    if (disclosureLines[i] === '') {
+      disclosureY += 6
+      continue
+    }
+    const lines = doc.splitTextToSize(disclosureLines[i], disclosureContentWidth)
+    lines.forEach((line) => {
+      doc.text(line, margin + 10, disclosureY)
+      disclosureY += 11
+    })
+  }
+  y += disclosureBoxHeight + 16
 
   // Footer
   const pageCount = doc.internal.getNumberOfPages()
