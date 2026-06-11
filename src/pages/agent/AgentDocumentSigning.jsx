@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Send, Trash2, FileText, ShieldCheck, Lock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../../utils/auth.js'
+import { notify } from '../../utils/notify.js'
 import { getAgent, getAgentAgreementPreview, saveAgentSignedDocument } from '../../utils/agents.js'
 import CommonHeader from '../../components/CommonHeader.jsx'
 
@@ -205,12 +206,12 @@ export default function DocumentSigningPage() {
     event.preventDefault()
 
     if (!bothAcceptanceChecked) {
-      alert('Please agree to the Code of Conduct and Privacy acknowledgements before submitting your signature.')
+      notify.warning('Please agree to the Code of Conduct and Privacy acknowledgements before submitting your signature.')
       return
     }
 
     if (!advisorSignature) {
-      alert('Please type your signature.')
+      notify.warning('Please type your signature.')
       return
     }
 

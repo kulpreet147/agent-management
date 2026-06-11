@@ -1,12 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { auth } from "../utils/auth.js";
 
-// Sticky banner shown across the agent portal while an admin is acting on
-// behalf of an agent. Reads the active session; renders nothing otherwise.
+// Fixed-height banner (44px) shown across the agent portal while an admin is
+// acting on behalf of an agent. While active it adds `impersonating` to <body>
+// so the global CSS shrinks the agent's h-screen layout to fit below it.
 export default function ImpersonationBanner() {
   const [exiting, setExiting] = useState(false);
   const session = auth.get();
-  if (!session?.impersonatedBy) return null;
+  const isImpersonating = Boolean(session?.impersonatedBy);
+
+  useEffect(() => {
+    document.body.classList.toggle("impersonating", isImpersonating);
+    return () => document.body.classList.remove("impersonating");
+  }, [isImpersonating]);
+
+  if (!isImpersonating) return null;
 
   const adminName = session.impersonatedBy.name || "Admin";
 
@@ -24,17 +32,18 @@ export default function ImpersonationBanner() {
   return (
     <div
       style={{
-        position: "sticky",
-        top: 0,
+        position: "relative",
         zIndex: 1000,
+        height: 44,
+        boxSizing: "border-box",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         gap: 16,
-        flexWrap: "wrap",
+        flexWrap: "nowrap",
         background: "linear-gradient(90deg, #b45309, #d97706)",
         color: "#fff",
-        padding: "8px 16px",
+        padding: "0 16px",
         fontSize: 13,
         fontWeight: 600,
         boxShadow: "0 1px 4px rgba(0,0,0,0.2)",

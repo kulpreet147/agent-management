@@ -21,6 +21,14 @@ body {
   color: #0f172a;
 }
 
+/* While an admin acts on behalf of an agent, a 44px banner sits above the
+   app. Shrink full-viewport-height layouts so their bottom isn't clipped by
+   #root's hidden overflow (the page keeps its own internal scroll). */
+body.impersonating .h-screen { height: calc(100vh - 44px); }
+body.impersonating .min-h-screen { min-height: calc(100vh - 44px); }
+/* Keep the floating toast below the impersonation banner. */
+body.impersonating .realtime-toast { top: 3.5rem; }
+
 /* Subtle scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }

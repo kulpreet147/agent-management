@@ -11,7 +11,8 @@ import {
 } from 'lucide-react'
 import { useToast } from '../../hooks/useToast.js'
 import { auth } from '../../utils/auth.js'
-import { getAgent, getAgentProfile, updateAgentProfile, decideAgentTierRequest, getAgentPerformance } from '../../utils/agents.js'
+import { confirmDialog } from '../../utils/confirmDialog.js'
+import { getAgent, getAgentProfile, updateAgentProfile, decideAgentTierRequest, getAgentPerformance, updateAgentLicensing, updateAgentTaxDocuments } from '../../utils/agents.js'
 import { getAccountActivities, updateAccountActivity } from '../../utils/activities.js'
 
 // ─── Mock dynamic data ────────────────────────────────────────────────────────
@@ -110,6 +111,8 @@ function buildMockData(agent) {
   const business = savedProfile.business || {}
   const online = savedProfile.online || {}
   const settingsBlock = savedProfile.settings || {}
+  const savedLicensing = (agent?.documents?.licensing || {})
+  const savedTaxDocuments = Array.isArray(agent?.documents?.taxDocuments) ? agent.documents.taxDocuments : []
   const relationships = savedProfile.relationships || {}
   const socials = business.socials || business.social || online || {}
   const licenceDetails = parseLicenceDetails(professional.licenceDetails)
@@ -229,18 +232,22 @@ function buildMockData(agent) {
     },
 
     licensing: {
-      provinces: [
-        { code: 'ON', name: 'Ontario', since: 'Jan 2018', status: 'Active', expiry: 'Dec 31, 2026' },
-        { code: 'BC', name: 'British Columbia', since: 'Mar 2020', status: 'Expiring', expiry: 'Nov 14, 2024' },
-        { code: 'AB', name: 'Alberta', since: 'Jun 2022', status: 'Active', expiry: 'Jun 30, 2027' },
-      ],
-      carriers: [
-        { name: 'HUB Financial', code: 'HUB-MJ-2018', since: 'Jan 2018', status: 'Active' },
-        { name: 'Apex Financial Group', code: 'APX-MJ-2020', since: 'Mar 2020', status: 'Active' },
-        { name: 'NorthStar Mutual', code: '—', since: '—', status: 'Not Authorized' },
-        { name: 'Sun Life Financial', code: 'SLF-MJ-2023', since: 'Jan 2023', status: 'Active' },
-      ],
+      provinces: Array.isArray(savedLicensing.provinces) ? savedLicensing.provinces : [],
+      carriers: Array.isArray(savedLicensing.carriers) ? savedLicensing.carriers : [],
+      ceCredits: Array.isArray(savedLicensing.ceCredits) ? savedLicensing.ceCredits : [],
+      renewal: savedLicensing.renewal || {},
+      // Licence info derived from the agent record captured during onboarding.
+      licence: {
+        type: agent?.licenceType || '',
+        number: agent?.agentId || '',
+        expiry: agent?.licenceExpiryDate || '',
+        company: agent?.insuranceCompany || '',
+        eoNumber: agent?.eoPolicyNumber || '',
+        eoCompany: agent?.eoPolicyCompany || '',
+        eoExpiry: agent?.eoPolicyExpiryDate || '',
+      },
     },
+    taxDocuments: savedTaxDocuments,
 
     documents: [
       { name: 'Licence Application — ON.pdf', category: 'Licence', size: '1.2 MB', date: 'Jan 15, 2024', version: 'v3', status: 'Verified' },
@@ -1181,54 +1188,254 @@ function DocumentsTabContent({ data }) {
   )
 }
 
-function LicensingTab({ data }) {
+function renewalStatus(expiry) {
+  if (!expiry) return { label: 'Not set', color: 'slate' }
+  const d = new Date(expiry)
+  if (Number.isNaN(d.getTime())) return { label: 'Not set', color: 'slate' }
+  const days = Math.ceil((d.getTime() - Date.now()) / 86400000)
+  if (days < 0) return { label: 'Expired', color: 'red' }
+  if (days <= 60) return { label: `Expiring in ${days}d`, color: 'orange' }
+  return { label: 'Valid', color: 'green' }
+}
+
+const licClone = (v) => JSON.parse(JSON.stringify(v || null))
+const tinyInput = 'w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
+
+function LicensingTab({ data, agentId, onUpdated }) {
+  const toast = useToast()
+  const lic = data.licensing
+  const licence = lic.licence || {}
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [draft, setDraft] = useState(null)
+
+  const startEdit = () => {
+    setDraft({
+      provinces: licClone(lic.provinces) || [],
+      carriers: licClone(lic.carriers) || [],
+      ceCredits: licClone(lic.ceCredits) || [],
+      renewal: licClone(lic.renewal) || {},
+    })
+    setEditing(true)
+  }
+  const cancel = () => { setEditing(false); setDraft(null) }
+  const save = async () => {
+    if (!agentId) return
+    setSaving(true)
+    try {
+      await updateAgentLicensing(agentId, draft)
+      toast.success('Licensing details updated.')
+      setEditing(false); setDraft(null)
+      onUpdated && onUpdated(false)
+    } catch (e) {
+      toast.error(e.message || 'Unable to update licensing.')
+    } finally { setSaving(false) }
+  }
+
+  const v = editing ? draft : { provinces: lic.provinces, carriers: lic.carriers, ceCredits: lic.ceCredits, renewal: lic.renewal }
+  const setArr = (key, next) => setDraft((d) => ({ ...d, [key]: typeof next === 'function' ? next(d[key] || []) : next }))
+  const setRenewal = (patch) => setDraft((d) => ({ ...d, renewal: { ...(d.renewal || {}), ...patch } }))
+  const totalCE = (v.ceCredits || []).reduce((s, c) => s + (Number(c.credits) || 0), 0)
+  const licRenewal = renewalStatus((v.renewal && v.renewal.licenceExpiry) || licence.expiry)
+  const eoRenewal = renewalStatus((v.renewal && v.renewal.eoExpiry) || licence.eoExpiry)
+
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
-      <SectionCard title="Licensed Provinces / Territories" action="+ Add Province">
-        <div className="mb-3 flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5">
-          <Bell size={13} className="mt-0.5 text-blue-500 shrink-0" />
-          <p className="text-xs text-blue-700">Agent can only operate within assigned provinces. Changes take effect immediately.</p>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">Licence details come from onboarding (read-only). Provinces, carriers, CE credits & renewals are admin-managed.</p>
+        {!editing ? (
+          <button type="button" onClick={startEdit} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">Manage</button>
+        ) : (
+          <div className="flex gap-2">
+            <button type="button" onClick={cancel} disabled={saving} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Discard</button>
+            <button type="button" onClick={save} disabled={saving} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:bg-emerald-300">{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        )}
+      </div>
+
+      {/* Licence Information — populated from onboarding, non-editable */}
+      <SectionCard title="Licence Information (from onboarding)">
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <Lock size={13} className="text-slate-400" />
+          <span className="text-xs text-slate-500">Read-only — captured during agent registration/onboarding.</span>
         </div>
-        <div className="space-y-2.5">
-          {data.licensing.provinces.map(p => (
-            <div key={p.code} className={`flex items-center justify-between rounded-xl border px-4 py-3 ${p.status === 'Expiring' ? 'border-orange-200 bg-orange-50' : 'border-slate-200 bg-white'}`}>
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-700">{p.code}</div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">{p.name}</p>
-                  <p className="text-[11px] text-slate-400">Since {p.since} · Expiry: {p.expiry}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge label={p.status} color={p.status === 'Active' ? 'green' : 'orange'} />
-                <button className="text-slate-300 hover:text-red-400"><X size={13} /></button>
-              </div>
+        <FieldGrid>
+          <FieldItem label="Licence Number" value={licence.number} mono />
+          <FieldItem label="Licence Type" value={licence.type} />
+          <FieldItem label="Insurance Company" value={licence.company} />
+          <FieldItem label="E&O Policy Number" value={licence.eoNumber} />
+          <FieldItem label="E&O Company" value={licence.eoCompany} />
+        </FieldGrid>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Licence Renewal</span>
+              <Badge label={licRenewal.label} color={licRenewal.color} />
             </div>
-          ))}
+            <p className="mt-1 text-sm font-semibold text-slate-800">{formatDateValue(licence.expiry) || 'No expiry on file'}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">E&amp;O Renewal</span>
+              <Badge label={eoRenewal.label} color={eoRenewal.color} />
+            </div>
+            <p className="mt-1 text-sm font-semibold text-slate-800">{formatDateValue(licence.eoExpiry) || 'No expiry on file'}</p>
+          </div>
         </div>
       </SectionCard>
 
-      <SectionCard title="Carrier Authorization" action="+ Add Carrier">
-        <div className="rounded-xl border border-slate-200 overflow-hidden">
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 bg-slate-50 border-b border-slate-200 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-            <span>Carrier</span><span>Selling Code</span><span>Status</span><span>Actions</span>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {data.licensing.carriers.map(c => (
-              <div key={c.name} className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">{c.name}</p>
-                  <p className="text-[11px] text-slate-400">Since {c.since}</p>
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* Provinces */}
+        <SectionCard title="Licensed Provinces / Territories">
+          {(v.provinces || []).length === 0 && !editing && <p className="text-sm text-slate-400">No provinces assigned.</p>}
+          <div className="space-y-2.5">
+            {(v.provinces || []).map((p, i) => editing ? (
+              <div key={i} className="grid grid-cols-[64px_1fr_1fr_auto] items-center gap-2 rounded-xl border border-slate-200 p-2">
+                <input className={tinyInput} placeholder="ON" value={p.code || ''} onChange={(e) => setArr('provinces', (a) => a.map((x, j) => j === i ? { ...x, code: e.target.value.toUpperCase().slice(0, 3) } : x))} />
+                <input className={tinyInput} placeholder="Province name" value={p.name || ''} onChange={(e) => setArr('provinces', (a) => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                <input type="date" className={tinyInput} value={p.expiry || ''} onChange={(e) => setArr('provinces', (a) => a.map((x, j) => j === i ? { ...x, expiry: e.target.value } : x))} />
+                <button type="button" onClick={() => setArr('provinces', (a) => a.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-400"><X size={14} /></button>
+              </div>
+            ) : (
+              <div key={i} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-700">{p.code || '—'}</div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{p.name || p.code}</p>
+                    <p className="text-[11px] text-slate-400">Expiry: {formatDateValue(p.expiry) || 'N/A'}</p>
+                  </div>
                 </div>
-                <span className={`font-mono text-xs ${c.code === '—' ? 'text-slate-300' : 'text-slate-600 bg-slate-100 px-2 py-0.5 rounded'}`}>{c.code}</span>
-                <Badge label={c.status} color={c.status === 'Active' ? 'green' : 'red'} />
-                <button className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-                  {c.status === 'Active' ? 'Edit' : 'Authorize'}
-                </button>
+                <Badge label={renewalStatus(p.expiry).label} color={renewalStatus(p.expiry).color} />
               </div>
             ))}
           </div>
+          {editing && (
+            <button type="button" onClick={() => setArr('provinces', (a) => [...a, { code: '', name: '', expiry: '' }])} className="mt-3 inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50"><Plus size={12} /> Add Province</button>
+          )}
+        </SectionCard>
+
+        {/* Carriers */}
+        <SectionCard title="Carrier Authorization & Selling Codes">
+          {(v.carriers || []).length === 0 && !editing && <p className="text-sm text-slate-400">No carrier authorizations.</p>}
+          <div className="space-y-2.5">
+            {(v.carriers || []).map((c, i) => editing ? (
+              <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 rounded-xl border border-slate-200 p-2">
+                <input className={tinyInput} placeholder="Carrier name" value={c.name || ''} onChange={(e) => setArr('carriers', (a) => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+                <input className={tinyInput} placeholder="Selling code" value={c.code || ''} onChange={(e) => setArr('carriers', (a) => a.map((x, j) => j === i ? { ...x, code: e.target.value } : x))} />
+                <button type="button" onClick={() => setArr('carriers', (a) => a.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-400"><X size={14} /></button>
+              </div>
+            ) : (
+              <div key={i} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{c.name || 'Carrier'}</p>
+                  <p className="text-[11px] text-slate-400">Selling code: <span className="font-mono">{c.code || '—'}</span></p>
+                </div>
+                <Badge label={c.code ? 'Authorized' : 'Not Authorized'} color={c.code ? 'green' : 'slate'} />
+              </div>
+            ))}
+          </div>
+          {editing && (
+            <button type="button" onClick={() => setArr('carriers', (a) => [...a, { name: '', code: '' }])} className="mt-3 inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50"><Plus size={12} /> Add Carrier</button>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* CE Credits */}
+      <SectionCard title={`Continuing Education (CE) Credits · ${totalCE} total`}>
+        {(v.ceCredits || []).length === 0 && !editing && <p className="text-sm text-slate-400">No CE credits recorded.</p>}
+        <div className="space-y-2.5">
+          {(v.ceCredits || []).map((c, i) => editing ? (
+            <div key={i} className="grid grid-cols-[1fr_1fr_80px_1fr_auto] items-center gap-2 rounded-xl border border-slate-200 p-2">
+              <input className={tinyInput} placeholder="Course" value={c.course || ''} onChange={(e) => setArr('ceCredits', (a) => a.map((x, j) => j === i ? { ...x, course: e.target.value } : x))} />
+              <input className={tinyInput} placeholder="Provider" value={c.provider || ''} onChange={(e) => setArr('ceCredits', (a) => a.map((x, j) => j === i ? { ...x, provider: e.target.value } : x))} />
+              <input type="number" min="0" className={tinyInput} placeholder="Credits" value={c.credits ?? ''} onChange={(e) => setArr('ceCredits', (a) => a.map((x, j) => j === i ? { ...x, credits: e.target.value } : x))} />
+              <input type="date" className={tinyInput} value={c.date || ''} onChange={(e) => setArr('ceCredits', (a) => a.map((x, j) => j === i ? { ...x, date: e.target.value } : x))} />
+              <button type="button" onClick={() => setArr('ceCredits', (a) => a.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-400"><X size={14} /></button>
+            </div>
+          ) : (
+            <div key={i} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">{c.course || 'CE course'}</p>
+                <p className="text-[11px] text-slate-400">{c.provider || '—'} · {formatDateValue(c.date) || 'N/A'}</p>
+              </div>
+              <Badge label={`${Number(c.credits) || 0} credits`} color="blue" />
+            </div>
+          ))}
         </div>
+        {editing && (
+          <button type="button" onClick={() => setArr('ceCredits', (a) => [...a, { course: '', provider: '', credits: '', date: '' }])} className="mt-3 inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50"><Plus size={12} /> Add CE Credit</button>
+        )}
+      </SectionCard>
+    </div>
+  )
+}
+
+function TaxDocumentsTab({ data, agentId, onUpdated }) {
+  const toast = useToast()
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [draft, setDraft] = useState(null)
+  const list = editing ? draft : (data.taxDocuments || [])
+
+  const startEdit = () => { setDraft(licClone(data.taxDocuments) || []); setEditing(true) }
+  const cancel = () => { setEditing(false); setDraft(null) }
+  const save = async () => {
+    if (!agentId) return
+    setSaving(true)
+    try {
+      await updateAgentTaxDocuments(agentId, draft)
+      toast.success('Tax documents updated.')
+      setEditing(false); setDraft(null)
+      onUpdated && onUpdated(false)
+    } catch (e) {
+      toast.error(e.message || 'Unable to update tax documents.')
+    } finally { setSaving(false) }
+  }
+  const setRow = (i, patch) => setDraft((a) => a.map((x, j) => j === i ? { ...x, ...patch } : x))
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">{(data.taxDocuments || []).length} tax document record(s). File upload &amp; view are under implementation.</p>
+        {!editing ? (
+          <button type="button" onClick={startEdit} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">Manage</button>
+        ) : (
+          <div className="flex gap-2">
+            <button type="button" onClick={cancel} disabled={saving} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Discard</button>
+            <button type="button" onClick={save} disabled={saving} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:bg-emerald-300">{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        )}
+      </div>
+
+      <SectionCard title="Tax Document Repository">
+        {list.length === 0 && !editing && <p className="text-sm text-slate-400">No tax documents on record.</p>}
+        <div className="space-y-2.5">
+          {list.map((t, i) => editing ? (
+            <div key={i} className="grid grid-cols-[1fr_100px_1fr_1fr_auto] items-center gap-2 rounded-xl border border-slate-200 p-2">
+              <input className={tinyInput} placeholder="Type (e.g. T4A)" value={t.type || ''} onChange={(e) => setRow(i, { type: e.target.value })} />
+              <input className={tinyInput} placeholder="Year" value={t.year || ''} onChange={(e) => setRow(i, { year: e.target.value })} />
+              <select className={tinyInput} value={t.status || 'Pending'} onChange={(e) => setRow(i, { status: e.target.value })}>
+                <option>Pending</option><option>Received</option><option>Filed</option>
+              </select>
+              <input className={tinyInput} placeholder="Notes" value={t.notes || ''} onChange={(e) => setRow(i, { notes: e.target.value })} />
+              <button type="button" onClick={() => setDraft((a) => a.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-400"><X size={14} /></button>
+            </div>
+          ) : (
+            <div key={i} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 border border-emerald-100"><FileText size={14} className="text-emerald-600" /></div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{t.type || 'Tax document'} {t.year ? `· ${t.year}` : ''}</p>
+                  {t.notes && <p className="text-[11px] text-slate-400">{t.notes}</p>}
+                </div>
+              </div>
+              <Badge label={t.status || 'Pending'} color={t.status === 'Filed' ? 'green' : t.status === 'Received' ? 'blue' : 'slate'} />
+            </div>
+          ))}
+        </div>
+        {editing && (
+          <button type="button" onClick={() => setDraft((a) => [...(a || []), { type: '', year: '', status: 'Pending', notes: '' }])} className="mt-3 inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50"><Plus size={12} /> Add Tax Document</button>
+        )}
       </SectionCard>
     </div>
   )
@@ -1536,6 +1743,7 @@ export default function AgentProfileView() {
     { id: 'performance', label: 'Performance' },
     { id: 'licensing', label: 'Licensing' },
     { id: 'documents', label: 'Documents' },
+    { id: 'tax', label: 'Tax Documents' },
     { id: 'activity', label: 'Activity Log' },
   ]
 
@@ -1567,7 +1775,15 @@ export default function AgentProfileView() {
     if (!agent?.id || decidingTier) return
     let note = ''
     if (decision === 'rejected') {
-      note = window.prompt('Optional note for the agent (reason for declining):') || ''
+      const result = await confirmDialog({
+        title: 'Decline upgrade request',
+        message: 'Add an optional note for the agent (reason for declining).',
+        confirmText: 'Decline',
+        variant: 'danger',
+        input: { placeholder: 'Reason (optional)…' },
+      })
+      if (result === null) return // cancelled
+      note = result
     }
     setDecidingTier(true)
     try {
@@ -1591,7 +1807,12 @@ export default function AgentProfileView() {
       toast.error('This agent is not active yet, so you cannot act on their behalf.')
       return
     }
-    if (!window.confirm(`Act on behalf of ${agent?.name || 'this agent'}? You'll operate their portal until you choose to return. This is recorded in the audit log.`)) return
+    const ok = await confirmDialog({
+      title: 'Act on behalf of agent',
+      message: `Act on behalf of ${agent?.name || 'this agent'}? You'll operate their portal until you choose to return. This is recorded in the audit log.`,
+      confirmText: 'Act on Behalf',
+    })
+    if (!ok) return
     setActingOnBehalf(true)
     try {
       const data = await auth.impersonateAgent(agent.id)
@@ -1810,8 +2031,9 @@ export default function AgentProfileView() {
         {activeTab === 'online' && <ProfileTab data={d} section="social-media" />}
         {activeTab === 'system' && <SystemSettingsInfoTab data={d} agent={agent} />}
         {activeTab === 'performance' && <PerformanceTab data={d} perf={perf} />}
-        {activeTab === 'licensing' && <LicensingTab data={d} />}
+        {activeTab === 'licensing' && <LicensingTab data={d} agentId={agentId} onUpdated={loadAgentProfile} />}
         {activeTab === 'documents' && <DocumentsTab data={d} />}
+        {activeTab === 'tax' && <TaxDocumentsTab data={d} agentId={agentId} onUpdated={loadAgentProfile} />}
         {activeTab === 'activity' && <ActivityLogTab data={d} />}
       </div>
     </div>

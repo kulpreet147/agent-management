@@ -70,7 +70,7 @@ export default function RealtimeAlertBar() {
 
   return (
     <div
-      className={`mx-6 mt-4 flex w-[calc(100%-3rem)] items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-left shadow-sm ${styles[alert.variant] || styles.info}`}
+      className={`realtime-toast fixed top-3 right-4 z-[1200] flex w-[calc(100%-2rem)] max-w-sm items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-left shadow-lg ${styles[alert.variant] || styles.info}`}
     >
       <div className="flex items-start gap-3">
       <Icon size={18} className="mt-0.5 shrink-0" />

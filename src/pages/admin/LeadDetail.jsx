@@ -36,6 +36,8 @@ import { addFollowUp, reassignAgent, addNote, getLead, getFollowUps, getActivity
 import { getAgents } from '../../utils/agents.js'
 import { getPersonByPersonId, getQuotes, getOrCreatePersonByLeadId } from '../../utils/persons.js'
 import QuoteModal from '../../components/QuoteModal.jsx'
+import { notify } from '../../utils/notify.js'
+import { confirmDialog } from '../../utils/confirmDialog.js'
 import LeadFamilyTab from '../../components/tabs/LeadFamilyTab.jsx'
 import LeadQuotesTab from '../../components/tabs/LeadQuotesTab.jsx'
 import LeadNotesTab from '../../components/tabs/LeadNotesTab.jsx'
@@ -254,11 +256,15 @@ export default function LeadDetail() {
   const handleMarkConverted = async () => {
     if (!lead) return
     if (lead.status?.toLowerCase?.() === 'converted') {
-      alert('This lead is already converted.')
+      notify.info('This lead is already converted.')
       return
     }
-
-    // Check for accepted quotes before conversion
+    const ok = await confirmDialog({
+      title: 'Convert lead',
+      message: `Mark "${lead.name}" as converted? This will create a new client profile from this lead's data.`,
+      confirmText: 'Convert',
+    })
+    if (!ok) return
     try {
       let quotes = []
       // Try person_quotes first
@@ -309,19 +315,22 @@ export default function LeadDetail() {
       const activity = await getActivityLog(lead.id).catch(() => ({ logs: [] }))
       setActivityLog(Array.isArray(activity?.logs) ? activity.logs : [])
 
-      const goToList = window.confirm(
-        `"${lead.name}" has been converted to a client successfully!\n\nClick OK to go to Client Management.`
-      )
+      const goToList = await confirmDialog({
+        title: 'Lead converted',
+        message: `"${lead.name}" has been converted to a client successfully! Go to Client Management?`,
+        confirmText: 'Go to Clients',
+        cancelText: 'Stay here',
+      })
       if (goToList) {
         navigate('/admin/clients')
       }
     } catch (err) {
-      alert(err.message || 'Failed to mark as converted')
+      notify.error(err.message || 'Failed to mark as converted')
     }
   }
 
   const handleAddNoteAdmin = async () => {
-    const content = window.prompt('Add a note about this lead:')
+    const content = await confirmDialog({ title: 'Add note', message: 'Add a note about this lead:', input: { placeholder: 'Type your note...' } })
     if (!content?.trim()) return
     try {
       const result = await addNote(lead.id, { content: content.trim() })
@@ -338,7 +347,7 @@ export default function LeadDetail() {
         ])
       }
     } catch (err) {
-      alert(err.message || 'Failed to add note')
+      notify.error(err.message || 'Failed to add note')
     }
   }
 
@@ -405,8 +414,8 @@ export default function LeadDetail() {
 
   const priorityStyle =
     lead.priority === 'Hot' ? 'bg-red-100 text-red-700 border-red-200' :
-    lead.priority === 'Warm' ? 'bg-orange-100 text-orange-700 border-orange-200' :
-    'bg-blue-100 text-blue-700 border-blue-200'
+      lead.priority === 'Warm' ? 'bg-orange-100 text-orange-700 border-orange-200' :
+        'bg-blue-100 text-blue-700 border-blue-200'
 
   const getLeadUuid = () => lead?.uuid || leadId
 
@@ -439,7 +448,7 @@ export default function LeadDetail() {
         setNewFollowUps([])
       } catch (err) {
         console.error('Failed to persist follow-up:', err)
-        alert(err.message || 'Failed to save follow-up. Please try again.')
+        notify.error(err.message || 'Failed to save follow-up. Please try again.')
         setNewFollowUps((prev) => prev.slice(1))
       }
     }
@@ -450,6 +459,11 @@ export default function LeadDetail() {
 
   const handleConfirmReassign = async () => {
     setReassignState('processing')
+    notify.info('Lead reassignment is under implementation and will be available soon.')
+    setReassignState('idle')
+    setShowReassign(false)
+    setReassignForm({ agentId: '', split: 100, reason: '' })
+    return
     try {
       const uuid = getLeadUuid()
       if (uuid && reassignForm.agentId) {
@@ -488,7 +502,7 @@ export default function LeadDetail() {
       }, 800)
     } catch (err) {
       console.error('Reassign failed:', err)
-      alert(err.message || 'Reassign failed')
+      notify.error(err.message || 'Reassign failed')
       setReassignState('idle')
     }
   }
@@ -547,7 +561,7 @@ export default function LeadDetail() {
             <div className="flex items-center -space-x-2 mt-1">
               {(apiLead?.assignments || lead.assignments || []).filter(a => a.isActive).slice(0, 3).map((a, i) => (
                 <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-blue-500 flex items-center justify-center text-white text-[10px] font-bold">
-                  {(a.agentId || a.agentName || 'A').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+                  {(a.agentId || a.agentName || 'A').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
               ))}
               {(!(apiLead?.assignments?.length) && !lead.assignments?.length) && (
@@ -572,9 +586,8 @@ export default function LeadDetail() {
               key={tab.label}
               type="button"
               onClick={() => tab.to ? navigate(`/admin/leads/${lead.id}/${tab.to}`, { state: { lead } }) : setActiveTab(i)}
-              className={`pb-4 px-1 flex items-center gap-2 whitespace-nowrap text-sm font-semibold transition-colors ${
-                isActive ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-blue-600'
-              }`}
+              className={`pb-4 px-1 flex items-center gap-2 whitespace-nowrap text-sm font-semibold transition-colors ${isActive ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-blue-600'
+                }`}
             >
               <Icon size={18} />
               {tab.label}
@@ -585,167 +598,167 @@ export default function LeadDetail() {
 
       {/* ==================== TAB: BASIC INFO (default) ==================== */}
       {activeTab === 0 && (
-      <div>
-      {/* Main Lead Info Grid */}
-      <div className="grid grid-cols-12 gap-8">
-        {/* Left: Customer Details */}
-        <div className="col-span-12 lg:col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-            <h3 className="text-sm font-bold text-slate-800">Customer Details</h3>
-          </div>
-          <div className="p-6 grid grid-cols-2 gap-y-6 gap-x-8">
-            <div>
-              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Full Name</p>
-              <p className="text-sm text-slate-800">{lead.name}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Date of Birth</p>
-              <p className="text-sm text-slate-800">{apiLead?.dateOfBirth ? new Date(apiLead.dateOfBirth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Marital Status</p>
-              <p className="text-sm text-slate-800">{apiLead?.maritalStatus || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Residency Status</p>
-              <p className="text-sm text-slate-800">{apiLead?.residencyStatus || 'N/A'}</p>
-            </div>
-            <div className="col-span-2">
-              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Residential Address</p>
-              <p className="text-sm text-slate-800">{apiLead?.address || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Occupation</p>
-              <p className="text-sm text-slate-800">{apiLead?.occupation || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 font-bold uppercase mb-1">Employer</p>
-              <p className="text-sm text-slate-800">{apiLead?.employer || 'N/A'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Lead Meta Data */}
-        <div className="col-span-12 lg:col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-            <h3 className="text-sm font-bold text-slate-800">Lead Meta Data</h3>
-            <Settings size={16} className="text-blue-600 cursor-pointer" />
-          </div>
-          <div className="p-6 space-y-6">
-            <div>
-              <p className="text-xs text-slate-500 font-bold uppercase mb-3">Interested Products</p>
-              <div className="flex flex-wrap gap-2">
-                {(() => {
-                  const pi = apiLead?.productInterest || lead.productInterest
-                  if (pi && typeof pi === 'object') {
-                    const products = Object.entries(pi).filter(([,v]) => v).map(([k]) => k)
-                    if (products.length === 0) {
-                      return <span className="text-xs text-slate-500">No products selected</span>
-                    }
-                    return products.map((p, i) => (
-                      <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-200">{p}</span>
-                    ))
-                  }
-                  return <span className="text-xs text-slate-500">N/A</span>
-                })()}
+        <div>
+          {/* Main Lead Info Grid */}
+          <div className="grid grid-cols-12 gap-8">
+            {/* Left: Customer Details */}
+            <div className="col-span-12 lg:col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                <h3 className="text-sm font-bold text-slate-800">Customer Details</h3>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-8">
-              <div>
-                <p className="text-xs text-slate-500 font-bold uppercase mb-1">Lead Source</p>
-                <div className="flex items-center gap-2">
-                  <Globe size={18} className="text-orange-600" />
-                  <p className="text-sm text-slate-800">{apiLead?.leadSource || lead.leadSource || 'N/A'}</p>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 font-bold uppercase mb-1">Commission Split</p>
-                <p className="text-sm text-slate-800">
-                  {(lead.assignments || apiLead?.assignments || []).filter(a => a.isActive).map(a => `${a.agentName || a.agentId} (${a.commissionShare}%)`).join(' / ') || 'N/A'}
-                </p>
-              </div>
-            </div>
-            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <UserCheck size={20} className="text-blue-600" />
+              <div className="p-6 grid grid-cols-2 gap-y-6 gap-x-8">
+                <div>
+                  <p className="text-xs text-slate-500 font-bold uppercase mb-1">Full Name</p>
+                  <p className="text-sm text-slate-800">{lead.name}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase text-slate-500">Primary Handling Agent</p>
-                  <p className="text-sm font-semibold text-slate-800">
-                    {(lead.assignments || apiLead?.assignments || []).filter(a => a.isActive)[0]?.agentName || (lead.assignments || apiLead?.assignments || []).filter(a => a.isActive)[0]?.agentId || 'Unassigned'}
-                  </p>
+                  <p className="text-xs text-slate-500 font-bold uppercase mb-1">Date of Birth</p>
+                  <p className="text-sm text-slate-800">{apiLead?.dateOfBirth ? new Date(apiLead.dateOfBirth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-bold uppercase mb-1">Marital Status</p>
+                  <p className="text-sm text-slate-800">{apiLead?.maritalStatus || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-bold uppercase mb-1">Residency Status</p>
+                  <p className="text-sm text-slate-800">{apiLead?.residencyStatus || 'N/A'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-slate-500 font-bold uppercase mb-1">Residential Address</p>
+                  <p className="text-sm text-slate-800">{apiLead?.address || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-bold uppercase mb-1">Occupation</p>
+                  <p className="text-sm text-slate-800">{apiLead?.occupation || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-bold uppercase mb-1">Employer</p>
+                  <p className="text-sm text-slate-800">{apiLead?.employer || 'N/A'}</p>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Bottom: Quick Actions + Lead Health */}
-        <div className="col-span-12 space-y-6">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-            <h3 className="text-sm font-bold text-slate-800 mb-6">Quick Actions</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => setShowFollowUpModal(true)}
-                className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
-              >
-                <ClipboardCheck size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Add Follow-Up</span>
-              </button>
-              <button
-                onClick={() => navigate(`/admin/leads/${leadId}/need-analysis`, { state: { lead } })}
-                className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
-              >
-                <FileText size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Need Analysis</span>
-              </button>
-              <button
-                onClick={() => setShowQuoteModal(true)}
-                className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
-              >
-                <Calculator size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Run Quote</span>
-              </button>
-              <button
-                onClick={handleAddNoteAdmin}
-                className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
-              >
-                <StickyNote size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Add Note</span>
-              </button>
-              <button
-                onClick={handleMarkConverted}
-                disabled={lead?.status?.toLowerCase?.() === 'converted'}
-                className="flex flex-col items-center justify-center p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Star size={28} className="mb-2" />
-                <span className="text-xs font-semibold">
-                  {lead?.status?.toLowerCase?.() === 'converted' ? 'Converted' : 'Mark Converted'}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-blue-700 to-blue-800 p-6 rounded-xl text-white relative overflow-hidden shadow-lg">
-            <div className="relative z-10">
-              <h4 className="text-base font-bold mb-2">Lead Health: Excellent</h4>
-              <p className="text-sm text-white/80 mb-4">
-                The customer has engaged with 3 out of 4 communications and requested a term life quote.
-              </p>
-              <div className="w-full bg-white/20 h-2 rounded-full mb-2">
-                <div className="bg-white h-full rounded-full" style={{ width: '85%' }} />
+            {/* Right: Lead Meta Data */}
+            <div className="col-span-12 lg:col-span-6 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <h3 className="text-sm font-bold text-slate-800">Lead Meta Data</h3>
+                <Settings size={16} className="text-blue-600 cursor-pointer" />
               </div>
-              <span className="text-xs font-bold">85% Conversion Probability</span>
+              <div className="p-6 space-y-6">
+                <div>
+                  <p className="text-xs text-slate-500 font-bold uppercase mb-3">Interested Products</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const pi = apiLead?.productInterest || lead.productInterest
+                      if (pi && typeof pi === 'object') {
+                        const products = Object.entries(pi).filter(([, v]) => v).map(([k]) => k)
+                        if (products.length === 0) {
+                          return <span className="text-xs text-slate-500">No products selected</span>
+                        }
+                        return products.map((p, i) => (
+                          <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-200">{p}</span>
+                        ))
+                      }
+                      return <span className="text-xs text-slate-500">N/A</span>
+                    })()}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-8">
+                  <div>
+                    <p className="text-xs text-slate-500 font-bold uppercase mb-1">Lead Source</p>
+                    <div className="flex items-center gap-2">
+                      <Globe size={18} className="text-orange-600" />
+                      <p className="text-sm text-slate-800">{apiLead?.leadSource || lead.leadSource || 'N/A'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500 font-bold uppercase mb-1">Commission Split</p>
+                    <p className="text-sm text-slate-800">
+                      {(lead.assignments || apiLead?.assignments || []).filter(a => a.isActive).map(a => `${a.agentName || a.agentId} (${a.commissionShare}%)`).join(' / ') || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <UserCheck size={20} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-slate-500">Primary Handling Agent</p>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {(lead.assignments || apiLead?.assignments || []).filter(a => a.isActive)[0]?.agentName || (lead.assignments || apiLead?.assignments || []).filter(a => a.isActive)[0]?.agentId || 'Unassigned'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <TrendingUp
-              size={120}
-              className="absolute -right-4 -bottom-4 text-white/10 rotate-12"
-            />
+
+            {/* Bottom: Quick Actions + Lead Health */}
+            <div className="col-span-12 space-y-6">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <h3 className="text-sm font-bold text-slate-800 mb-6">Quick Actions</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setShowFollowUpModal(true)}
+                    className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
+                  >
+                    <ClipboardCheck size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Add Follow-Up</span>
+                  </button>
+                  <button
+                    onClick={() => navigate(`/admin/leads/${leadId}/need-analysis`, { state: { lead } })}
+                    className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
+                  >
+                    <FileText size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Need Analysis</span>
+                  </button>
+                  <button
+                    onClick={() => setShowQuoteModal(true)}
+                    className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
+                  >
+                    <Calculator size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Run Quote</span>
+                  </button>
+                  <button
+                    onClick={handleAddNoteAdmin}
+                    className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-xl hover:border-blue-500 hover:text-blue-600 transition-all group"
+                  >
+                    <StickyNote size={28} className="mb-2 text-slate-500 group-hover:text-blue-600 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-semibold text-slate-600 group-hover:text-blue-600">Add Note</span>
+                  </button>
+                  <button
+                    onClick={handleMarkConverted}
+                    disabled={lead?.status?.toLowerCase?.() === 'converted'}
+                    className="flex flex-col items-center justify-center p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Star size={28} className="mb-2" />
+                    <span className="text-xs font-semibold">
+                      {lead?.status?.toLowerCase?.() === 'converted' ? 'Converted' : 'Mark Converted'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-blue-700 to-blue-800 p-6 rounded-xl text-white relative overflow-hidden shadow-lg">
+                <div className="relative z-10">
+                  <h4 className="text-base font-bold mb-2">Lead Health: Excellent</h4>
+                  <p className="text-sm text-white/80 mb-4">
+                    The customer has engaged with 3 out of 4 communications and requested a term life quote.
+                  </p>
+                  <div className="w-full bg-white/20 h-2 rounded-full mb-2">
+                    <div className="bg-white h-full rounded-full" style={{ width: '85%' }} />
+                  </div>
+                  <span className="text-xs font-bold">85% Conversion Probability</span>
+                </div>
+                <TrendingUp
+                  size={120}
+                  className="absolute -right-4 -bottom-4 text-white/10 rotate-12"
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      </div>
       )}
 
       {/* ==================== TAB: FAMILY ==================== */}
@@ -756,92 +769,92 @@ export default function LeadDetail() {
 
       {/* ==================== TAB: FOLLOW-UPS ==================== */}
       {activeTab === 4 && (
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Calendar size={18} className="text-blue-600" />
-            <h3 className="text-sm font-bold text-slate-800">Follow-Up History</h3>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar size={18} className="text-blue-600" />
+              <h3 className="text-sm font-bold text-slate-800">Follow-Up History</h3>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+                  <th className="px-6 py-3">Recorded</th>
+                  <th className="px-6 py-3">Action</th>
+                  <th className="px-6 py-3">Outcome</th>
+                  <th className="px-6 py-3">Agent</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {followups.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="px-6 py-8 text-center text-sm text-slate-500">No follow-ups recorded yet.</td>
+                  </tr>
+                ) : (
+                  followups.map((f, i) => {
+                    const ActionIcon = f.actionIcon
+                    return (
+                      <tr key={i} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-semibold text-slate-800">{f.date}</p>
+                          <p className="text-[11px] text-slate-500">{f.time}</p>
+                          {f.scheduledDate && f.scheduledDate !== f.date && (
+                            <p className="text-[10px] text-blue-500 mt-0.5">Scheduled: {f.scheduledDate}</p>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <ActionIcon size={16} className={f.actionColor} />
+                            <span className="text-sm text-slate-700">{f.action}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${f.outcomeStyle}`}>
+                            {f.outcome}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{f.agent}</td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
-                <th className="px-6 py-3">Recorded</th>
-                <th className="px-6 py-3">Action</th>
-                <th className="px-6 py-3">Outcome</th>
-                <th className="px-6 py-3">Agent</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {followups.length === 0 ? (
-                <tr>
-                  <td colSpan="4" className="px-6 py-8 text-center text-sm text-slate-500">No follow-ups recorded yet.</td>
-                </tr>
-              ) : (
-                followups.map((f, i) => {
-                  const ActionIcon = f.actionIcon
-                  return (
-                    <tr key={i} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-semibold text-slate-800">{f.date}</p>
-                        <p className="text-[11px] text-slate-500">{f.time}</p>
-                        {f.scheduledDate && f.scheduledDate !== f.date && (
-                          <p className="text-[10px] text-blue-500 mt-0.5">Scheduled: {f.scheduledDate}</p>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <ActionIcon size={16} className={f.actionColor} />
-                          <span className="text-sm text-slate-700">{f.action}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${f.outcomeStyle}`}>
-                          {f.outcome}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-700">{f.agent}</td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
       )}
 
       {/* ==================== TAB: ACTIVITY LOG ==================== */}
       {activeTab === 5 && (
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800">Activity Log</h3>
-        </div>
-        <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
-          {activityLog.length === 0 ? (
-            <p className="px-6 py-8 text-center text-sm text-slate-500">No activity recorded yet.</p>
-          ) : (
-            activityLog.map((log, i) => {
-              const detailText = formatDetails(log.action, log.details)
-              return (
-                <div key={i} className="px-6 py-4 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-800">{actionLabels[log.action] || log.action.replace(/_/g, ' ')}</span>
-                    <span className="text-[11px] text-slate-500">{formatTimeAgo(log.performedAt)}</span>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200">
+            <h3 className="text-sm font-bold text-slate-800">Activity Log</h3>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
+            {activityLog.length === 0 ? (
+              <p className="px-6 py-8 text-center text-sm text-slate-500">No activity recorded yet.</p>
+            ) : (
+              activityLog.map((log, i) => {
+                const detailText = formatDetails(log.action, log.details)
+                return (
+                  <div key={i} className="px-6 py-4 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-800">{actionLabels[log.action] || log.action.replace(/_/g, ' ')}</span>
+                      <span className="text-[11px] text-slate-500">{formatTimeAgo(log.performedAt)}</span>
+                    </div>
+                    {detailText && (
+                      <p className="text-xs text-slate-600 mt-1">{detailText}</p>
+                    )}
+                    {log.performedByName && (
+                      <p className="text-[11px] text-slate-400 mt-1">by {log.performedByName}</p>
+                    )}
                   </div>
-                  {detailText && (
-                    <p className="text-xs text-slate-600 mt-1">{detailText}</p>
-                  )}
-                  {log.performedByName && (
-                    <p className="text-[11px] text-slate-400 mt-1">by {log.performedByName}</p>
-                  )}
-                </div>
-              )
-            })
-          )}
+                )
+              })
+            )}
+          </div>
         </div>
-      </div>
       )}
 
       {/* ==================== TAB: NOTES ==================== */}
@@ -896,11 +909,10 @@ export default function LeadDetail() {
                         key={key}
                         type="button"
                         onClick={() => setFollowUpForm({ ...followUpForm, activityType: key })}
-                        className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
-                          isActive
+                        className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${isActive
                             ? 'border-blue-600 bg-blue-50 text-blue-600'
                             : 'border-slate-200 hover:border-blue-300 text-slate-500'
-                        }`}
+                          }`}
                       >
                         <Icon size={28} className="mb-1" />
                         <span className="text-[11px] font-bold">{key}</span>
@@ -1056,7 +1068,7 @@ export default function LeadDetail() {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden border border-blue-200/50">
                       <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-bold">
-                        {((lead.assignments || apiLead?.assignments || []).find(a => a.isActive)?.agentId || 'A').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+                        {((lead.assignments || apiLead?.assignments || []).find(a => a.isActive)?.agentId || 'A').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
                     </div>
                     <div>
@@ -1197,9 +1209,8 @@ export default function LeadDetail() {
                 type="button"
                 onClick={handleConfirmReassign}
                 disabled={reassignState !== 'idle'}
-                className={`px-6 py-2.5 text-white text-sm font-semibold rounded-lg shadow-sm transition-all active:scale-95 flex items-center gap-2 ${
-                  reassignState === 'success' ? 'bg-green-600' : 'bg-blue-600 hover:opacity-90'
-                }`}
+                className={`px-6 py-2.5 text-white text-sm font-semibold rounded-lg shadow-sm transition-all active:scale-95 flex items-center gap-2 ${reassignState === 'success' ? 'bg-green-600' : 'bg-blue-600 hover:opacity-90'
+                  }`}
               >
                 {reassignState === 'processing' ? (
                   <>

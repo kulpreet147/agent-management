@@ -25,6 +25,8 @@ import {
   StickyNote,
 } from "lucide-react";
 import { auth } from "../../utils/auth.js";
+import { notify } from "../../utils/notify.js";
+import { confirmDialog } from "../../utils/confirmDialog.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
 import CommonHeader from "../../components/CommonHeader.jsx";
 import QuoteModal from "../../components/QuoteModal.jsx";
@@ -317,7 +319,7 @@ export default function AgentLeadDetail() {
 
   const handleUpdateStatus = async () => {
     if (leadStatus === lead.status) {
-      alert("Status is already set to this value.");
+      notify.info("Status is already set to this value.");
       return;
     }
     setStatusUpdating(true);
@@ -329,7 +331,7 @@ export default function AgentLeadDetail() {
       const activity = await getActivityLog(leadId).catch(() => ({ logs: [] }));
       setActivityLog(activity?.logs || []);
     } catch (err) {
-      alert(err.message || "Failed to update status");
+      notify.error(err.message || "Failed to update status");
     } finally {
       setStatusUpdating(false);
     }
@@ -338,7 +340,7 @@ export default function AgentLeadDetail() {
   const handleAddFollowUp = async (e) => {
     e.preventDefault();
     if (!followUpForm.date) {
-      alert("Please select a date");
+      notify.warning("Please select a date");
       return;
     }
     setFollowUpSubmitting(true);
@@ -358,30 +360,31 @@ export default function AgentLeadDetail() {
       setShowFollowUpModal(false);
       setFollowUpForm({ type: "call", date: "", time: "", note: "" });
     } catch (err) {
-      alert(err.message || "Failed to add follow-up");
+      notify.error(err.message || "Failed to add follow-up");
     } finally {
       setFollowUpSubmitting(false);
     }
   };
 
   const handleAddNote = async () => {
-    const note = prompt("Enter a note:");
+    const note = await confirmDialog({ title: "Add Note", message: "Enter a note:", input: { placeholder: "Type your note..." } });
     if (!note) return;
     try {
       await addNote(leadId, note, "general");
       const activity = await getActivityLog(leadId).catch(() => ({ logs: [] }));
       setActivityLog(activity?.logs || []);
     } catch (err) {
-      alert(err.message || "Failed to add note");
+      notify.error(err.message || "Failed to add note");
     }
   };
 
   const handleMarkConverted = async () => {
     if (lead.status === "converted") {
-      alert("This lead is already marked as converted.");
+      notify.info("This lead is already marked as converted.");
       return;
     }
-    if (!window.confirm("Mark this lead as converted? This will create a new client profile.")) return;
+    const ok = await confirmDialog({ title: "Mark Converted", message: "Mark this lead as converted? This will create a new client profile.", confirmText: "Convert" });
+    if (!ok) return;
     try {
       await updateLeadStatus(leadId, "converted", "Marked converted by agent");
       const updatedLead = await getLead(leadId);
@@ -390,14 +393,17 @@ export default function AgentLeadDetail() {
       const activity = await getActivityLog(leadId).catch(() => ({ logs: [] }));
       setActivityLog(activity?.logs || []);
 
-      const goToList = window.confirm(
-        "Lead has been converted to a client successfully!\n\nClick OK to go to Client Management."
-      );
+      const goToList = await confirmDialog({
+        title: "Lead Converted",
+        message: "Lead has been converted to a client successfully! Go to Client Management?",
+        confirmText: "Go to Clients",
+        cancelText: "Stay Here",
+      });
       if (goToList) {
         navigate("/agent/clients");
       }
     } catch (err) {
-      alert(err.message || "Failed to mark as converted");
+      notify.error(err.message || "Failed to mark as converted");
     }
   };
 
@@ -416,13 +422,14 @@ export default function AgentLeadDetail() {
       if (analysis && analysis.id) {
         navigate(`/agent/leads/${leadId}/need-analysis`, { state: { lead } });
       } else {
-        if (window.confirm("No Need Analysis found. Create one now?")) {
+        const ok = await confirmDialog({ title: "Need Analysis", message: "No Need Analysis found. Create one now?", confirmText: "Create" });
+        if (ok) {
           await saveNeedAnalysis(leadId, {});
           navigate(`/agent/leads/${leadId}/need-analysis`, { state: { lead } });
         }
       }
     } catch (err) {
-      alert(err.message || "Failed to open Need Analysis");
+      notify.error(err.message || "Failed to open Need Analysis");
     }
   };
 

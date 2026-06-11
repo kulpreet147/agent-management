@@ -25,6 +25,7 @@ import {
 import { getNeedAnalysis, saveNeedAnalysis, getLead, sendNeedAnalysisToClient } from '../utils/leads'
 import { auth } from '../utils/auth.js'
 import { previewNeedAnalysisPDF, getNeedAnalysisPDFBlob } from '../utils/needAnalysisPdf.js'
+import { notify } from '../utils/notify.js'
 import { getPersonByPersonId, getFamilyMembers, addFamilyMember, updateFamilyMember, removeFamilyMember, getOrCreatePersonByLeadId } from '../utils/persons.js'
 
 const emptyAsset = { description: '', value: 0 }
@@ -420,7 +421,7 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
       previewNeedAnalysisPDF(form, lead, session)
     } catch (err) {
       console.error('PDF generation failed', err)
-      alert('Failed to generate PDF. Please try again.')
+      notify.error('Failed to generate PDF. Please try again.')
     } finally {
       setPdfPreviewing(false)
     }
@@ -428,7 +429,7 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
 
   const openSendModal = () => {
     if (!isComplete) {
-      alert('Please complete all sections before sending to the client.')
+      notify.warning('Please complete all sections before sending to the client.')
       return
     }
     setSendResult(null)
@@ -440,7 +441,7 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
     sendingEmailRef.current = true
     const targetEmail = (overrideEmail || lead?.email || '').trim()
     if (!targetEmail) {
-      alert('Client email is required.')
+      notify.warning('Client email is required.')
       sendingEmailRef.current = false
       return
     }

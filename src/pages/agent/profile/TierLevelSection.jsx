@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { useToast } from "../../../hooks/useToast.js";
 import { requestTierUpgrade } from "../../../utils/agents.js";
+import { confirmDialog } from "../../../utils/confirmDialog.js";
 import { css, tierMeta } from "./profileStyles.js";
 
 const TIER_FEATURES = {
@@ -28,7 +29,12 @@ export default function TierLevelSection({ agentId, tierInfo, onRefresh, locked 
 
   const submit = async (tier) => {
     if (!agentId || submitting) return;
-    if (!window.confirm(`Submit a request to upgrade to ${tier}? An administrator will review it for approval.`)) return;
+    const ok = await confirmDialog({
+      title: "Request tier upgrade",
+      message: `Submit a request to upgrade to ${tier}? An administrator will review it for approval.`,
+      confirmText: "Submit request",
+    });
+    if (!ok) return;
     setSubmitting(true);
     try {
       await requestTierUpgrade(agentId, tier);
