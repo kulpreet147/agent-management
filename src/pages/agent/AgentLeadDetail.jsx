@@ -16,15 +16,21 @@ import {
   Plus,
   X,
   ClipboardCheck,
+  ClipboardList,
   Calculator,
   Star,
   Users,
+  Info,
+  Brain,
+  StickyNote,
 } from "lucide-react";
 import { auth } from "../../utils/auth.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
 import CommonHeader from "../../components/CommonHeader.jsx";
 import QuoteModal from "../../components/QuoteModal.jsx";
 import LeadFamilyTab from "../../components/tabs/LeadFamilyTab.jsx";
+import LeadQuotesTab from "../../components/tabs/LeadQuotesTab.jsx";
+import LeadNotesTab from "../../components/tabs/LeadNotesTab.jsx";
 import {
   getLead,
   addFollowUp,
@@ -82,6 +88,7 @@ export default function AgentLeadDetail() {
   const [activityLog, setActivityLog] = useState([]);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [personUuid, setPersonUuid] = useState(null);
+  const [leadRefreshKey, setLeadRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!leadId) {
@@ -105,7 +112,16 @@ export default function AgentLeadDetail() {
       })
       .catch(() => navigate("/agent/leads", { replace: true }))
       .finally(() => setLoading(false));
-  }, [leadId, navigate]);
+  }, [leadId, navigate, leadRefreshKey]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const { leadId: updatedLeadId, leadUuid: updatedLeadUuid } = e.detail || {}
+      if (!updatedLeadId || updatedLeadId === leadId || updatedLeadUuid === leadId) setLeadRefreshKey(k => k + 1)
+    }
+    window.addEventListener('lead:realtime-update', handler)
+    return () => window.removeEventListener('lead:realtime-update', handler)
+  }, [leadId])
 
   if (loading) {
     return (
@@ -162,11 +178,13 @@ export default function AgentLeadDetail() {
   };
 
   const tabs = [
-    { key: "overview", label: "Overview" },
-    { key: "family", label: "Family" },
-    { key: "need-analysis", label: "Need Analysis" },
-    { key: "documents", label: "Documents" },
-    { key: "timeline", label: "Activity Log" },
+    { key: "overview", label: "Overview", icon: Info },
+    { key: "family", label: "Family", icon: Users },
+    { key: "quotes", label: "Quotes", icon: Calculator },
+    { key: "need-analysis", label: "Need Analysis", icon: Brain },
+    { key: "follow-ups", label: "Follow-ups", icon: Calendar },
+    { key: "activity-log", label: "Activity Log", icon: ClipboardList },
+    { key: "notes", label: "Notes", icon: StickyNote },
   ];
 
   const toTitleCase = (s) =>
@@ -489,26 +507,28 @@ export default function AgentLeadDetail() {
                 </div>
               </div>
 
-              <div className="border-b border-slate-200 mb-6">
-                <div className="flex gap-6">
-                  {tabs.map((tab) => (
+              <nav className="flex border-b border-slate-200 gap-8 overflow-x-auto">
+                {tabs.map((tab, i) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.key;
+                  return (
                     <button
                       key={tab.key}
+                      type="button"
                       onClick={() => setActiveTab(tab.key)}
-                      className={`pb-3 text-sm font-semibold transition-colors ${
-                        activeTab === tab.key
-                          ? "text-blue-700 border-b-2 border-blue-700"
-                          : "text-slate-400 hover:text-slate-700"
+                      className={`pb-4 px-1 flex items-center gap-2 whitespace-nowrap text-sm font-semibold transition-colors ${
+                        isActive ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-blue-600'
                       }`}
                     >
+                      <Icon size={18} />
                       {tab.label}
                     </button>
-                  ))}
-                </div>
-              </div>
+                  );
+                })}
+              </nav>
 
               <div className="grid grid-cols-12 gap-6">
-                <div className="col-span-8 space-y-6">
+                <div className="col-span-12 lg:col-span-6 space-y-6">
                   {activeTab === "overview" && (
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
                       <h3 className="text-sm font-bold text-slate-800">
@@ -586,19 +606,11 @@ export default function AgentLeadDetail() {
                     </div>
                   )}
 
-                  {activeTab === "documents" && (
-                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
-                      <FileText
-                        size={32}
-                        className="text-slate-300 mx-auto mb-3"
-                      />
-                      <p className="text-slate-400 text-sm">
-                        Document management coming soon.
-                      </p>
-                    </div>
+                  {activeTab === "quotes" && (
+                    <LeadQuotesTab personId={personUuid} lead={lead} />
                   )}
 
-                  {activeTab === "timeline" && (
+                  {activeTab === "activity-log" && (
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                       <h3 className="text-sm font-bold text-slate-800 mb-4">
                         Activity Log
@@ -638,89 +650,110 @@ export default function AgentLeadDetail() {
                     </div>
                   )}
 
-                  <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-slate-800">
-                        Follow-Up History
-                      </h3>
-                      <span className="text-xs text-slate-400">
-                        {followUps.length} entries
-                      </span>
-                    </div>
-                    {followUps.length === 0 ? (
-                      <div className="p-6 text-center">
-                        <p className="text-sm text-slate-400">
-                          No follow-ups recorded yet.
-                        </p>
+                  {activeTab === "follow-ups" && (
+                    <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                      <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-slate-800">
+                          Follow-Up History
+                        </h3>
+                        <span className="text-xs text-slate-400">
+                          {followUps.length} entries
+                        </span>
                       </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                          <thead>
-                            <tr className="bg-slate-50 text-xs font-bold uppercase text-slate-400 tracking-wider">
-                              <th className="px-6 py-3">Type</th>
-                              <th className="px-6 py-3">Recorded</th>
-                              <th className="px-6 py-3">Status</th>
-                              <th className="px-6 py-3">Note</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {followUps.map((f) => (
-                              <tr
-                                key={f.id}
-                                className="hover:bg-slate-50 transition-colors"
-                              >
-                                <td className="px-6 py-4">
-                                  <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-blue-50 text-blue-700 capitalize">
-                                    {f.type}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <Calendar
-                                      size={14}
-                                      className="text-slate-400"
-                                    />
-                                    {formatDateTime(
-                                      f.createdAt || f.scheduledAt,
-                                    )}
-                                  </div>
-                                  {f.scheduledAt &&
-                                    formatDateTime(
-                                      f.createdAt || f.scheduledAt,
-                                    ) !== formatDateTime(f.scheduledAt) && (
-                                      <p className="text-xs text-blue-500 mt-0.5">
-                                        Scheduled:{" "}
-                                        {formatDateTime(f.scheduledAt)}
-                                      </p>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span
-                                    className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${
-                                      f.status === "completed"
-                                        ? "bg-green-100 text-green-700"
-                                        : f.status === "missed"
+                      {followUps.length === 0 ? (
+                        <div className="p-6 text-center">
+                          <p className="text-sm text-slate-400">
+                            No follow-ups recorded yet.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm">
+                            <thead>
+                              <tr className="bg-slate-50 text-xs font-bold uppercase text-slate-400 tracking-wider">
+                                <th className="px-6 py-3">Type</th>
+                                <th className="px-6 py-3">Recorded</th>
+                                <th className="px-6 py-3">Status</th>
+                                <th className="px-6 py-3">Note</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {followUps.map((f) => (
+                                <tr
+                                  key={f.id}
+                                  className="hover:bg-slate-50 transition-colors"
+                                >
+                                  <td className="px-6 py-4">
+                                    <span className="px-2 py-0.5 text-xs font-bold rounded uppercase bg-blue-50 text-blue-700 capitalize">
+                                      {f.type}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <Calendar
+                                        size={14}
+                                        className="text-slate-400"
+                                      />
+                                      {formatDateTime(
+                                        f.createdAt || f.scheduledAt,
+                                      )}
+                                    </div>
+                                    {f.scheduledAt &&
+                                      formatDateTime(
+                                        f.createdAt || f.scheduledAt,
+                                      ) !== formatDateTime(f.scheduledAt) && (
+                                        <p className="text-xs text-blue-500 mt-0.5">
+                                          Scheduled:{" "}
+                                          {formatDateTime(f.scheduledAt)}
+                                        </p>
+                                      )}
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span
+                                      className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${
+                                        f.status === "completed"
+                                          ? "bg-green-100 text-green-700"
+                                          : f.status === "missed"
                                           ? "bg-red-100 text-red-700"
                                           : "bg-amber-100 text-amber-700"
-                                    }`}
-                                  >
-                                    {f.status}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 text-sm text-slate-600 max-w-[200px] truncate">
-                                  {f.notes || "—"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </section>
+                                      }`}
+                                    >
+                                      {f.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-sm text-slate-600 max-w-[200px] truncate">
+                                    {f.notes || "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+                  )}
+
+                  {activeTab === "notes" && personUuid && (
+                    <LeadNotesTab personId={personUuid} lead={lead} />
+                  )}
+
+                  {activeTab === "notes" && !personUuid && (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
+                      <FileText
+                        size={32}
+                        className="text-blue-400 mx-auto mb-3"
+                      />
+                      <p className="text-slate-700 text-sm font-semibold mb-1">
+                        Notes
+                      </p>
+                      <p className="text-slate-400 text-[12px] mb-4">
+                        Person record not found. Save the lead first to enable notes.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                <aside className="col-span-4 space-y-6">
+                <aside className="col-span-12 lg:col-span-6 space-y-6">
                   <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                     <h3 className="text-sm font-bold text-slate-800 mb-6">
                       Quick Actions
