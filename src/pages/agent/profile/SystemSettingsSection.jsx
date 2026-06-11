@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, Smartphone, History, KeyRound, Lock } from "lucide-react";
+import { Shield, Smartphone, History, KeyRound, Lock, ChevronDown, MapPin } from "lucide-react";
 import { useToast } from "../../../hooks/useToast.js";
 import { changeAgentPassword } from "../../../utils/agents.js";
 import { css } from "./profileStyles.js";
@@ -17,16 +17,41 @@ const passwordRules = [
   { test: (v) => /[^A-Za-z0-9]/.test(v), label: "One special character" },
 ];
 
-function InfoCard({ icon, title, description, children }) {
+function StatusTag({ label }) {
+  return (
+    <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.3, color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 999, padding: "2px 8px" }}>
+      {label}
+    </span>
+  );
+}
+
+function InfoCard({ icon, title, description, children, collapsible = false, defaultOpen = false, count, tag }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const isCollapsible = collapsible && Boolean(children);
+  const showBody = !isCollapsible || open;
   return (
     <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 16, display: "flex", gap: 12, alignItems: "flex-start" }}>
       <div style={{ width: 34, height: 34, borderRadius: 8, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", flexShrink: 0 }}>{icon}</div>
       <div style={{ flex: 1 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0f172a" }}>{title}</div>
+        <div
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, cursor: isCollapsible ? "pointer" : "default", userSelect: "none" }}
+          onClick={isCollapsible ? () => setOpen((o) => !o) : undefined}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0f172a" }}>{title}</div>
+              {typeof count === "number" && count > 0 && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#1d4ed8", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 999, padding: "1px 8px" }}>{count}</span>
+              )}
+              {tag && <StatusTag label={tag} />}
+            </div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{description}</div>
+          </div>
+          {isCollapsible && (
+            <ChevronDown size={18} style={{ color: "#94a3b8", flexShrink: 0, transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
+          )}
         </div>
-        <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{description}</div>
-        {children ? <div style={{ marginTop: 12 }}>{children}</div> : null}
+        {showBody && children ? <div style={{ marginTop: 12 }}>{children}</div> : null}
       </div>
     </div>
   );
@@ -36,6 +61,12 @@ function fmtDate(value) {
   if (!value) return "Still active";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
+}
+
+function fmtLocation(location) {
+  if (!location) return "Location unavailable";
+  if (location.isPrivate) return "Local network";
+  return location.label || "Unknown location";
 }
 
 function EmptyState({ message }) {
@@ -102,33 +133,27 @@ export default function SystemSettingsSection({ ctx, agentId, agentEmail, securi
           </div>
           <Toggle value={notif.email.enabled} disabled={ro} onChange={toggleEmail} />
         </div>
-        {notif.email.enabled && (
-          <div style={{ paddingLeft: 8, marginTop: 4 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", fontSize: 13, cursor: ro ? "default" : "pointer", opacity: ro ? 0.6 : 1 }}>
-              <input type="checkbox" disabled={ro} checked={!!notif.email.transactional} onChange={(e) => setNotif("email", { transactional: e.target.checked })} style={{ accentColor: "#2563eb" }} />
-              Account & transactional emails
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", fontSize: 13, cursor: ro ? "default" : "pointer", opacity: ro ? 0.6 : 1 }}>
-              <input type="checkbox" disabled={ro} checked={!!notif.email.marketing} onChange={(e) => setNotif("email", { marketing: e.target.checked })} style={{ accentColor: "#2563eb" }} />
-              Marketing & product updates
-            </label>
-          </div>
-        )}
 
         <div style={css.toggleRow}>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 600 }}>SMS Notifications</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>SMS Notifications</div>
+              <StatusTag label="Under Implementation" />
+            </div>
             <div style={{ fontSize: 12, color: "#94a3b8" }}>Text alerts to your phone.</div>
           </div>
-          <Toggle value={notif.sms.enabled} disabled={ro} onChange={toggleSms} />
+          <Toggle value={notif.sms.enabled} disabled onChange={toggleSms} />
         </div>
 
         <div style={{ ...css.toggleRow, borderBottom: "none" }}>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: 600 }}>WhatsApp Notifications</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>WhatsApp Notifications</div>
+              <StatusTag label="Under Implementation" />
+            </div>
             <div style={{ fontSize: 12, color: "#94a3b8" }}>Messages via WhatsApp (if available).</div>
           </div>
-          <Toggle value={notif.whatsapp.enabled} disabled={ro} onChange={toggleWhatsapp} />
+          <Toggle value={notif.whatsapp.enabled} disabled onChange={toggleWhatsapp} />
         </div>
 
         <div style={{ marginTop: 16, maxWidth: 280 }}>
@@ -181,8 +206,8 @@ export default function SystemSettingsSection({ ctx, agentId, agentEmail, securi
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <InfoCard icon={<Lock size={16} />} title="Multi-Factor Authentication (MFA)" description="Add an extra layer of security with an authenticator app. Setup will be available soon." />
-          <InfoCard icon={<History size={16} />} title="Login History" description="Recent sign-in sessions for this agent account.">
+          <InfoCard icon={<Lock size={16} />} title="Multi-Factor Authentication (MFA)" tag="Under Implementation" description="Add an extra layer of security with an authenticator app. Setup will be available soon." />
+          <InfoCard icon={<History size={16} />} title="Login History" description="Recent sign-in sessions for this agent account." collapsible count={loginHistory.length}>
             {loginHistory.length === 0 ? (
               <EmptyState message="No login history recorded yet." />
             ) : (
@@ -199,6 +224,9 @@ export default function SystemSettingsSection({ ctx, agentId, agentEmail, securi
                     <div style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>
                       Logout: {fmtDate(entry.logoutAt)}
                     </div>
+                    <div style={{ fontSize: 12, color: "#475569", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
+                      <MapPin size={12} color="#94a3b8" /> {fmtLocation(entry.location)}
+                    </div>
                     <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
                       {entry.operatingSystem || "Unknown OS"} · {entry.browser || "Unknown Browser"} · {entry.deviceType || "Unknown"}
                     </div>
@@ -207,7 +235,7 @@ export default function SystemSettingsSection({ ctx, agentId, agentEmail, securi
               </div>
             )}
           </InfoCard>
-          <InfoCard icon={<Smartphone size={16} />} title="Device History" description="Devices that have accessed this account.">
+          <InfoCard icon={<Smartphone size={16} />} title="Device History" description="Devices that have accessed this account." collapsible count={deviceHistory.length}>
             {deviceHistory.length === 0 ? (
               <EmptyState message="No device history recorded yet." />
             ) : (
@@ -223,6 +251,9 @@ export default function SystemSettingsSection({ ctx, agentId, agentEmail, securi
                     </div>
                     <div style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>
                       First seen: {fmtDate(device.firstSeenAt)}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#475569", marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
+                      <MapPin size={12} color="#94a3b8" /> {fmtLocation(device.location)}
                     </div>
                     <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
                       {device.operatingSystem || "Unknown OS"} · {device.browser || "Unknown Browser"} · {device.deviceType || "Unknown"}

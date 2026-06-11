@@ -401,11 +401,11 @@ export default function LeadDetail() {
     action: f.activityType,
     actionIcon: f.activityType === 'Call' ? Phone : f.activityType === 'Email' ? Mail : f.activityType === 'Meeting' ? Users : StickyNote,
     actionColor: 'text-blue-600',
-    outcome: f.outcomeGoal || 'Pending',
+    outcome: f.outcomeGoal || 'Pending',  
     outcomeStyle: f.outcomeGoal ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800',
     agent: 'Current User',
   })), ...realFollowUps]
-
+ 
   const priorityStyle =
     lead.priority === 'Hot' ? 'bg-red-100 text-red-700 border-red-200' :
       lead.priority === 'Warm' ? 'bg-orange-100 text-orange-700 border-orange-200' :
