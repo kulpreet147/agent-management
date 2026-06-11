@@ -21,7 +21,8 @@ const AGENT_EVENTS = [
   'agent:updated',
   'agent:refresh',
 ]
-const REALTIME_EVENTS = [...ADMIN_EVENTS, ...AGENT_EVENTS]
+const LEAD_EVENTS = ['lead:assigned', 'lead:reassigned', 'lead:updated', 'lead:status_updated', 'lead:refresh']
+const REALTIME_EVENTS = [...ADMIN_EVENTS, ...AGENT_EVENTS, ...LEAD_EVENTS]
 
 let socket
 let channel
@@ -211,6 +212,17 @@ export function handleSocketRealtimeAction({
   session,
 }) {
   if (!session) return
+
+  if (LEAD_EVENTS.includes(eventName)) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('lead:realtime-update', {
+          detail: { eventName, payload, leadId: payload?.leadId || payload?.id, leadUuid: payload?.id },
+        }),
+      )
+    }
+    return
+  }
 
   if (session.role === 'agent' && eventName === 'agent:notification') {
     const nextPatch = {}

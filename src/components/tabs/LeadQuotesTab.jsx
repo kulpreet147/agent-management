@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Calculator, Star, Mail, Trash2, RefreshCw, CheckCircle, X, ExternalLink, Check, XCircle } from 'lucide-react'
+import { Calculator, Mail, Trash2, RefreshCw, Check, XCircle } from 'lucide-react'
 import { getQuotes, selectQuote as selectQuotePerson, emailQuote as emailQuotePerson, deleteQuote as deleteQuotePerson, updateQuoteStatus } from '../../utils/persons.js'
 import { listQuotes, selectQuote as selectQuoteLead, emailQuote as emailQuoteLead, deleteQuote as deleteQuoteLead, updateQuoteStatus as updateQuoteStatusLead } from '../../utils/leads.js'
 

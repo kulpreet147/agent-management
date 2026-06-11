@@ -54,6 +54,12 @@ export default function LeadManagement() {
     setRefreshKey((k) => k + 1);
   }, [location.key]);
 
+  useEffect(() => {
+    const handler = () => setRefreshKey((k) => k + 1)
+    window.addEventListener('lead:realtime-update', handler)
+    return () => window.removeEventListener('lead:realtime-update', handler)
+  }, [])
+
   const toTitleCase = (s) =>
     s ? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
   const initials = (name) =>

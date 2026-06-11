@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Users, Plus, Trash2, RefreshCw, X, User, Calendar, Mail, Phone } from 'lucide-react'
+import { Users, Plus, Trash2, RefreshCw, X, User, Calendar, Mail, Phone, Eye } from 'lucide-react'
 import { getFamilyMembers, addFamilyMember, updateFamilyMember, removeFamilyMember, getOrCreatePersonByLeadId } from '../../utils/persons.js'
+import LeadFamilyMemberDetail from './LeadFamilyMemberDetail.jsx'
 
 export default function LeadFamilyTab({ personId, lead }) {
   const [familyMembers, setFamilyMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
+  const [selectedMember, setSelectedMember] = useState(null)
   const [form, setForm] = useState({ firstName: '', lastName: '', relationship: '', dateOfBirth: '', email: '', phone: '' })
   const [submitting, setSubmitting] = useState(false)
 
@@ -116,6 +118,7 @@ export default function LeadFamilyTab({ personId, lead }) {
                 <th className="px-6 py-3">Relationship</th>
                 <th className="px-6 py-3">Date of Birth</th>
                 <th className="px-6 py-3">Contact</th>
+                <th className="px-6 py-3">Details</th>
                 <th className="px-6 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -145,6 +148,12 @@ export default function LeadFamilyTab({ personId, lead }) {
                       {m.phone && <span className="flex items-center gap-1"><Phone size={11} /> {m.phone}</span>}
                       {!m.email && !m.phone && <span className="text-slate-400">N/A</span>}
                     </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <button onClick={() => setSelectedMember(m)}
+                      className="p-1.5 hover:bg-purple-50 rounded transition-colors" title="View details">
+                      <Eye size={14} className="text-purple-600" />
+                    </button>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -225,6 +234,15 @@ export default function LeadFamilyTab({ personId, lead }) {
             </form>
           </div>
         </div>
+      )}
+
+      {selectedMember && (
+        <LeadFamilyMemberDetail
+          personId={personId}
+          member={selectedMember}
+          lead={lead}
+          onClose={() => setSelectedMember(null)}
+        />
       )}
     </div>
   )

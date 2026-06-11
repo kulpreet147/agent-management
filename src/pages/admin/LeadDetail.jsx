@@ -30,7 +30,6 @@ import {
   Clock,
   Users,
   StickyNote,
-  Activity,
   Shield,
 } from 'lucide-react'
 import { addFollowUp, reassignAgent, addNote, getLead, getFollowUps, getActivityLog, updateLeadStatus, listQuotes } from '../../utils/leads.js'
@@ -41,9 +40,7 @@ import { notify } from '../../utils/notify.js'
 import { confirmDialog } from '../../utils/confirmDialog.js'
 import LeadFamilyTab from '../../components/tabs/LeadFamilyTab.jsx'
 import LeadQuotesTab from '../../components/tabs/LeadQuotesTab.jsx'
-import LeadDocumentsTab from '../../components/tabs/LeadDocumentsTab.jsx'
 import LeadNotesTab from '../../components/tabs/LeadNotesTab.jsx'
-import LeadStatusHistoryTab from '../../components/tabs/LeadStatusHistoryTab.jsx'
 
 const formatTimeAgo = (dateString) => {
   if (!dateString) return 'Unknown'
@@ -169,6 +166,7 @@ export default function LeadDetail() {
   const [leadStatus, setLeadStatus] = useState('new')
   const [personUuid, setPersonUuid] = useState(null)
   const [showQuoteModal, setShowQuoteModal] = useState(false)
+  const [leadRefreshKey, setLeadRefreshKey] = useState(0)
 
   useEffect(() => {
     if (!leadId) {
@@ -215,7 +213,16 @@ export default function LeadDetail() {
       })
       .catch(() => navigate('/admin/leads', { replace: true }))
       .finally(() => setLoading(false))
-  }, [leadId, navigate])
+  }, [leadId, navigate, leadRefreshKey])
+
+  useEffect(() => {
+    const handler = (e) => {
+      const { leadId: updatedLeadId, leadUuid: updatedLeadUuid } = e.detail || {}
+      if (!updatedLeadId || updatedLeadId === leadId || updatedLeadUuid === leadId) setLeadRefreshKey(k => k + 1)
+    }
+    window.addEventListener('lead:realtime-update', handler)
+    return () => window.removeEventListener('lead:realtime-update', handler)
+  }, [leadId])
 
   const [activeTab, setActiveTab] = useState(0)
   const [showReassign, setShowReassign] = useState(false)
@@ -365,9 +372,7 @@ export default function LeadDetail() {
     { label: 'Need Analysis', icon: Brain, to: 'need-analysis' },
     { label: 'Follow-ups', icon: Calendar, to: null },
     { label: 'Activity Log', icon: ClipboardList, to: null },
-    { label: 'Documents', icon: FileText, to: null },
     { label: 'Notes', icon: StickyNote, to: null },
-    { label: 'Status History', icon: Activity, to: null },
   ]
 
   const formatActivityDate = (d) => {
@@ -852,25 +857,9 @@ export default function LeadDetail() {
         </div>
       )}
 
-      {/* ==================== TAB: DOCUMENTS ==================== */}
-      {activeTab === 6 && personUuid && <LeadDocumentsTab personId={personUuid} lead={lead} />}
-      {activeTab === 6 && !personUuid && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-          <p className="text-sm text-amber-700 font-semibold">Person data not available. Please refresh the page.</p>
-        </div>
-      )}
-
       {/* ==================== TAB: NOTES ==================== */}
-      {activeTab === 7 && personUuid && <LeadNotesTab personId={personUuid} lead={lead} />}
-      {activeTab === 7 && !personUuid && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-          <p className="text-sm text-amber-700 font-semibold">Person data not available. Please refresh the page.</p>
-        </div>
-      )}
-
-      {/* ==================== TAB: STATUS HISTORY ==================== */}
-      {activeTab === 8 && personUuid && <LeadStatusHistoryTab personId={personUuid} lead={lead} />}
-      {activeTab === 8 && !personUuid && (
+      {activeTab === 6 && personUuid && <LeadNotesTab personId={personUuid} lead={lead} />}
+      {activeTab === 6 && !personUuid && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
           <p className="text-sm text-amber-700 font-semibold">Person data not available. Please refresh the page.</p>
         </div>
@@ -1243,6 +1232,7 @@ export default function LeadDetail() {
       {showQuoteModal && lead && (
         <QuoteModal
           lead={{ ...lead, id: lead.id || leadId }}
+          personId={personUuid}
           onClose={() => setShowQuoteModal(false)}
           onQuoteSaved={handleQuoteSaved}
         />

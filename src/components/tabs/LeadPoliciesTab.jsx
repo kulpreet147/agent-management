@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Shield, Plus, Trash2, RefreshCw, X, Calendar, DollarSign } from 'lucide-react'
-import { getPolicies, addPolicy, removePolicy } from '../../utils/persons.js'
+import { Shield, Plus, Trash2, RefreshCw, X, Calendar, DollarSign, User } from 'lucide-react'
+import { getPolicies, addPolicy, removePolicy, getFamilyMembers } from '../../utils/persons.js'
 
 export default function LeadPoliciesTab({ personId, lead }) {
   const [policies, setPolicies] = useState([])
+  const [familyMembers, setFamilyMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ policyNumber: '', policyType: '', carrier: '', product: '', effectiveDate: '', renewalDate: '', expiryDate: '', premium: '', coverageAmount: '', status: 'active' })
+  const [form, setForm] = useState({ policyNumber: '', policyType: '', carrier: '', product: '', effectiveDate: '', renewalDate: '', expiryDate: '', premium: '', coverageAmount: '', status: 'active', familyMemberId: '' })
 
   const loadPolicies = () => {
     if (!personId) return
@@ -17,15 +18,25 @@ export default function LeadPoliciesTab({ personId, lead }) {
       .finally(() => setLoading(false))
   }
 
+  useEffect(() => { if (personId) getFamilyMembers(personId).then(d => setFamilyMembers(Array.isArray(d) ? d : [])).catch(() => {}) }, [personId])
+
   useEffect(() => { loadPolicies() }, [personId])
+
+  const getMemberName = (memberId) => {
+    if (!memberId) return null
+    const m = familyMembers.find(f => f.id === memberId)
+    return m ? `${m.firstName} ${m.lastName}` : null
+  }
 
   const handleAdd = async (e) => {
     e.preventDefault()
     if (!form.policyNumber || !form.policyType) { alert('Policy number and type are required'); return }
+    const payload = { ...form }
+    if (!payload.familyMemberId) delete payload.familyMemberId
     try {
-      await addPolicy(personId, form)
+      await addPolicy(personId, payload)
       setShowModal(false)
-      setForm({ policyNumber: '', policyType: '', carrier: '', product: '', effectiveDate: '', renewalDate: '', expiryDate: '', premium: '', coverageAmount: '', status: 'active' })
+      setForm({ policyNumber: '', policyType: '', carrier: '', product: '', effectiveDate: '', renewalDate: '', expiryDate: '', premium: '', coverageAmount: '', status: 'active', familyMemberId: '' })
       loadPolicies()
     } catch (err) { alert(err.message || 'Failed to add policy') }
   }
@@ -69,6 +80,7 @@ export default function LeadPoliciesTab({ personId, lead }) {
             <thead>
               <tr className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
                 <th className="px-6 py-3">Policy #</th>
+                <th className="px-6 py-3">For</th>
                 <th className="px-6 py-3">Type / Carrier</th>
                 <th className="px-6 py-3">Product</th>
                 <th className="px-6 py-3">Effective</th>
@@ -81,6 +93,12 @@ export default function LeadPoliciesTab({ personId, lead }) {
               {policies.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 text-sm font-semibold text-slate-800">{p.policyNumber}</td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full ${p.familyMemberId ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                      <User size={10} />
+                      {getMemberName(p.familyMemberId) || 'Self'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4">
                     <span className="text-sm text-slate-800">{p.policyType}</span>
                     {p.carrier && <span className="text-xs text-slate-500 block">{p.carrier}</span>}
@@ -135,6 +153,16 @@ export default function LeadPoliciesTab({ personId, lead }) {
                     <option value="Investment">Investment</option>
                   </select>
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase">For</label>
+                <select value={form.familyMemberId} onChange={e => setForm({ ...form, familyMemberId: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white">
+                  <option value="">Self (Lead)</option>
+                  {familyMembers.map(m => (
+                    <option key={m.id} value={m.id}>{m.firstName} {m.lastName} ({m.relationship})</option>
+                  ))}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">

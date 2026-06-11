@@ -62,6 +62,7 @@ export default function AgentLeadManagement() {
   const [todayFollowUps, setTodayFollowUps] = useState([]);
   const [tomorrowFollowUps, setTomorrowFollowUps] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchFollowUps = () => {
     if (!agentId) return;
@@ -90,7 +91,13 @@ export default function AgentLeadManagement() {
         setTomorrowFollowUps(Array.isArray(tomorrowData) ? tomorrowData : []);
       })
       .finally(() => setLoading(false));
-  }, [agentId]);
+  }, [agentId, refreshKey]);
+
+  useEffect(() => {
+    const handler = () => setRefreshKey(k => k + 1)
+    window.addEventListener('lead:realtime-update', handler)
+    return () => window.removeEventListener('lead:realtime-update', handler)
+  }, [])
 
   const completeTask = async (task) => {
     try {

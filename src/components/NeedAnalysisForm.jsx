@@ -30,7 +30,7 @@ import { getPersonByPersonId, getFamilyMembers, addFamilyMember, updateFamilyMem
 
 const emptyAsset = { description: '', value: 0 }
 const emptyPolicy = { provider: '', type: '', coverageAmount: 0, premium: 0 }
-const emptyRecommendedProduct = { product: '', coverageAmount: null, proposedPremium: null }
+const emptyRecommendedProduct = { product: '', coverageAmount: null, proposedPremium: null, familyMemberId: null }
 
 function num(val) {
   const n = Number(String(val).replace(/[^0-9.\-]/g, ''))
@@ -867,6 +867,7 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
               <thead>
                 <tr className="border-b border-slate-200 text-left">
                   <th className="py-2 text-[11px] font-bold text-slate-500 uppercase">Product</th>
+                  <th className="py-2 text-[11px] font-bold text-slate-500 uppercase">For</th>
                   <th className="py-2 text-[11px] font-bold text-slate-500 uppercase text-right">Coverage Amount</th>
                   <th className="py-2 text-[11px] font-bold text-slate-500 uppercase text-right">Proposed Premium</th>
                   <th className="w-10"></th>
@@ -890,6 +891,18 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
                         <option value="Health Insurance">Health Insurance</option>
                         <option value="Travel Insurance">Travel Insurance</option>
                         <option value="Annuities">Annuities</option>
+                      </select>
+                    </td>
+                    <td className="py-2">
+                      <select
+                        value={r.familyMemberId || ''}
+                        onChange={(e) => updateRecommendedProduct(i, 'familyMemberId', e.target.value || null)}
+                        className="w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                      >
+                        <option value="">Primary (Lead)</option>
+                        {familyMembers.map((m) => (
+                          <option key={m.id} value={m.id}>{m.firstName} {m.lastName} ({m.relationship})</option>
+                        ))}
                       </select>
                     </td>
                     <td className="py-2">
