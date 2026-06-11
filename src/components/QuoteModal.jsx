@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { RefreshCw, X, TrendingUp, Send, CheckCircle, Calculator, Globe } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { RefreshCw, X, TrendingUp, Send, CheckCircle, Calculator, Globe, User } from 'lucide-react'
 import {
   runQuote,
   selectQuote as apiSelectQuote,
@@ -8,6 +8,7 @@ import {
   selectWinquoteQuote as apiSelectWinquoteQuote,
   emailWinquoteQuote as apiEmailWinquoteQuote,
 } from '../utils/leads.js'
+import { getFamilyMembers } from '../utils/persons.js'
 
 const PROVINCES = [
   { code: 'AB', name: 'Alberta' },
@@ -36,7 +37,7 @@ const PRODUCTS = [
   { code: 'DI', name: 'Disability' },
 ]
 
-export default function QuoteModal({ lead, onClose, onQuoteSaved }) {
+export default function QuoteModal({ lead, personId, onClose, onQuoteSaved }) {
   const [provider, setProvider] = useState('primai')
   const [quoteLoading, setQuoteLoading] = useState(false)
   const [quoteResults, setQuoteResults] = useState([])
@@ -44,6 +45,12 @@ export default function QuoteModal({ lead, onClose, onQuoteSaved }) {
   const [selectedQuote, setSelectedQuote] = useState(null)
   const [quoteSaving, setQuoteSaving] = useState(false)
   const [quoteConfirm, setQuoteConfirm] = useState(null)
+  const [familyMembers, setFamilyMembers] = useState([])
+  const [selectedFamilyMemberId, setSelectedFamilyMemberId] = useState('')
+
+  useEffect(() => {
+    if (personId) getFamilyMembers(personId).then(d => setFamilyMembers(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [personId])
 
   // WinQuote form state
   const [wqProvince, setWqProvince] = useState('ON')
@@ -301,6 +308,23 @@ export default function QuoteModal({ lead, onClose, onQuoteSaved }) {
                   ? 'We\'ll query Canadian life insurance carriers based on the profile below.'
                   : 'We\'ll query the PrimAI BAG API (Swiss health insurance) based on this lead\'s age and location.'}
               </p>
+
+              {/* Family Member Selector */}
+              {familyMembers.length > 0 && (
+                <div className="w-full max-w-sm mb-4">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Quote For</label>
+                  <select
+                    value={selectedFamilyMemberId}
+                    onChange={(e) => setSelectedFamilyMemberId(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                  >
+                    <option value="">Self (Lead)</option>
+                    {familyMembers.map(m => (
+                      <option key={m.id} value={m.id}>{m.firstName} {m.lastName} ({m.relationship})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {provider === 'winquote' && (
                 <div className="w-full max-w-sm mb-5 space-y-3">

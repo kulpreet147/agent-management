@@ -1237,6 +1237,7 @@ export default function LeadDetail() {
       {showQuoteModal && lead && (
         <QuoteModal
           lead={{ ...lead, id: lead.id || leadId }}
+          personId={personUuid}
           onClose={() => setShowQuoteModal(false)}
           onQuoteSaved={handleQuoteSaved}
         />

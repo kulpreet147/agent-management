@@ -32,6 +32,10 @@ export async function getOrCreatePersonByLeadId(leadData) {
       maritalStatus: leadData.maritalStatus || '',
       address: leadData.address || '',
     })
+    const newId = newPerson?.id || newPerson?._id
+    if (newId) {
+      await updatePerson(newId, { personId: leadIdentifier }).catch(() => {})
+    }
     const personId = newPerson?.id || newPerson?.personId || newPerson?._id
     return { id: personId, ...newPerson }
   }
@@ -133,8 +137,9 @@ export function removeFamilyMember(personId, memberId) {
 
 // ============ POLICIES ============
 
-export function getPolicies(personId) {
-  return apiRequest(`/persons/${personId}/policies`)
+export function getPolicies(personId, familyMemberId) {
+  const qs = familyMemberId ? `?familyMemberId=${familyMemberId}` : ''
+  return apiRequest(`/persons/${personId}/policies${qs}`)
 }
 
 export function addPolicy(personId, data) {
