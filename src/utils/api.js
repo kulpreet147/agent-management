@@ -1,13 +1,23 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3000/api'
 
 export async function apiRequest(path, options = {}) {
-  const { skipAuth = false, ...requestOptions } = options
-  const headers = buildHeaders(requestOptions.headers, skipAuth)
+  const { skipAuth = false, body, ...rest } = options
+  const headers = buildHeaders(rest.headers || {}, skipAuth)
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...requestOptions,
-    headers
-  })
+  const fetchOptions = { ...rest, headers }
+
+  if (body !== undefined && body !== null) {
+    if (typeof body === 'object' && !(body instanceof FormData) && !(body instanceof Blob) && !(body instanceof URLSearchParams)) {
+      fetchOptions.body = JSON.stringify(body)
+      if (!headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json')
+      }
+    } else {
+      fetchOptions.body = body
+    }
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, fetchOptions)
 
   const data = await response.json().catch(() => ({}))
 

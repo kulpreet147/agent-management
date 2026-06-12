@@ -238,6 +238,7 @@ export default function LeadFamilyTab({ personId, lead }) {
 
       {selectedMember && (
         <LeadFamilyMemberDetail
+          key={selectedMember.id}
           personId={personId}
           member={selectedMember}
           lead={lead}

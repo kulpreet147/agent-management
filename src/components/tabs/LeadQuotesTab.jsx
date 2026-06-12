@@ -132,6 +132,7 @@ export default function LeadQuotesTab({ personId, lead }) {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+                <th className="px-6 py-3">For</th>
                 <th className="px-6 py-3">Carrier</th>
                 <th className="px-6 py-3">Product</th>
                 <th className="px-6 py-3">Premium</th>
@@ -146,6 +147,15 @@ export default function LeadQuotesTab({ personId, lead }) {
                 const badge = getStatusBadge(q)
                 return (
                   <tr key={q.id} className={`hover:bg-slate-50 transition-colors ${q.status === 'accepted' ? 'bg-green-50/50' : q.status === 'rejected' ? 'bg-red-50/30' : ''}`}>
+                    <td className="px-6 py-4 text-xs font-semibold">
+                      {q.familyMember ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[10px] font-bold">
+                          {q.familyMember.firstName} {q.familyMember.lastName}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">Self</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm font-semibold text-slate-800">{q.carrier || 'N/A'}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{q.productType || q.product || q.model || 'N/A'}</td>
                     <td className="px-6 py-4 text-sm font-semibold text-slate-800">
