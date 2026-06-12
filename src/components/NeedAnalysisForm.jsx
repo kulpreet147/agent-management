@@ -381,26 +381,13 @@ export default function NeedAnalysisForm({ role = 'admin' }) {
       key: 'insurance',
       label: 'Existing Insurance',
       weight: 1,
-      filled: Boolean(
-        form.lifeInsurance || form.criticalIllness || form.disability ||
-        form.groupInsurance || (form.existingPolicies || []).some((p) => p.provider || p.type) ||
-        hasBeenSaved
-      ),
+      filled: true,
     },
     {
       key: 'family',
       label: 'Family Details',
       weight: 1,
-      filled: isMarried
-        ? Boolean(
-            familyMembers.length > 0 ||
-            form.spouseOccupation || form.spouseIncome ||
-            hasBeenSaved
-          )
-        : Boolean(
-            familyMembers.length > 0 ||
-            hasBeenSaved
-          ),
+      filled: true,
     },
     {
       key: 'coverage',
