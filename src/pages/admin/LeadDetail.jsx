@@ -33,7 +33,7 @@ import {
   Shield,
 } from 'lucide-react'
 import { addFollowUp, reassignAgent, addNote, getLead, getFollowUps, getActivityLog, updateLeadStatus, listQuotes } from '../../utils/leads.js'
-import { getAgents } from '../../utils/agents.js'
+import { formatAgentLifecycleStatus, getAgents, isAgentAssignable } from '../../utils/agents.js'
 import { getPersonByPersonId, getQuotes, getOrCreatePersonByLeadId } from '../../utils/persons.js'
 import QuoteModal from '../../components/QuoteModal.jsx'
 import { notify } from '../../utils/notify.js'
@@ -241,8 +241,7 @@ export default function LeadDetail() {
       getAgents()
         .then((data) => {
           const list = Array.isArray(data) ? data : (data?.agents || [])
-          const active = list.filter(a => a.status === 'active' && a.accountActivationStatus === 1)
-          setAgentsList(active)
+          setAgentsList(list)
         })
         .catch(() => setAgentsList([]))
     }
@@ -407,11 +406,11 @@ export default function LeadDetail() {
     action: f.activityType,
     actionIcon: f.activityType === 'Call' ? Phone : f.activityType === 'Email' ? Mail : f.activityType === 'Meeting' ? Users : StickyNote,
     actionColor: 'text-blue-600',
-    outcome: f.outcomeGoal || 'Pending',
+    outcome: f.outcomeGoal || 'Pending',  
     outcomeStyle: f.outcomeGoal ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800',
     agent: 'Current User',
   })), ...realFollowUps]
-
+ 
   const priorityStyle =
     lead.priority === 'Hot' ? 'bg-red-100 text-red-700 border-red-200' :
       lead.priority === 'Warm' ? 'bg-orange-100 text-orange-700 border-orange-200' :
@@ -1096,11 +1095,16 @@ export default function LeadDetail() {
                       className="w-full bg-white border border-slate-200 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none appearance-none"
                     >
                       <option value="" disabled>Choose an agent...</option>
-                      {agentsList.map((agent) => (
-                        <option key={agent.id} value={agent.agentId || agent.id}>
-                          {agent.name || agent.firstName + ' ' + agent.lastName}
-                        </option>
-                      ))}
+                      {agentsList.map((agent) => {
+                        const label = agent.name || agent.firstName + ' ' + agent.lastName
+                        const assignable = isAgentAssignable(agent)
+                        const statusLabel = formatAgentLifecycleStatus(agent)
+                        return (
+                          <option key={agent.id} value={agent.agentId || agent.id} disabled={!assignable}>
+                            {assignable ? label : `${label} (${statusLabel} - not assignable)`}
+                          </option>
+                        )
+                      })}
                     </select>
                     <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>

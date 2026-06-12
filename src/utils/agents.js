@@ -4,6 +4,8 @@ export function createAgent({ form, docs, mode }) {
   const payload = new FormData()
   const allowedFields = [
     'name',
+    'firstName',
+    'lastName',
     'email',
     'phone',
     'agentId',
@@ -27,13 +29,16 @@ export function createAgent({ form, docs, mode }) {
     'notes',
     'commissionOverride',
     'segFundsOverride',
-    'insuranceCompany'
+    'insuranceCompany',
+    'profile'
   ]
 
   allowedFields.forEach((key) => {
     const value =
       (key === 'commissionOverride' || key === 'segFundsOverride') && !form[key]
         ? '0'
+        : key === 'profile' && form[key] && typeof form[key] !== 'string'
+          ? JSON.stringify(form[key])
         : form[key]
     payload.append(key, value ?? '')
   })
@@ -55,6 +60,23 @@ export function getAgents() {
 
 export function getAgent(id) {
   return apiRequest(`/agents/${id}`)
+}
+
+export function getAgentLifecycleStatus(agent) {
+  const saved = String(agent?.lifecycleStatus || '').trim().toLowerCase()
+  if (saved) return saved
+  if (Number(agent?.accountActivationStatus) === 1) return 'active'
+  if (String(agent?.status || '').trim().toLowerCase() === 'invited') return 'prospect'
+  return 'onboarding'
+}
+
+export function isAgentAssignable(agent) {
+  return getAgentLifecycleStatus(agent) === 'active'
+}
+
+export function formatAgentLifecycleStatus(agent) {
+  const status = getAgentLifecycleStatus(agent)
+  return status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 export function getAgentInvite(token) {
@@ -155,6 +177,10 @@ export function getAgentProfile(agentId) {
   return apiRequest(`/agents/${agentId}/profile`).catch(() => apiRequest(`/agents/${agentId}`))
 }
 
+export function getAgentSecurityHistory(agentId) {
+  return apiRequest(`/agents/${agentId}/security-history`)
+}
+
 export function triggerAgentAgreements(agentId, payload = {}) {
   return apiRequest(`/agents/${agentId}/trigger-agreements`, {
     method: 'POST',
@@ -230,6 +256,16 @@ export function updateAgentTaxDocuments(agentId, taxDocuments) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ taxDocuments })
+  })
+}
+
+export function updateAgentLifecycleStatus(agentId, payload) {
+  return apiRequest(`/agents/${agentId}/lifecycle-status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
   })
 }
 

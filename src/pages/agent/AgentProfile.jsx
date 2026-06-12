@@ -3,7 +3,7 @@ import { useToast } from "../../hooks/useToast.js";
 import { auth } from "../../utils/auth.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
 import CommonHeader from "../../components/CommonHeader.jsx";
-import { getAgent, getAgentProfile, updateAgentProfile } from "../../utils/agents.js";
+import { getAgent, getAgentProfile, getAgentSecurityHistory, updateAgentProfile } from "../../utils/agents.js";
 import { confirmDialog } from "../../utils/confirmDialog.js";
 import { css } from "./profile/profileStyles.js";
 import { formatUsCaPhone } from "./profile/profileValidation.js";
@@ -132,6 +132,7 @@ export default function AgentProfile() {
   const [agentData, setAgentData] = useState(null);
   const [company, setCompany] = useState(null);
   const [tierInfo, setTierInfo] = useState({ subscriptionTier: "Silver", tierRequest: null, availableTiers: [] });
+  const [securityHistory, setSecurityHistory] = useState({ loginHistory: [], deviceHistory: [] });
 
   const [profile, setProfile] = useState(() => hydrateProfile(null, null)); // saved snapshot
   const [draft, setDraft] = useState(() => hydrateProfile(null, null)); // working copy
@@ -154,8 +155,12 @@ export default function AgentProfile() {
 
   const loadProfile = (showError = true) => {
     if (!session?.id) return Promise.resolve();
-    return Promise.all([getAgent(session.id), getAgentProfile(session.id)])
-      .then(([agent, data]) => {
+    return Promise.all([
+      getAgent(session.id),
+      getAgentProfile(session.id),
+      getAgentSecurityHistory(session.id).catch(() => ({ loginHistory: [], deviceHistory: [] })),
+    ])
+      .then(([agent, data, security]) => {
         setAgentData(agent || null);
         if (data?.company) setCompany(data.company);
         setTierInfo({
@@ -170,6 +175,10 @@ export default function AgentProfile() {
         const resolved = avatarUrl ? resolveMediaUrl(`${avatarUrl}?t=${Date.now()}`) : "";
         savedAvatarPreview.current = resolved;
         setAvatarPreview(resolved);
+        setSecurityHistory({
+          loginHistory: Array.isArray(security?.loginHistory) ? security.loginHistory : [],
+          deviceHistory: Array.isArray(security?.deviceHistory) ? security.deviceHistory : [],
+        });
       })
       .catch((err) => {
         if (showError) toast.error(err.message || "Unable to load profile.");
@@ -330,7 +339,12 @@ export default function AgentProfile() {
                 <OnlineProfileSection ctx={sectionCtx("Online Profile")} />
               )}
               {activeTab === "System Settings" && (
-                <SystemSettingsSection ctx={sectionCtx("System Settings")} agentId={session?.id} agentEmail={agentEmail} />
+                <SystemSettingsSection
+                  ctx={sectionCtx("System Settings")}
+                  agentId={session?.id}
+                  agentEmail={agentEmail}
+                  securityHistory={securityHistory}
+                />
               )}
             </div>
           </div>

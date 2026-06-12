@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import {
@@ -20,11 +20,12 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
-  const [loginAsAgent, setLoginAsAgent] = useState(false)
   const [recoverySent, setRecoverySent] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const [validationError, setValidationError] = useState('')
   const [logoutNotice, setLogoutNotice] = useState(null)
+  const [loginRole, setLoginRole] = useState(null)
+  const redirectTimer = useRef(null)
   const { loginLoading, recoveryLoading, recoveryMessage, loginError, recoveryError } = useSelector((state) => state.auth)
   const loading = loginLoading
   const sendingRecovery = recoveryLoading
@@ -44,7 +45,7 @@ export default function Login() {
     dispatch(ClearAuthMessage())
     setValidationError('')
     setRecoverySent(false)
-  }, [dispatch, loginAsAgent])
+  }, [dispatch])
 
   useEffect(() => {
     const notice = auth.consumeLogoutNotice()
@@ -52,6 +53,23 @@ export default function Login() {
       setLogoutNotice(notice)
     }
   }, [])
+
+  useEffect(() => () => {
+    if (redirectTimer.current) window.clearTimeout(redirectTimer.current)
+  }, [])
+
+  const redirectForSession = (session) => {
+    if (session.role === 'agent') {
+      const status = Number(session.onboardingStatus || 2)
+      if (status >= 5) navigate('/agent/dashboard')
+      else if (status >= 4) navigate('/agent/onboarding-progress')
+      else if (status >= 3) navigate('/agent/sign-documents')
+      else navigate('/agent/registration')
+      return
+    }
+
+    navigate(session.role === 'master_admin' ? '/master' : '/admin')
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -65,28 +83,16 @@ export default function Login() {
     }
 
     try {
-      const session = await dispatch(
-        LoginAsync({
-          email,
-          password,
-          loginAs: loginAsAgent ? 'agent' : 'admin',
-        }),
-      )
+      const session = await dispatch(LoginAsync({ email, password }))
 
       if (!session?.role) {
         return
       }
 
-      if (session.role === 'agent') {
-        const status = Number(session.onboardingStatus || 2)
-        if (status >= 5) navigate('/agent/dashboard')
-        else if (status >= 4) navigate('/agent/onboarding-progress')
-        else if (status >= 3) navigate('/agent/sign-documents')
-        else navigate('/agent/registration')
-        return
-      }
-
-      navigate(session.role === 'master_admin' ? '/master' : '/admin')
+      // The system resolves the role from the credentials — confirm it to the
+      // user, then route to the matching portal after a short beat.
+      setLoginRole(session.role)
+      redirectTimer.current = window.setTimeout(() => redirectForSession(session), 1500)
     } catch {
       return
     }
@@ -107,17 +113,12 @@ export default function Login() {
     }
 
     try {
-      const response = await dispatch(
-        PasswordRecoveryAsync({
-          email,
-          loginAs: loginAsAgent ? 'agent' : 'admin',
-        }),
-      )
+      const response = await dispatch(PasswordRecoveryAsync({ email }))
       if (response?.message || recoveryMessage) {
         setRecoverySent(true)
         setResendCooldown(60)
       }
-    } catch {}
+    } catch { }
   }
 
   return (
@@ -143,38 +144,15 @@ export default function Login() {
             </p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <button
-                type="button"
-                onClick={() => setLoginAsAgent((value) => !value)}
-                className={`flex w-full items-center justify-between rounded-xl border p-1 text-sm font-semibold transition ${
-                  loginAsAgent ? 'border-brand-200 bg-brand-50' : 'border-slate-200 bg-slate-50'
-                }`}
-              >
-                <span
-                  className={`flex-1 rounded-lg py-2 text-center ${
-                    !loginAsAgent ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  Admin
-                </span>
-                <span
-                  className={`flex-1 rounded-lg py-2 text-center ${
-                    loginAsAgent ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  Login as Agent
-                </span>
-              </button>
-
               <div>
                 <label className="text-[11px] font-semibold tracking-wide text-slate-600">
-                  {loginAsAgent ? 'AGENT EMAIL' : 'WORK EMAIL'}
+                  EMAIL
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={loginAsAgent ? 'agent@email.com' : 'name@agentflow.io'}
+                  placeholder="name@company.com"
                   className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm placeholder:text-slate-400 focus:bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition"
                 />
               </div>
@@ -212,10 +190,10 @@ export default function Login() {
                     {sendingRecovery
                       ? 'Sending recovery link...'
                       : resendCooldown > 0
-                      ? `Resend in ${resendCooldown}s`
-                      : recoverySent
-                      ? 'Resend recovery link'
-                      : 'Account Recovery'}
+                        ? `Resend in ${resendCooldown}s`
+                        : recoverySent
+                          ? 'Resend recovery link'
+                          : 'Account Recovery'}
                   </button>
                   {sendingRecovery ? (
                     <span className="text-slate-500">Sending link...</span>
@@ -233,18 +211,24 @@ export default function Login() {
                 )}
               </div>
 
-              {error && (
+              {error && !loginRole && (
                 <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                   {error}
                 </div>
               )}
 
+              {loginRole && (
+                <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                  You're logged in as <span className="font-semibold">{roleLabel(loginRole)}</span> — taking you to your dashboard…
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || Boolean(loginRole)}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 hover:bg-brand-700 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-brand-300 text-white font-semibold py-3 transition shadow-sm shadow-brand-600/20"
               >
-                {loading ? 'Signing in...' : 'Continue to Dashboard'}
+                {loginRole ? 'Redirecting…' : loading ? 'Signing in...' : 'Continue to Dashboard'}
                 <ArrowRight size={18} />
               </button>
             </form>
@@ -306,11 +290,26 @@ export default function Login() {
           </div>
 
           <div className="text-[11px] text-white/50 tracking-wide">
-            (c) 2024 Insurely TECHNOLOGIES INC. - ALL RIGHTS RESERVED.
+            © {new Date().getFullYear()} Insurely TECHNOLOGIES INC. - ALL RIGHTS RESERVED.
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+// Maps a role identifier to a human label. Known roles get a curated label;
+// any future role (e.g. 'office_admin', 'manager') is title-cased from its
+// snake_case key so new roles display correctly without a login change.
+function roleLabel(role) {
+  const labels = { master_admin: 'Master Admin', admin: 'Admin', agent: 'Agent' }
+  if (labels[role]) return labels[role]
+  return (
+    String(role || '')
+      .split('_')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ') || 'User'
   )
 }
 

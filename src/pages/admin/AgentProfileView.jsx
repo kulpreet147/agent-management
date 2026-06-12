@@ -8,11 +8,12 @@ import {
   Users, Star, Zap, BarChart2, Calendar, Flag, Paperclip,
   ChevronRight, RefreshCw, Lock, Globe, Linkedin, Instagram,
   Youtube, Twitter, Plus, X, Building2, CreditCard, Hash,
+  Crown, Gem, Medal,
 } from 'lucide-react'
 import { useToast } from '../../hooks/useToast.js'
 import { auth } from '../../utils/auth.js'
 import { confirmDialog } from '../../utils/confirmDialog.js'
-import { getAgent, getAgentProfile, updateAgentProfile, decideAgentTierRequest, getAgentPerformance, updateAgentLicensing, updateAgentTaxDocuments } from '../../utils/agents.js'
+import { getAgent, getAgentProfile, updateAgentProfile, decideAgentTierRequest, getAgentPerformance, updateAgentLicensing, updateAgentTaxDocuments, updateAgentLifecycleStatus } from '../../utils/agents.js'
 import { getAccountActivities, updateAccountActivity } from '../../utils/activities.js'
 
 // ─── Mock dynamic data ────────────────────────────────────────────────────────
@@ -28,6 +29,12 @@ function normalizeDesignations(value) {
   return value
     .map(item => (typeof item === 'string' ? { name: item, full: item, date: '', status: '' } : item))
     .filter(item => item?.name || item?.full)
+}
+
+function toTitleCase(value) {
+  return String(value || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 function formatDateValue(value) {
@@ -124,7 +131,7 @@ function buildMockData(agent) {
     initials,
     avatarUrl: resolveMediaUrl(readAvatarPathFromAgent(agent)),
     tier: subscriptionTier,
-    status: agent?.accountActivationStatus === 1 ? 'Active' : agent?.status || 'Invited',
+    status: agent?.lifecycleStatus ? toTitleCase(agent.lifecycleStatus) : agent?.accountActivationStatus === 1 ? 'Active' : agent?.status || 'Invited',
     title: agent?.agentLevel || 'Agent',
     licenceNo: agent?.agentId || 'LIC-99021-X',
     licenceStatus: 'Valid',
@@ -276,7 +283,7 @@ function buildMockData(agent) {
       notifications: settingsBlock.notifications || {},
       timezone: settingsBlock.timezone || '',
       username: agent?.email || '',
-      status: agent?.accountActivationStatus === 1 ? 'Active' : agent?.status || 'Invited',
+      status: agent?.lifecycleStatus ? toTitleCase(agent.lifecycleStatus) : agent?.accountActivationStatus === 1 ? 'Active' : agent?.status || 'Invited',
       createdAt: agent?.createdAt ? new Date(agent.createdAt).toLocaleDateString() : 'N/A',
     },
   }
@@ -480,6 +487,49 @@ function Badge({ label, color = 'slate' }) {
   )
 }
 
+// Status-aware pill (coloured dot + tone) used for the agent lifecycle status.
+function statusTone(status) {
+  const s = String(status || '').toLowerCase()
+  const tones = {
+    active: { dot: 'bg-emerald-500', classes: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    inactive: { dot: 'bg-slate-400', classes: 'bg-slate-100 text-slate-600 border-slate-200' },
+    suspended: { dot: 'bg-amber-500', classes: 'bg-amber-50 text-amber-700 border-amber-200' },
+    terminated: { dot: 'bg-rose-500', classes: 'bg-rose-50 text-rose-600 border-rose-200' },
+    prospect: { dot: 'bg-violet-500', classes: 'bg-violet-50 text-violet-700 border-violet-200' },
+    onboarding: { dot: 'bg-blue-500', classes: 'bg-blue-50 text-blue-700 border-blue-200' },
+    invited: { dot: 'bg-slate-400', classes: 'bg-slate-100 text-slate-600 border-slate-200' },
+  }
+  return tones[s] || tones.inactive
+}
+
+function StatusBadge({ status }) {
+  const tone = statusTone(status)
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${tone.classes}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+      {status}
+    </span>
+  )
+}
+
+// Premium subscription-tier chip (icon + metallic tone, no emoji).
+const TIER_META = {
+  Silver: { icon: Medal, classes: 'border-slate-300 bg-gradient-to-r from-slate-50 to-slate-200 text-slate-700' },
+  Gold: { icon: Crown, classes: 'border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-100 text-amber-700' },
+  Platinum: { icon: Gem, classes: 'border-violet-300 bg-gradient-to-r from-violet-50 to-indigo-100 text-violet-700' },
+}
+
+function TierBadge({ tier }) {
+  const meta = TIER_META[tier] || TIER_META.Silver
+  const Icon = meta.icon
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide shadow-sm ${meta.classes}`}>
+      <Icon size={12} />
+      {tier}
+    </span>
+  )
+}
+
 function StatCard({ stat }) {
   const Icon = stat.icon
   const colorMap = {
@@ -522,21 +572,30 @@ function StatCard({ stat }) {
 
 function InfoRow({ icon: Icon, label, value, warning }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 border border-slate-100">
-      <Icon size={14} className={warning ? 'text-orange-400' : 'text-blue-500'} />
+    <div className="flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white px-3.5 py-3 shadow-sm transition hover:border-slate-300 hover:shadow">
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${warning ? 'bg-orange-50' : 'bg-blue-50'}`}>
+        <Icon size={15} className={warning ? 'text-orange-500' : 'text-blue-500'} />
+      </div>
       <div className="min-w-0 flex-1">
         <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</div>
-        <div className={`text-sm font-semibold truncate ${warning ? 'text-orange-500' : 'text-slate-800'}`}>{val(value)}</div>
+        <div className={`text-sm font-semibold truncate ${warning ? 'text-orange-600' : 'text-slate-800'}`} title={val(value)}>{val(value)}</div>
       </div>
     </div>
   )
 }
 
-function SectionCard({ title, children, action }) {
+function SectionCard({ title, children, action, icon: Icon }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
-        <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+        <div className="flex items-center gap-2.5">
+          {Icon && (
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+              <Icon size={15} />
+            </span>
+          )}
+          <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+        </div>
         {action && <button className="text-xs font-semibold text-blue-600 hover:text-blue-700">{action}</button>}
       </div>
       <div className="p-5">{children}</div>
@@ -605,7 +664,7 @@ function OverviewTab({ data, agent, onOpenMgaPackage, onCompleteApexaTask, compl
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
       <div className="space-y-5">
-        <SectionCard title="Personal Information">
+        <SectionCard title="Personal Information" icon={UserRound}>
           <FieldGrid>
             <FieldItem label="Full Name" value={p.fullName} />
             <FieldItem label="Date of Birth" value={p.dob} />
@@ -621,7 +680,7 @@ function OverviewTab({ data, agent, onOpenMgaPackage, onCompleteApexaTask, compl
           </FieldGrid>
         </SectionCard>
 
-        <SectionCard title="Professional Details">
+        <SectionCard title="Professional Details" icon={BriefcaseBusiness}>
           <FieldGrid>
             <FieldItem label="Licence No." value={pr.licenceNo} mono />
             <FieldItem label="Licence Type" value={pr.licenceType} />
@@ -633,7 +692,7 @@ function OverviewTab({ data, agent, onOpenMgaPackage, onCompleteApexaTask, compl
           </FieldGrid>
         </SectionCard>
 
-        <SectionCard title="APEXA Workflow Task">
+        <SectionCard title="APEXA Workflow Task" icon={ShieldCheck}>
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -690,7 +749,7 @@ function OverviewTab({ data, agent, onOpenMgaPackage, onCompleteApexaTask, compl
       </div>
 
       <div className="space-y-5">
-        <SectionCard title="Business Information">
+        <SectionCard title="Business Information" icon={Building2}>
           <FieldGrid>
             <FieldItem label="Business Name" value={data.profile.business.businessName} />
             <FieldItem label="Website" value={data.profile.business.website} />
@@ -707,7 +766,7 @@ function OverviewTab({ data, agent, onOpenMgaPackage, onCompleteApexaTask, compl
           </div>
         </SectionCard>
 
-        <SectionCard title="Designations & Certifications">
+        <SectionCard title="Designations & Certifications" icon={Award}>
           <div className="space-y-2.5">
             {pr.designations.map(d => (
               <div key={d.name} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3.5 py-2.5">
@@ -1566,7 +1625,7 @@ const SUBSCRIPTIONS = [
   },
 ]
 
-function SettingsTab({ data, onSubscriptionChange }) {
+function SettingsTab({ data, onSubscriptionChange, onStatusChange, statusSaving }) {
   const s = data.settings
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -1577,8 +1636,13 @@ function SettingsTab({ data, onSubscriptionChange }) {
               <p className="text-sm font-semibold text-slate-800">Account Status</p>
               <p className="text-xs text-slate-400">Current status of this agent account</p>
             </div>
-            <select defaultValue={s.status} className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100">
-              {['Active', 'Inactive', 'Suspended', 'Terminated'].map(v => <option key={v}>{v}</option>)}
+            <select
+              value={s.status}
+              disabled={statusSaving}
+              onChange={(e) => onStatusChange?.(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+            >
+              {['Prospect', 'Onboarding', 'Active', 'Inactive', 'Suspended', 'Terminated'].map(v => <option key={v}>{v}</option>)}
             </select>
           </div>
         </div>
@@ -1695,6 +1759,7 @@ export default function AgentProfileView() {
   const [decidingTier, setDecidingTier] = useState(false)
   const [perf, setPerf] = useState(null)
   const [actingOnBehalf, setActingOnBehalf] = useState(false)
+  const [statusSaving, setStatusSaving] = useState(false)
 
   async function loadAgentProfile(isMounted = () => true) {
     setLoading(true)
@@ -1768,7 +1833,6 @@ export default function AgentProfileView() {
   const d = mockData
   if (!d) return null
 
-  const tierColors = { Silver: 'bg-slate-100 text-slate-600 border-slate-300', Gold: 'bg-amber-50 text-amber-600 border-amber-300', Platinum: 'bg-violet-50 text-violet-600 border-violet-300' }
   const tierRequest = agent?.documents?.tierRequest || null
   const pendingTierRequest = tierRequest && tierRequest.status === 'pending' ? tierRequest : null
   const handleTierDecision = async (decision) => {
@@ -1804,7 +1868,7 @@ export default function AgentProfileView() {
   const handleActOnBehalf = async () => {
     if (!agent?.id || actingOnBehalf) return
     if (Number(agent?.accountActivationStatus) !== 1) {
-      toast.error('This agent is not active yet, so you cannot act on their behalf.')
+      toast.error('This agent is not active yet, so you cannot act on their behalf.', 'Agent Must Be Active')
       return
     }
     const ok = await confirmDialog({
@@ -1820,7 +1884,7 @@ export default function AgentProfileView() {
       // Full reload so the whole app re-reads the agent session.
       window.location.href = '/agent/dashboard'
     } catch (err) {
-      toast.error(err.message || 'Unable to start the delegation session.')
+      toast.error(err.message || 'Unable to start the delegation session.', 'Act on Behalf Unavailable')
       setActingOnBehalf(false)
     }
   }
@@ -1861,6 +1925,41 @@ export default function AgentProfileView() {
       })
     } catch (err) {
       toast.error(err.message || 'Unable to update subscription.')
+    }
+  }
+
+  const handleLifecycleStatusChange = async (nextStatusLabel) => {
+    if (!agent?.id || statusSaving) return
+    const nextStatus = String(nextStatusLabel || '').trim().toLowerCase()
+    const currentStatus = String(agent?.lifecycleStatus || '').trim().toLowerCase()
+    if (!nextStatus || nextStatus === currentStatus) return
+
+    setStatusSaving(true)
+    setMockData(prev => (
+      prev
+        ? {
+            ...prev,
+            status: nextStatusLabel,
+            settings: {
+              ...prev.settings,
+              status: nextStatusLabel,
+            },
+          }
+        : prev
+    ))
+
+    try {
+      const updated = await updateAgentLifecycleStatus(agent.id, { status: nextStatus })
+      if (updated?.agent) {
+        setAgent(updated.agent)
+      }
+      await loadAgentProfile(() => true)
+      toast.success(`Agent status updated to ${nextStatusLabel}.`)
+    } catch (err) {
+      toast.error(err.message || 'Unable to update agent status.')
+      await loadAgentProfile(() => true)
+    } finally {
+      setStatusSaving(false)
     }
   }
 
@@ -1939,27 +2038,34 @@ export default function AgentProfileView() {
       <div className="shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
         {/* Top strip */}
-        <div className="h-20 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700" />
+        <div className="relative h-20 overflow-hidden bg-gradient-to-r from-blue-700 via-indigo-700 to-indigo-800">
+          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/20" />
+          <div className="absolute -right-8 -top-12 h-36 w-36 rounded-full bg-white/10 blur-2xl" />
+          <div className="absolute right-24 -bottom-16 h-32 w-32 rounded-full bg-blue-400/20 blur-2xl" />
+        </div>
 
-        <div className="px-6 pb-5">
+        <div className="relative z-10 px-6 pb-5">
           <div className="flex flex-wrap items-end justify-between gap-4 -mt-10 mb-5">
             {/* Avatar + name */}
             <div className="flex items-end gap-4">
               <div
-                className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-gradient-to-br from-blue-500 to-blue-700 text-xl font-bold text-white shadow-md"
+                className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-gradient-to-br from-blue-500 to-blue-700 text-xl font-bold text-white shadow-lg ring-1 ring-black/5"
                 style={d.avatarUrl ? { backgroundImage: `url(${d.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
               >
                 {!d.avatarUrl && d.initials}
               </div>
               <div className="mb-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-2xl font-bold text-slate-900">{agent?.name || 'Agent'}</h1>
-                  <Badge label={d.status} color="green" />
-                  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${tierColors[d.tier]}`}>
-                    {d.tier === 'Silver' ? '🥈' : d.tier === 'Gold' ? '🥇' : '💎'} {d.tier}
-                  </span>
+                  <h1 className="text-2xl font-bold tracking-tight text-slate-900">{agent?.name || 'Agent'}</h1>
+                  <StatusBadge status={d.status} />
+                  <TierBadge tier={d.tier} />
                 </div>
-                <p className="mt-0.5 text-sm text-slate-500">{d.title} · License #{d.licenceNo}</p>
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
+                  <span className="font-medium text-slate-600">{d.title}</span>
+                  <span className="text-slate-300">·</span>
+                  <Hash size={13} className="text-slate-400" />
+                  <span className="font-mono text-slate-500">{d.licenceNo}</span>
+                </p>
               </div>
             </div>
             {/* Actions */}
@@ -1968,9 +2074,9 @@ export default function AgentProfileView() {
                 type="button"
                 onClick={handleActOnBehalf}
                 disabled={actingOnBehalf}
-                className="inline-flex items-center gap-2 rounded-xl border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-700 hover:bg-orange-100 transition disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-60"
               >
-                <Users size={14} /> {actingOnBehalf ? 'Starting…' : 'Act on Behalf'}
+                <Users size={14} className="text-orange-500" /> {actingOnBehalf ? 'Starting…' : 'Act on Behalf'}
               </button>
               {/* <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">
                 <Edit2 size={14} /> Edit Profile
@@ -2025,7 +2131,14 @@ export default function AgentProfileView() {
             completingApexaTask={completingApexaTask}
           />
         )}
-        {activeTab === 'tier' && <SettingsTab data={d} onSubscriptionChange={handleSubscriptionChange} />}
+        {activeTab === 'tier' && (
+          <SettingsTab
+            data={d}
+            onSubscriptionChange={handleSubscriptionChange}
+            onStatusChange={handleLifecycleStatusChange}
+            statusSaving={statusSaving}
+          />
+        )}
         {activeTab === 'personal' && <ProfileTab data={d} section="personal" />}
         {activeTab === 'business' && <ProfileTab data={d} section="business" />}
         {activeTab === 'online' && <ProfileTab data={d} section="social-media" />}
