@@ -142,6 +142,9 @@ export default function AgentDashboard() {
   const hasMgaSubmission = Boolean(mgaSubmission?.sentAt)
   const latestApexaActivity = useMemo(() => selectRelevantApexaActivity(activities), [activities])
   const apexaTaskCompleted = Boolean(latestApexaActivity?.details?.completed)
+  // Prefer the structured APEXA contract record (draft → submitted → under_review
+  // → approved/rejected); fall back to the legacy activity flag for older agents.
+  const apexaContractStatus = agent?.documents?.apexaContract?.status || null
 
   const onboardingSummary = useMemo(() => {
     if (accountActivationStatus === 1) {
@@ -258,20 +261,30 @@ export default function AgentDashboard() {
         status:
           accountActivationStatus !== 1
             ? 'Starts After Activation'
-            : apexaTaskCompleted
-              ? 'Completed'
-              : latestApexaActivity
-                ? 'In Progress by Admin'
-                : 'Awaiting Admin',
+            : apexaContractStatus === 'approved'
+              ? 'Approved'
+              : apexaContractStatus === 'rejected'
+                ? 'Rejected'
+                : apexaContractStatus === 'under_review'
+                  ? 'Under Review'
+                  : apexaContractStatus === 'submitted'
+                    ? 'Submitted to APEXA'
+                    : apexaTaskCompleted
+                      ? 'Completed'
+                      : latestApexaActivity
+                        ? 'In Progress by Admin'
+                        : 'Awaiting Admin',
         tone:
           accountActivationStatus !== 1
             ? 'slate'
-            : apexaTaskCompleted
+            : apexaContractStatus === 'approved' || apexaTaskCompleted
               ? 'emerald'
-              : 'amber',
+              : apexaContractStatus === 'rejected'
+                ? 'rose'
+                : 'amber',
       },
     ]
-  }, [accountActivationStatus, allApproved, apexaTaskCompleted, hasMgaSubmission, latestApexaActivity, rejectedCount, underReviewCount])
+  }, [accountActivationStatus, allApproved, apexaContractStatus, apexaTaskCompleted, hasMgaSubmission, latestApexaActivity, rejectedCount, underReviewCount])
 
   const handleViewDocument = async (document) => {
     if (!session?.id || document.action === 'Pending') return

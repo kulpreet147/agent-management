@@ -19,6 +19,15 @@ function fmtDate(v) {
   return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleDateString();
 }
 
+// Read-only status presentation for the admin-managed APEXA contract.
+const APEXA_STATUS = {
+  draft: { label: "Draft", bg: "#f1f5f9", color: "#475569", border: "#cbd5e1" },
+  submitted: { label: "Submitted to APEXA", bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+  under_review: { label: "Under Review", bg: "#fffbeb", color: "#b45309", border: "#fcd34d" },
+  approved: { label: "Approved", bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" },
+  rejected: { label: "Rejected", bg: "#fef2f2", color: "#b91c1c", border: "#fecaca" },
+};
+
 const ro = { ...css.input, ...css.inputReadonly };
 
 function Pill({ info }) {
@@ -32,6 +41,8 @@ export default function LicensingSection({ agentData }) {
   const ceCredits = Array.isArray(lic.ceCredits) ? lic.ceCredits : [];
   const renewal = lic.renewal || {};
   const totalCE = ceCredits.reduce((s, c) => s + (Number(c.credits) || 0), 0);
+  const apexa = agentData?.documents?.apexaContract || null;
+  const apexaInfo = apexa ? APEXA_STATUS[apexa.status] || APEXA_STATUS.draft : null;
 
   const licence = {
     number: agentData?.agentId || "",
@@ -101,15 +112,54 @@ export default function LicensingSection({ agentData }) {
           <div style={css.emptyState}>No carrier authorizations yet.</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {carriers.map((c, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{c.name || "Carrier"}</div>
-                  <div style={{ fontSize: 11, color: "#94a3b8" }}>Selling code: <span style={{ fontFamily: "monospace" }}>{c.code || "—"}</span></div>
+            {carriers.map((c, i) => {
+              const inactive = c.status === "Inactive";
+              const pill = inactive
+                ? { label: "Inactive", bg: "#f1f5f9", color: "#475569", border: "#cbd5e1" }
+                : c.code
+                  ? { label: "Authorized", bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" }
+                  : { label: "Not Authorized", bg: "#f1f5f9", color: "#475569", border: "#cbd5e1" };
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{c.name || "Carrier"}</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                      Selling code: <span style={{ fontFamily: "monospace" }}>{c.code || "—"}</span>
+                      {c.effectiveDate ? ` · Effective ${fmtDate(c.effectiveDate)}` : ""}
+                    </div>
+                  </div>
+                  <Pill info={pill} />
                 </div>
-                <Pill info={c.code ? { label: "Authorized", bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" } : { label: "Not Authorized", bg: "#f1f5f9", color: "#475569", border: "#cbd5e1" }} />
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div style={css.panel}>
+        <div style={css.panelTitle}>APEXA Contract</div>
+        <div style={css.panelSub}>Managed by your administrator — tracks your MGA contract submission in APEXA.</div>
+        {!apexa ? (
+          <div style={css.emptyState}>Your APEXA contract workflow begins after your account is activated.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>APEXA Reference #</div>
+                <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace" }}>{apexa.referenceNumber || "Not assigned yet"}</div>
               </div>
-            ))}
+              <Pill info={apexaInfo} />
+            </div>
+            <div style={css.formGrid(2)}>
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 14 }}>
+                <span style={css.label}>Submitted to APEXA</span>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 6 }}>{fmtDate(apexa.submittedAt)}</div>
+              </div>
+              <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: 14 }}>
+                <span style={css.label}>Decision Date</span>
+                <div style={{ fontSize: 14, fontWeight: 700, marginTop: 6 }}>{fmtDate(apexa.decidedAt)}</div>
+              </div>
+            </div>
           </div>
         )}
       </div>

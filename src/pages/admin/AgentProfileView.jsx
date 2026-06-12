@@ -13,8 +13,8 @@ import {
 import { useToast } from '../../hooks/useToast.js'
 import { auth } from '../../utils/auth.js'
 import { confirmDialog } from '../../utils/confirmDialog.js'
-import { getAgent, getAgentProfile, updateAgentProfile, decideAgentTierRequest, getAgentPerformance, updateAgentLicensing, updateAgentTaxDocuments, updateAgentLifecycleStatus } from '../../utils/agents.js'
-import { getAccountActivities, updateAccountActivity } from '../../utils/activities.js'
+import { getAgent, getAgentProfile, updateAgentProfile, decideAgentTierRequest, getAgentPerformance, updateAgentLicensing, updateAgentTaxDocuments, updateAgentLifecycleStatus, updateApexaContract } from '../../utils/agents.js'
+import { getAccountActivities } from '../../utils/activities.js'
 
 // ─── Mock dynamic data ────────────────────────────────────────────────────────
 
@@ -649,18 +649,114 @@ function TagList({ label, items }) {
 
 // ─── Tab Contents ─────────────────────────────────────────────────────────────
 
-function OverviewTab({ data, agent, onOpenMgaPackage, onCompleteApexaTask, completingApexaTask }) {
+const APEXA_STATUS_META = {
+  draft: { label: 'Draft', color: 'slate' },
+  submitted: { label: 'Submitted to APEXA', color: 'blue' },
+  under_review: { label: 'Under Review', color: 'yellow' },
+  approved: { label: 'Approved', color: 'green' },
+  rejected: { label: 'Rejected', color: 'red' },
+}
+
+// Admin-tracked APEXA contract lifecycle. The record is seeded (draft) when the
+// agent is activated; the admin fills the reference number and drives it through
+// Submit → Under Review → Approve/Reject. Each change is written to the audit log.
+function ApexaContractCard({ agent, onSave, saving, onOpenMgaPackage }) {
+  const activated = Number(agent?.accountActivationStatus) === 1
+  const contract = agent?.documents?.apexaContract || null
+  const [refNo, setRefNo] = useState(contract?.referenceNumber || '')
+  const [notes, setNotes] = useState(contract?.notes || '')
+
+  useEffect(() => {
+    setRefNo(contract?.referenceNumber || '')
+    setNotes(contract?.notes || '')
+  }, [contract?.referenceNumber, contract?.notes])
+
+  const status = contract?.status || 'draft'
+  const meta = APEXA_STATUS_META[status] || APEXA_STATUS_META.draft
+  const save = (patch = {}) => onSave({ referenceNumber: refNo, notes, ...patch })
+
+  return (
+    <SectionCard title="APEXA Contract" icon={ShieldCheck}>
+      {!activated ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-500">
+          The APEXA contract workflow becomes available once the agent is activated. Activate the agent from the MGA package after the MGA confirms the onboarding documents.
+          <div className="mt-3">
+            <button type="button" onClick={onOpenMgaPackage} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
+              Go to MGA Package <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-bold text-slate-800">Create &amp; submit MGA contract in APEXA</div>
+            <Badge label={meta.label} color={meta.color} />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-[11px] font-semibold text-slate-500">APEXA Reference #</span>
+              <input value={refNo} onChange={(e) => setRefNo(e.target.value)} maxLength={80} placeholder="e.g. APX-2026-00125" className={`${tinyInput} mt-1`} />
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-[11px] font-semibold text-slate-500">Submitted</div>
+                <div className="mt-1 text-xs font-semibold text-slate-700">{contract?.submittedAt ? formatDateValue(contract.submittedAt) : '—'}</div>
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold text-slate-500">Decision</div>
+                <div className="mt-1 text-xs font-semibold text-slate-700">{contract?.decidedAt ? formatDateValue(contract.decidedAt) : '—'}</div>
+              </div>
+            </div>
+          </div>
+
+          <label className="block">
+            <span className="text-[11px] font-semibold text-slate-500">Notes</span>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} maxLength={2000} placeholder="Internal notes for this APEXA contract…" className={`${tinyInput} mt-1 resize-none`} />
+          </label>
+
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button type="button" disabled={saving} onClick={() => save()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60">
+              Save
+            </button>
+            {status === 'draft' && (
+              <button type="button" disabled={saving} onClick={() => save({ status: 'submitted' })} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">
+                Submit to APEXA
+              </button>
+            )}
+            {status === 'submitted' && (
+              <button type="button" disabled={saving} onClick={() => save({ status: 'under_review' })} className="inline-flex items-center gap-2 rounded-xl border border-yellow-200 bg-yellow-50 px-3.5 py-2 text-sm font-semibold text-yellow-700 transition hover:bg-yellow-100 disabled:opacity-60">
+                Mark Under Review
+              </button>
+            )}
+            {(status === 'submitted' || status === 'under_review') && (
+              <>
+                <button type="button" disabled={saving} onClick={() => save({ status: 'approved' })} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60">
+                  Approve
+                </button>
+                <button type="button" disabled={saving} onClick={() => save({ status: 'rejected' })} className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60">
+                  Reject
+                </button>
+              </>
+            )}
+            {(status === 'approved' || status === 'rejected') && (
+              <button type="button" disabled={saving} onClick={() => save({ status: 'under_review' })} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60">
+                Reopen
+              </button>
+            )}
+            <button type="button" onClick={onOpenMgaPackage} className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700">
+              MGA Package <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+    </SectionCard>
+  )
+}
+
+function OverviewTab({ data, agent, onOpenMgaPackage, onApexaContract, apexaSaving }) {
   const p = data.profile.personal
   const pr = data.profile.professional
-  const latestApexaTask = [...(data.activityLog || [])]
-    .filter((entry) => entry.actionKey === 'create_apexa_contract')
-    .sort((a, b) => {
-      const aActivation = a?.details?.step === 'activation' ? 1 : 0
-      const bActivation = b?.details?.step === 'activation' ? 1 : 0
-      if (aActivation !== bActivation) return bActivation - aActivation
-      return new Date(b.performedAt || 0).getTime() - new Date(a.performedAt || 0).getTime()
-    })[0] || null
-  const apexaCompleted = Boolean(latestApexaTask?.details?.completed)
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
       <div className="space-y-5">
@@ -692,60 +788,12 @@ function OverviewTab({ data, agent, onOpenMgaPackage, onCompleteApexaTask, compl
           </FieldGrid>
         </SectionCard>
 
-        <SectionCard title="APEXA Workflow Task" icon={ShieldCheck}>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-bold text-slate-800">APEXA contract creation and approval</div>
-                <div className="mt-1 text-xs leading-5 text-slate-500">
-                  {latestApexaTask
-                    ? apexaCompleted
-                      ? `Completed on ${new Date(latestApexaTask.details?.completedAt || latestApexaTask.performedAt).toLocaleString()}`
-                      : 'Auto-created after agent activation for admin workflow tracking.'
-                    : Number(agent?.accountActivationStatus) === 1
-                      ? 'This workflow task should appear automatically after activation.'
-                      : 'This workflow task will be created automatically when the agent is activated.'}
-                </div>
-              </div>
-              <Badge
-                label={
-                  apexaCompleted
-                    ? 'Completed'
-                    : latestApexaTask
-                      ? 'Pending'
-                      : 'Not Created'
-                }
-                color={
-                  apexaCompleted
-                    ? 'green'
-                    : latestApexaTask
-                      ? 'yellow'
-                      : 'slate'
-                }
-              />
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={onOpenMgaPackage}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-              >
-                Go to MGA Package
-                <ChevronRight size={14} />
-              </button>
-              {latestApexaTask && !apexaCompleted && (
-                <button
-                  type="button"
-                  onClick={() => onCompleteApexaTask(latestApexaTask)}
-                  disabled={completingApexaTask}
-                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {completingApexaTask ? 'Completing...' : 'Mark APEXA Task Completed'}
-                </button>
-              )}
-            </div>
-          </div>
-        </SectionCard>
+        <ApexaContractCard
+          agent={agent}
+          onSave={onApexaContract}
+          saving={apexaSaving}
+          onOpenMgaPackage={onOpenMgaPackage}
+        />
       </div>
 
       <div className="space-y-5">
@@ -811,6 +859,7 @@ function OverviewTab({ data, agent, onOpenMgaPackage, onCompleteApexaTask, compl
 
 function PerformanceTab({ data, perf }) {
   const [noteText, setNoteText] = useState('')
+  const toast = useToast()
   const p = perf || {}
   const fmt = (n) => (n === null || n === undefined ? '—' : String(n))
   const stats = [
@@ -856,7 +905,14 @@ function PerformanceTab({ data, perf }) {
             <h3 className="text-sm font-bold text-slate-800">Monthly Performance Trend</h3>
             <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-1">
               {['Daily', 'Monthly'].map(v => (
-                <button key={v} className={`rounded-md px-3 py-1 text-xs font-semibold transition ${v === 'Monthly' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>{v}</button>
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => toast.info(`${v} performance trend is under implementation.`)}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold transition ${v === 'Monthly' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                >
+                  {v}
+                </button>
               ))}
             </div>
           </div>
@@ -905,10 +961,10 @@ function PerformanceTab({ data, perf }) {
           />
           <div className="mt-2 flex items-center justify-between">
             <div className="flex gap-2 text-slate-400">
-              <button className="hover:text-slate-600"><Paperclip size={15} /></button>
-              <button className="hover:text-slate-600"><Flag size={15} /></button>
+              <button type="button" title="Attach file" onClick={() => toast.info('Attaching files to notes is under implementation.')} className="hover:text-slate-600"><Paperclip size={15} /></button>
+              <button type="button" title="Flag note" onClick={() => toast.info('Flagging notes is under implementation.')} className="hover:text-slate-600"><Flag size={15} /></button>
             </div>
-            <button className="rounded-xl bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700">Save Note</button>
+            <button type="button" onClick={() => toast.info('Saving operational notes is under implementation.')} className="rounded-xl bg-blue-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-blue-700">Save Note</button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
@@ -1382,19 +1438,32 @@ function LicensingTab({ data, agentId, onUpdated }) {
                 <input className={tinyInput} placeholder="Carrier name" value={c.name || ''} onChange={(e) => setArr('carriers', (a) => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
                 <input className={tinyInput} placeholder="Selling code" value={c.code || ''} onChange={(e) => setArr('carriers', (a) => a.map((x, j) => j === i ? { ...x, code: e.target.value } : x))} />
                 <button type="button" onClick={() => setArr('carriers', (a) => a.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-400"><X size={14} /></button>
+                <div className="col-span-3 grid grid-cols-[1fr_140px] items-center gap-2">
+                  <input type="date" className={tinyInput} title="Effective date" value={c.effectiveDate || ''} onChange={(e) => setArr('carriers', (a) => a.map((x, j) => j === i ? { ...x, effectiveDate: e.target.value } : x))} />
+                  <select className={tinyInput} value={c.status || 'Active'} onChange={(e) => setArr('carriers', (a) => a.map((x, j) => j === i ? { ...x, status: e.target.value } : x))}>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
               </div>
             ) : (
               <div key={i} className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-800">{c.name || 'Carrier'}</p>
-                  <p className="text-[11px] text-slate-400">Selling code: <span className="font-mono">{c.code || '—'}</span></p>
+                  <p className="text-[11px] text-slate-400">
+                    Selling code: <span className="font-mono">{c.code || '—'}</span>
+                    {c.effectiveDate ? <> · Effective {formatDateValue(c.effectiveDate)}</> : null}
+                  </p>
                 </div>
-                <Badge label={c.code ? 'Authorized' : 'Not Authorized'} color={c.code ? 'green' : 'slate'} />
+                <Badge
+                  label={(c.status || (c.code ? 'Active' : 'Inactive')) === 'Inactive' ? 'Inactive' : c.code ? 'Authorized' : 'Not Authorized'}
+                  color={(c.status === 'Inactive') ? 'slate' : c.code ? 'green' : 'slate'}
+                />
               </div>
             ))}
           </div>
           {editing && (
-            <button type="button" onClick={() => setArr('carriers', (a) => [...a, { name: '', code: '' }])} className="mt-3 inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50"><Plus size={12} /> Add Carrier</button>
+            <button type="button" onClick={() => setArr('carriers', (a) => [...a, { name: '', code: '', effectiveDate: '', status: 'Active' }])} className="mt-3 inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50"><Plus size={12} /> Add Carrier</button>
           )}
         </SectionCard>
       </div>
@@ -1627,6 +1696,7 @@ const SUBSCRIPTIONS = [
 
 function SettingsTab({ data, onSubscriptionChange, onStatusChange, statusSaving }) {
   const s = data.settings
+  const toast = useToast()
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <SectionCard title="Account Settings">
@@ -1696,10 +1766,18 @@ function SettingsTab({ data, onSubscriptionChange, onStatusChange, statusSaving 
           <FieldItem label="Last Password Change" value={s.lastPasswordChange} />
         </FieldGrid>
         <div className="mt-4 flex gap-2">
-          <button className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+          <button
+            type="button"
+            onClick={() => toast.info('Password reset for agents is under implementation.')}
+            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          >
             Reset Password
           </button>
-          <button className="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">
+          <button
+            type="button"
+            onClick={() => toast.info('Account deactivation is under implementation.')}
+            className="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+          >
             Deactivate Account
           </button>
         </div>
@@ -1967,21 +2045,16 @@ export default function AgentProfileView() {
     navigate(`/admin/agents/${agentId}/mga-package`)
   }
 
-  const handleCompleteApexaTask = async (activity) => {
-    if (!activity?.id) return
+  const handleApexaContract = async (payload) => {
+    if (!agentId) return
     setCompletingApexaTask(true)
     try {
-      await updateAccountActivity(activity.id, {
-        details: {
-          ...(activity.details || {}),
-          completed: true,
-          completedAt: new Date().toISOString(),
-        },
-      })
+      const res = await updateApexaContract(agentId, payload)
+      if (res?.agent) setAgent(res.agent)
       await loadAgentProfile(() => true)
-      toast.success('APEXA task marked as completed.')
+      toast.success('APEXA contract updated.')
     } catch (err) {
-      toast.error(err.message || 'Unable to update the APEXA task.')
+      toast.error(err.message || 'Unable to update the APEXA contract.')
     } finally {
       setCompletingApexaTask(false)
     }
@@ -2127,8 +2200,8 @@ export default function AgentProfileView() {
             data={d}
             agent={agent}
             onOpenMgaPackage={handleOpenMgaPackage}
-            onCompleteApexaTask={handleCompleteApexaTask}
-            completingApexaTask={completingApexaTask}
+            onApexaContract={handleApexaContract}
+            apexaSaving={completingApexaTask}
           />
         )}
         {activeTab === 'tier' && (
