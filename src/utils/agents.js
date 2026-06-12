@@ -239,8 +239,26 @@ export function getAgentPerformance(agentId) {
   return apiRequest(`/agents/${agentId}/performance`)
 }
 
+// Admin-only: engagement/productivity metrics for all agents, with inactive /
+// underperforming flags, for the performance dashboard.
+export function getAgentPerformanceRoster() {
+  return apiRequest('/agents/performance/roster')
+}
+
 export function updateAgentLicensing(agentId, payload) {
   return apiRequest(`/agents/${agentId}/licensing`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+}
+
+// Admin-tracked APEXA contract lifecycle (draft -> submitted -> under_review ->
+// approved/rejected). Manual tracking — no external APEXA integration.
+export function updateApexaContract(agentId, payload) {
+  return apiRequest(`/agents/${agentId}/apexa-contract`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json'

@@ -174,7 +174,7 @@ export default function AgentLicensing() {
                 <Metric icon={FileText} label="Documents" value={`${uploadedDocuments}/${documentRows.length}`} tone="blue" />
               </section>
 
-              <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+              <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1.05fr_0.95fr] [&>*]:min-w-0">
                 <Panel title="Onboarding Licensing Information" icon={BadgeCheck}>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Licence Number" value={agent?.agentId} mono />
@@ -207,7 +207,7 @@ export default function AgentLicensing() {
                 </Panel>
               </section>
 
-              <section className="grid grid-cols-1 gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+              <section className="grid grid-cols-1 gap-4 lg:grid-cols-[0.85fr_1.15fr] [&>*]:min-w-0">
                 <Panel title="CE Credits Tracking" icon={BookOpenCheck}>
                   <div className="flex items-center justify-between">
                     <div>
