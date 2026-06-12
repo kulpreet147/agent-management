@@ -165,7 +165,7 @@ export function removePolicy(personId, policyId) {
 // ============ QUOTES ============
 
 export function getQuotes(personId, familyMemberId) {
-  const qs = familyMemberId ? `?familyMemberId=${familyMemberId}` : ''
+  const qs = familyMemberId ? `?familyMemberId=${encodeURIComponent(familyMemberId)}` : ''
   return apiRequest(`/persons/${personId}/quotes${qs}`)
 }
 
@@ -197,6 +197,14 @@ export function saveNeedAnalysis(personId, data) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
+  })
+}
+
+export function sendNeedAnalysisToClient(personId, { pdfBase64, clientEmail, familyMemberId }) {
+  return apiRequest(`/persons/${personId}/need-analysis/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pdfBase64, clientEmail, familyMemberId }),
   })
 }
 

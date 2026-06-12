@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Users, Plus, Trash2, RefreshCw, X, User, Calendar, Mail, Phone, Eye } from 'lucide-react'
+import { Users, Plus, Trash2, RefreshCw, X, User, Calendar, Mail, Phone, Eye, Loader2 } from 'lucide-react'
 import { getFamilyMembers, addFamilyMember, updateFamilyMember, removeFamilyMember, getOrCreatePersonByLeadId } from '../../utils/persons.js'
 import LeadFamilyMemberDetail from './LeadFamilyMemberDetail.jsx'
 
@@ -48,6 +48,7 @@ export default function LeadFamilyTab({ personId, lead }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (submitting) return
     setSubmitting(true)
     try {
       let pid = personId
@@ -174,11 +175,11 @@ export default function LeadFamilyTab({ personId, lead }) {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(23, 28, 31, 0.6)', backdropFilter: 'blur(8px)' }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false) }}>
+          onClick={(e) => { if (e.target === e.currentTarget && !submitting) setShowModal(false) }}>
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-900">{editingMember ? 'Edit Family Member' : 'Add Family Member'}</h3>
-              <button onClick={() => setShowModal(false)} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors">
+              <button onClick={() => setShowModal(false)} disabled={submitting} className="p-1.5 hover:bg-slate-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 <X size={18} className="text-slate-500" />
               </button>
             </div>
@@ -226,10 +227,13 @@ export default function LeadFamilyTab({ personId, lead }) {
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)}
-                  className="px-5 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors">Cancel</button>
-                <button type="submit"
-                  className="px-5 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:opacity-90 transition-all">{editingMember ? 'Update' : 'Add'} Member</button>
+                <button type="button" onClick={() => setShowModal(false)} disabled={submitting}
+                  className="px-5 py-2 rounded-lg border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Cancel</button>
+                <button type="submit" disabled={submitting}
+                  className="px-5 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:opacity-90 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2">
+                  {submitting && <Loader2 size={14} className="animate-spin" />}
+                  {submitting ? 'Saving...' : `${editingMember ? 'Update' : 'Add'} Member`}
+                </button>
               </div>
             </form>
           </div>
@@ -238,6 +242,7 @@ export default function LeadFamilyTab({ personId, lead }) {
 
       {selectedMember && (
         <LeadFamilyMemberDetail
+          key={selectedMember.id}
           personId={personId}
           member={selectedMember}
           lead={lead}

@@ -71,7 +71,7 @@ export default function QuoteModal({ lead, personId, onClose, onQuoteSaved }) {
     setSelectedQuote(null)
     setQuoteConfirm(null)
     try {
-      const data = await runQuote(leadId, { deductible: 2500, limit: 5 })
+      const data = await runQuote(leadId, { deductible: 2500, limit: 5, familyMemberId: selectedFamilyMemberId || undefined, personId: personId || undefined })
       const currency = data?.currency || 'CHF'
       const results = (data?.quotes || []).map((q, i, arr) => {
         const premium = Number(q.premiumMonthly) || 0
@@ -118,6 +118,8 @@ export default function QuoteModal({ lead, personId, onClose, onQuoteSaved }) {
         gender: Number(wqGender),
         dateOfBirth: dobFormatted,
         smokerStatus: Number(wqSmoker),
+        familyMemberId: selectedFamilyMemberId || undefined,
+        personId: personId || undefined,
       })
       const results = (data?.quotes || []).map((q, i, arr) => {
         const premium = Number(q.premiumMonthly) || 0
