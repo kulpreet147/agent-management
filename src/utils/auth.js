@@ -9,13 +9,13 @@ function getStorage() {
 }
 
 export const auth = {
-  async login({ email, password, loginAs = 'admin' }) {
+  async login({ email, password }) {
     const data = await apiRequest('/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ email, password, loginAs })
+      body: JSON.stringify({ email, password })
     })
 
     const session = {
@@ -46,15 +46,14 @@ export const auth = {
     return session
   },
 
-  async requestPasswordReset({ email, loginAs = 'admin' }) {
-    const role = loginAs === 'agent' ? 'agent' : 'admin'
+  async requestPasswordReset({ email }) {
     return apiRequest('/auth/password-reset', {
       method: 'POST',
       skipAuth: true,
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ email, loginAs: role })
+      body: JSON.stringify({ email })
     })
   },
 
