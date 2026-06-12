@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { BarChart3, Download, Filter, ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { BarChart3, Download, Filter, ChevronLeft, ChevronRight, MoreHorizontal, AlertTriangle, MoonStar } from 'lucide-react'
+import { getAgentPerformanceRoster } from '../../utils/agents.js'
 
 const statCards = [
   { label: 'Total Created', value: '1,482', change: '+12%', changeClass: 'text-blue-600' },
@@ -10,14 +11,12 @@ const statCards = [
   { label: 'Unworked', value: '89', change: '+14', changeClass: 'text-red-500' },
 ]
 
-const agents = [
-  { name: 'Sarah Jenkins', assigned: 140, converted: 50, rate: '35%' },
-  { name: 'Michael Chen', assigned: 130, converted: 56, rate: '43%' },
-  { name: 'Elena Rodriguez', assigned: 160, converted: 40, rate: '25%' },
-  { name: 'James Wilson', assigned: 110, converted: 64, rate: '58%' },
-]
-
-const maxAssigned = Math.max(...agents.map(a => a.assigned))
+function fmtLastLogin(iso) {
+  if (!iso) return 'Never'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return 'Never'
+  return d.toLocaleDateString()
+}
 
 const agingLeads = [
   { name: 'Global Dynamics Corp', agent: 'Sarah Jenkins', initials: 'SJ', bg: 'bg-blue-500', days: '18', daysClass: 'text-red-500 font-bold', status: 'Contacted', statusClass: 'bg-blue-50 text-blue-700', priority: 'High', priorityDot: 'bg-red-500', action: 'Reassign', actionClass: 'text-blue-600' },
@@ -30,6 +29,31 @@ const tabs = ['Today', '7 Days', '30 Days', 'Custom']
 
 export default function Analytics() {
   const [activeTab, setActiveTab] = useState('Today')
+  const [roster, setRoster] = useState([])
+  const [rosterCounts, setRosterCounts] = useState({ total: 0, inactive: 0, underperforming: 0 })
+  const [rosterLoading, setRosterLoading] = useState(true)
+  const [rosterError, setRosterError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    setRosterLoading(true)
+    getAgentPerformanceRoster()
+      .then((data) => {
+        if (!active) return
+        setRoster(Array.isArray(data?.agents) ? data.agents : [])
+        setRosterCounts(data?.counts || { total: 0, inactive: 0, underperforming: 0 })
+        setRosterError('')
+      })
+      .catch((err) => {
+        if (active) setRosterError(err?.message || 'Unable to load agent performance.')
+      })
+      .finally(() => {
+        if (active) setRosterLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   return (
     <div className="space-y-8">
@@ -139,35 +163,72 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* Agent Performance Overview */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-8">
+      {/* Agent Performance Monitoring */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h4 className="text-base font-bold">Agent Performance Overview</h4>
-            <p className="text-[12px] text-slate-500 mt-0.5">Leads Assigned vs. Converted per top performing agent.</p>
+            <h4 className="text-base font-bold">Agent Performance Monitoring</h4>
+            <p className="text-[12px] text-slate-500 mt-0.5">Engagement &amp; productivity per agent (last 30 days). Inactive and underperforming agents are flagged.</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-600" />
-              <span className="text-[11px] font-semibold">Assigned</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-indigo-200" />
-              <span className="text-[11px] font-semibold">Converted</span>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">
+              <MoonStar size={12} /> {rosterCounts.inactive} inactive
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600">
+              <AlertTriangle size={12} /> {rosterCounts.underperforming} underperforming
+            </span>
           </div>
         </div>
-        <div className="space-y-5">
-          {agents.map((a) => (
-            <div key={a.name} className="flex items-center gap-6">
-              <div className="w-32 text-[13px] font-semibold">{a.name}</div>
-              <div className="flex-1 h-8 flex gap-0.5 rounded overflow-hidden bg-slate-100">
-                <div className="h-full bg-blue-600 transition-all" style={{ width: `${(a.assigned / maxAssigned) * 100}%` }} title={`Assigned: ${a.assigned}`} />
-                <div className="h-full bg-indigo-200 transition-all" style={{ width: `${(a.converted / maxAssigned) * 100}%` }} title={`Converted: ${a.converted}`} />
-              </div>
-              <div className="w-14 text-right text-[13px] font-bold text-blue-600">{a.rate}</div>
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+                <th className="px-6 py-4">Agent</th>
+                <th className="px-6 py-4">Last login</th>
+                <th className="px-6 py-4 text-center">Logins 30d</th>
+                <th className="px-6 py-4 text-center">Leads</th>
+                <th className="px-6 py-4 text-center">Converted</th>
+                <th className="px-6 py-4 text-center">Conv %</th>
+                <th className="px-6 py-4 text-center">Quotes</th>
+                <th className="px-6 py-4 text-center">Policies</th>
+                <th className="px-6 py-4 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rosterLoading ? (
+                <tr><td colSpan={9} className="px-6 py-8 text-center text-[13px] text-slate-400">Loading agent performance…</td></tr>
+              ) : rosterError ? (
+                <tr><td colSpan={9} className="px-6 py-8 text-center text-[13px] text-red-500">{rosterError}</td></tr>
+              ) : roster.length === 0 ? (
+                <tr><td colSpan={9} className="px-6 py-8 text-center text-[13px] text-slate-400">No agents yet.</td></tr>
+              ) : (
+                roster.map((a) => (
+                  <tr key={a.id} className={`transition-colors ${a.isInactive ? 'bg-red-50/60 hover:bg-red-50' : a.isUnderperforming ? 'bg-amber-50/60 hover:bg-amber-50' : 'hover:bg-slate-50'}`}>
+                    <td className="px-6 py-4">
+                      <div className="text-[13px] font-semibold text-slate-800">{a.name}</div>
+                      <div className="text-[11px] text-slate-400">{a.email} · {a.subscriptionTier}</div>
+                    </td>
+                    <td className="px-6 py-4 text-[13px] text-slate-600">{fmtLastLogin(a.lastLogin)}</td>
+                    <td className="px-6 py-4 text-center text-[13px] font-semibold">{a.loginCount30d}</td>
+                    <td className="px-6 py-4 text-center text-[13px]">{a.leadsAssigned}</td>
+                    <td className="px-6 py-4 text-center text-[13px]">{a.leadsConverted}</td>
+                    <td className="px-6 py-4 text-center text-[13px] font-bold text-blue-600">{a.conversionRate}%</td>
+                    <td className="px-6 py-4 text-center text-[13px]">{a.quotesGenerated}</td>
+                    <td className="px-6 py-4 text-center text-[13px]">{a.policiesSold}</td>
+                    <td className="px-6 py-4 text-right">
+                      {a.isInactive ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[10px] font-bold text-red-700">Inactive</span>
+                      ) : a.isUnderperforming ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-700">Underperforming</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-[10px] font-bold text-green-700">On track</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

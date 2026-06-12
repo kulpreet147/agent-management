@@ -33,7 +33,8 @@ const INSURANCE_COMPANY_OPTIONS = [...new Set(Object.values(INSURANCE_COMPANIES)
 const STATUS_OPTIONS = ['Submitted', 'Under Review', 'Approved', 'Active']
 
 const INITIAL_FORM = {
-  name: '',
+  firstName: '',
+  lastName: '',
   email: '',
   phone: '',
   agentId: '',
@@ -73,7 +74,45 @@ const MAX_FILE_SIZE_MB = 10
 const ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx']
 const EMAIL_REGEX =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z]{2,})+$/
-const STEP_ONE_REQUIRED_FIELDS = ['name', 'email', 'phone', 'creditScore']
+const STEP_ONE_REQUIRED_FIELDS = ['firstName', 'lastName', 'email', 'phone', 'creditScore']
+
+function buildFullName(firstName, lastName) {
+  return [firstName, lastName].map((value) => String(value || '').trim()).filter(Boolean).join(' ')
+}
+
+function buildProfilePayload(form, mode) {
+  return {
+    personal: {
+      firstName: form.firstName || '',
+      lastName: form.lastName || '',
+      email: form.email || '',
+      primaryPhone: form.phone || '',
+    },
+    business: {
+      operatingName: buildFullName(form.firstName, form.lastName),
+    },
+    professional: {
+      licenceType: form.licenceType || '',
+      requireSponsorship: Boolean(form.requireSponsorship),
+      haveApexa: Boolean(form.haveApexa),
+      apexaId: form.haveApexa ? form.apexaId || '' : '',
+      creditScore: form.creditScore || '',
+      contractCompany: form.insuranceCompany || '',
+      mga: form.mga || '',
+      licenceNumber: form.agentId || '',
+      licenceExpiryDate: form.licenceExpiryDate || '',
+      eoPolicyNumber: mode === 'transfer' ? form.eoPolicyNumber || '' : '',
+      eoPolicyCompany: mode === 'transfer' ? form.eoPolicyCompany || '' : '',
+      eoPolicyExpiryDate: mode === 'transfer' ? form.eoPolicyExpiryDate || '' : '',
+      referralSource: form.referralSource || '',
+      commissionOverride: form.commissionOverride || '',
+      segFundsOverride: form.segFundsOverride || '',
+    },
+    settings: {
+      onboardingStatus: form.status || '',
+    },
+  }
+}
 
 function getRequiredDocsForMode(mode) {
   return mode === 'new'
@@ -133,7 +172,8 @@ function getStepOneCompletion({ form, docs, mode }) {
 function validateForm(form, docs, mode) {
   const errors = {}
   const requiredFields = [
-    ['name', 'Full name is required.'],
+    ['firstName', 'First name is required.'],
+    ['lastName', 'Last name is required.'],
     ['email', 'Email address is required.'],
     ['phone', 'Phone number is required.'],
     ['agentId', 'Licence number is required.'],
@@ -415,8 +455,13 @@ export default function AgentRecordCreation() {
   const insuranceCompanies = useMemo(() => INSURANCE_COMPANY_OPTIONS, [])
 
   const basicInfoValid = useMemo(() => {
-    return String(form.name || '').trim().length > 0 && validateEmail(form.email) && validateUsCaPhone(form.phone)
-  }, [form.name, form.email, form.phone])
+    return (
+      String(form.firstName || '').trim().length > 0 &&
+      String(form.lastName || '').trim().length > 0 &&
+      validateEmail(form.email) &&
+      validateUsCaPhone(form.phone)
+    )
+  }, [form.firstName, form.lastName, form.email, form.phone])
 
   const licenceInfoValid = useMemo(() => {
     const score = Number(form.creditScore)
@@ -601,7 +646,9 @@ export default function AgentRecordCreation() {
       const payload = {
         form: {
           ...form,
+          name: buildFullName(form.firstName, form.lastName),
           sin: form.fullSin,
+          profile: buildProfilePayload(form, mode),
         },
         docs,
         mode,
@@ -712,14 +759,25 @@ export default function AgentRecordCreation() {
           <SectionCard icon={User} title="Basic Information" accent="blue">
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="space-y-4">
-                <Field label="Full Name" error={errors.name}>
-                  <input
-                    value={form.name}
-                    onChange={handleChange('name')}
-                    className={inputClass(errors.name)}
-                    placeholder="e.g. Jonathan Doe"
-                  />
-                </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="First Name" error={errors.firstName}>
+                    <input
+                      value={form.firstName}
+                      onChange={handleChange('firstName')}
+                      className={inputClass(errors.firstName)}
+                      placeholder="e.g. Jonathan"
+                    />
+                  </Field>
+
+                  <Field label="Last Name" error={errors.lastName}>
+                    <input
+                      value={form.lastName}
+                      onChange={handleChange('lastName')}
+                      className={inputClass(errors.lastName)}
+                      placeholder="e.g. Doe"
+                    />
+                  </Field>
+                </div>
 
                 <Field
                   label="Email Address"
@@ -1077,8 +1135,8 @@ export default function AgentRecordCreation() {
                 <input
                   value={form.eoPolicyNumber}
                   onChange={handleChange('eoPolicyNumber')}
-                  className={inputClass(errors.eoPolicyNumber)}
                   placeholder="Policy number"
+                  className={inputClass(errors.eoPolicyNumber)}
                 />
               </Field>
 

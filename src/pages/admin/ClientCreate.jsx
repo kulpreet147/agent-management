@@ -15,7 +15,7 @@ import {
   Plus,
 } from 'lucide-react'
 import { createClient, getClient, updateClient, addHouseholdMember } from '../../utils/clients.js'
-import { getAgents } from '../../utils/agents.js'
+import { formatAgentLifecycleStatus, getAgents, isAgentAssignable } from '../../utils/agents.js'
 import { notify } from '../../utils/notify.js'
 
 const TAG_OPTIONS = ['VIP', 'High Value', 'Family', 'Corporate', 'Prospect', 'Renewal Due']
@@ -101,7 +101,7 @@ export default function ClientCreate() {
     getAgents()
       .then((data) => {
         const list = Array.isArray(data) ? data : (data?.agents || [])
-        setAgentsList(list.filter((a) => a.status === 'active'))
+        setAgentsList(list)
       })
       .catch(() => setAgentsList([]))
   }, [])
@@ -496,11 +496,16 @@ export default function ClientCreate() {
                           className={inputClass(errors.assignedAgentId && touched.assignedAgentId)}
                         >
                           <option value="">Select an agent</option>
-                          {agentsList.map((agent) => (
-                            <option key={agent.id} value={agent.id}>
-                              {agent.name || `${agent.firstName || ''} ${agent.lastName || ''}`.trim()}
-                            </option>
-                          ))}
+                          {agentsList.map((agent) => {
+                            const label = agent.name || `${agent.firstName || ''} ${agent.lastName || ''}`.trim()
+                            const assignable = isAgentAssignable(agent)
+                            const statusLabel = formatAgentLifecycleStatus(agent)
+                            return (
+                              <option key={agent.id} value={agent.id} disabled={!assignable}>
+                                {assignable ? label : `${label} (${statusLabel} - not assignable)`}
+                              </option>
+                            )
+                          })}
                         </select>
                       </Field>
                       <Field label="Segment Tags">

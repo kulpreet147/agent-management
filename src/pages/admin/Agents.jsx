@@ -48,7 +48,25 @@ function getDocumentProgress(agent) {
   return Math.min(totalRequired, completedCount) / totalRequired
 }
 
+// Admin-set lifecycle states that should override the onboarding/activation
+// badge (kept in sync with the agent detail header, which reads lifecycleStatus).
+const lifecycleOverrideMeta = {
+  inactive: { label: 'Inactive', classes: 'bg-slate-100 text-slate-600', barColor: 'bg-slate-400' },
+  suspended: { label: 'Suspended', classes: 'bg-amber-100 text-amber-700', barColor: 'bg-amber-500' },
+  terminated: { label: 'Terminated', classes: 'bg-rose-100 text-rose-700', barColor: 'bg-rose-500' },
+}
+
 function getOnboardingView(agent) {
+  // An admin can deactivate/suspend/terminate an agent independently of their
+  // activation status. Honor that here so the list matches the detail page.
+  const lifecycle = String(agent?.lifecycleStatus || '').toLowerCase()
+  if (lifecycleOverrideMeta[lifecycle]) {
+    const activated = Number(agent?.accountActivationStatus) === 1
+    const safeStep = Math.min(ONBOARDING_STEPS, Math.max(1, Number(agent?.onboardingStatus || 1)))
+    const percent = activated ? 100 : Math.round((safeStep / ONBOARDING_STEPS) * 100)
+    return { status: lifecycleOverrideMeta[lifecycle], percent, text: `${percent}%` }
+  }
+
   if (Number(agent?.accountActivationStatus) === 1) {
     return {
       status: { label: 'Active', classes: 'bg-emerald-100 text-emerald-700', barColor: 'bg-emerald-500' },

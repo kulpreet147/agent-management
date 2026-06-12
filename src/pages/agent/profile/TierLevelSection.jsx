@@ -20,7 +20,7 @@ function TierBadge({ tier }) {
 export default function TierLevelSection({ agentId, tierInfo, onRefresh, locked }) {
   const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
-  const { subscriptionTier, tierRequest, availableTiers } = tierInfo;
+  const { subscriptionTier, tierRequest, availableTiers, autoUpgrade } = tierInfo;
 
   const tiers = availableTiers && availableTiers.length ? availableTiers : ["Free Trial", "Silver", "Gold", "Platinum"];
   const currentRank = tiers.indexOf(subscriptionTier);
@@ -30,15 +30,17 @@ export default function TierLevelSection({ agentId, tierInfo, onRefresh, locked 
   const submit = async (tier) => {
     if (!agentId || submitting) return;
     const ok = await confirmDialog({
-      title: "Request tier upgrade",
-      message: `Submit a request to upgrade to ${tier}? An administrator will review it for approval.`,
-      confirmText: "Submit request",
+      title: autoUpgrade ? "Upgrade your plan" : "Request tier upgrade",
+      message: autoUpgrade
+        ? `Upgrade to ${tier} now? This takes effect immediately.`
+        : `Submit a request to upgrade to ${tier}? An administrator will review it for approval.`,
+      confirmText: autoUpgrade ? "Upgrade now" : "Submit request",
     });
     if (!ok) return;
     setSubmitting(true);
     try {
       await requestTierUpgrade(agentId, tier);
-      toast.success(`Upgrade to ${tier} submitted for approval.`);
+      toast.success(autoUpgrade ? `Your plan has been upgraded to ${tier}.` : `Upgrade to ${tier} submitted for approval.`);
       await onRefresh(false);
     } catch (error) {
       toast.error(error.message || "Unable to submit upgrade request.");
@@ -128,7 +130,7 @@ export default function TierLevelSection({ agentId, tierInfo, onRefresh, locked 
                     disabled={pending || locked || submitting}
                     onClick={() => submit(tier)}
                   >
-                    {pending && tierRequest.requestedTier === tier ? "Pending approval" : "Request Upgrade"}
+                    {pending && tierRequest.requestedTier === tier ? "Pending approval" : autoUpgrade ? "Upgrade Now" : "Request Upgrade"}
                   </button>
                 )}
               </div>

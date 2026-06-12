@@ -9,13 +9,13 @@ function getStorage() {
 }
 
 export const auth = {
-  async login({ email, password, loginAs = 'admin' }) {
+  async login({ email, password }) {
     const data = await apiRequest('/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ email, password, loginAs })
+      body: JSON.stringify({ email, password })
     })
 
     const session = {
@@ -24,6 +24,7 @@ export const auth = {
       email: data.user.email,
       role: data.user.role,
       name: data.user.name,
+      lifecycleStatus: data.user.lifecycleStatus,
       onboardingStatus: data.user.onboardingStatus,
       accountActivationStatus: data.user.accountActivationStatus,
       status: data.user.status,
@@ -45,15 +46,14 @@ export const auth = {
     return session
   },
 
-  async requestPasswordReset({ email, loginAs = 'admin' }) {
-    const role = loginAs === 'agent' ? 'agent' : 'admin'
+  async requestPasswordReset({ email }) {
     return apiRequest('/auth/password-reset', {
       method: 'POST',
       skipAuth: true,
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ email, loginAs: role })
+      body: JSON.stringify({ email })
     })
   },
 
@@ -74,6 +74,13 @@ export const auth = {
 
   async getCurrentUser() {
     return apiRequest('/auth/me')
+  },
+
+  async endSession() {
+    try {
+      await apiRequest('/auth/logout', { method: 'POST' })
+    } catch {}
+    this.logout()
   },
 
   logout() {
@@ -140,6 +147,7 @@ export const auth = {
       email: data.user.email,
       role: data.user.role,
       name: data.user.name,
+      lifecycleStatus: data.user.lifecycleStatus,
       onboardingStatus: data.user.onboardingStatus,
       accountActivationStatus: data.user.accountActivationStatus,
       status: data.user.status,

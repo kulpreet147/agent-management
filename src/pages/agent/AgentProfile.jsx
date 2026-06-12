@@ -3,10 +3,11 @@ import { useToast } from "../../hooks/useToast.js";
 import { auth } from "../../utils/auth.js";
 import AgentSidebar from "../../components/AgentSidebar.jsx";
 import CommonHeader from "../../components/CommonHeader.jsx";
-import { getAgent, getAgentProfile, updateAgentProfile } from "../../utils/agents.js";
+import { getAgent, getAgentProfile, getAgentSecurityHistory, updateAgentProfile } from "../../utils/agents.js";
 import { confirmDialog } from "../../utils/confirmDialog.js";
 import { css } from "./profile/profileStyles.js";
 import { formatUsCaPhone } from "./profile/profileValidation.js";
+import { computeProfileCompletion } from "./profile/profileCompletion.js";
 import TierLevelSection from "./profile/TierLevelSection.jsx";
 import PersonalProfileSection from "./profile/PersonalProfileSection.jsx";
 import BusinessProfileSection from "./profile/BusinessProfileSection.jsx";
@@ -131,7 +132,8 @@ export default function AgentProfile() {
 
   const [agentData, setAgentData] = useState(null);
   const [company, setCompany] = useState(null);
-  const [tierInfo, setTierInfo] = useState({ subscriptionTier: "Silver", tierRequest: null, availableTiers: [] });
+  const [tierInfo, setTierInfo] = useState({ subscriptionTier: "Silver", tierRequest: null, availableTiers: [], autoUpgrade: false });
+  const [securityHistory, setSecurityHistory] = useState({ loginHistory: [], deviceHistory: [] });
 
   const [profile, setProfile] = useState(() => hydrateProfile(null, null)); // saved snapshot
   const [draft, setDraft] = useState(() => hydrateProfile(null, null)); // working copy
@@ -152,16 +154,26 @@ export default function AgentProfile() {
     [draft, profile, avatarFile]
   );
 
+  const completion = useMemo(
+    () => computeProfileCompletion(profile, { hasAvatar: Boolean(avatarPreview) }),
+    [profile, avatarPreview]
+  );
+
   const loadProfile = (showError = true) => {
     if (!session?.id) return Promise.resolve();
-    return Promise.all([getAgent(session.id), getAgentProfile(session.id)])
-      .then(([agent, data]) => {
+    return Promise.all([
+      getAgent(session.id),
+      getAgentProfile(session.id),
+      getAgentSecurityHistory(session.id).catch(() => ({ loginHistory: [], deviceHistory: [] })),
+    ])
+      .then(([agent, data, security]) => {
         setAgentData(agent || null);
         if (data?.company) setCompany(data.company);
         setTierInfo({
           subscriptionTier: data?.subscriptionTier || agent?.subscriptionTier || "Silver",
           tierRequest: data?.tierRequest || agent?.documents?.tierRequest || null,
           availableTiers: data?.availableTiers || ["Free Trial", "Silver", "Gold", "Platinum"],
+          autoUpgrade: Boolean(data?.autoUpgrade),
         });
         const hydrated = hydrateProfile(data?.profile || data || {}, agent);
         setProfile(hydrated);
@@ -170,6 +182,10 @@ export default function AgentProfile() {
         const resolved = avatarUrl ? resolveMediaUrl(`${avatarUrl}?t=${Date.now()}`) : "";
         savedAvatarPreview.current = resolved;
         setAvatarPreview(resolved);
+        setSecurityHistory({
+          loginHistory: Array.isArray(security?.loginHistory) ? security.loginHistory : [],
+          deviceHistory: Array.isArray(security?.deviceHistory) ? security.deviceHistory : [],
+        });
       })
       .catch((err) => {
         if (showError) toast.error(err.message || "Unable to load profile.");
@@ -281,6 +297,25 @@ export default function AgentProfile() {
                   Only you can edit this. {editingTab ? `Editing: ${editingTab}.` : "Pick a section and choose Edit to make changes."}
                 </div>
               </div>
+              <div style={{ minWidth: 240, maxWidth: 340 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#cbd5e1" }}>Profile completion</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: completion.percent === 100 ? "#34d399" : "#60a5fa" }}>
+                    {completion.percent}%
+                  </span>
+                </div>
+                <div style={{ height: 8, borderRadius: 999, background: "rgba(148,163,184,0.25)", overflow: "hidden" }}>
+                  <div style={{ width: `${completion.percent}%`, height: "100%", background: completion.percent === 100 ? "#34d399" : "#3b82f6", transition: "width .3s" }} />
+                </div>
+                {completion.missing.length > 0 ? (
+                  <div style={{ marginTop: 6, fontSize: 11, color: "#94a3b8" }} title={completion.missing.join(", ")}>
+                    Missing: {completion.missing.slice(0, 3).join(", ")}
+                    {completion.missing.length > 3 ? ` +${completion.missing.length - 3} more` : ""}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 6, fontSize: 11, color: "#34d399" }}>All set — your profile is complete.</div>
+                )}
+              </div>
             </div>
 
             <div style={css.tabsBar}>
@@ -330,7 +365,12 @@ export default function AgentProfile() {
                 <OnlineProfileSection ctx={sectionCtx("Online Profile")} />
               )}
               {activeTab === "System Settings" && (
-                <SystemSettingsSection ctx={sectionCtx("System Settings")} agentId={session?.id} agentEmail={agentEmail} />
+                <SystemSettingsSection
+                  ctx={sectionCtx("System Settings")}
+                  agentId={session?.id}
+                  agentEmail={agentEmail}
+                  securityHistory={securityHistory}
+                />
               )}
             </div>
           </div>
