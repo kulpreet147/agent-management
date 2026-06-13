@@ -32,9 +32,9 @@ import {
   StickyNote,
   Shield,
 } from 'lucide-react'
-import { addFollowUp, reassignAgent, addNote, getLead, getFollowUps, getActivityLog, updateLeadStatus, listQuotes } from '../../utils/leads.js'
+import { addFollowUp, reassignAgent, getLead, getFollowUps, getActivityLog, updateLeadStatus, listQuotes } from '../../utils/leads.js'
 import { formatAgentLifecycleStatus, getAgents, isAgentAssignable } from '../../utils/agents.js'
-import { getPersonByPersonId, getQuotes, getOrCreatePersonByLeadId } from '../../utils/persons.js'
+import { getPersonByPersonId, getQuotes, getOrCreatePersonByLeadId, addNote as addPersonNote, getActivityLogs as getPersonActivityLogs } from '../../utils/persons.js'
 import QuoteModal from '../../components/QuoteModal.jsx'
 import { notify } from '../../utils/notify.js'
 import { confirmDialog } from '../../utils/confirmDialog.js'
@@ -66,13 +66,19 @@ const formatDetails = (action, details) => {
       return d.toStatus ? `Status changed to "${d.toStatus}"` : null
     case 'follow_up_added':
     case 'follow_up_created':
-      return d.type ? `Follow-up type: ${d.type}` : null
+      return d.type ? `Follow-up type: ${d.type}${d.scheduledAt ? ` — ${new Date(d.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}` : null
     case 'follow_up_completed':
       return d.outcome ? `Outcome: ${d.outcome}` : null
     case 'follow_up_skipped':
       return d.reason ? `Reason: ${d.reason}` : null
     case 'note_added':
-      return d.content ? `"${d.content}"` : null
+      return d.contentPreview ? `"${d.contentPreview}"` : d.content ? `"${d.content}"` : null
+    case 'family_member_added':
+      return `Added ${d.memberName || 'family member'}${d.relationship ? ` (${d.relationship})` : ''}`
+    case 'family_member_updated':
+      return `Updated ${d.memberName || 'family member'}${d.relationship ? ` (${d.relationship})` : ''}`
+    case 'family_member_removed':
+      return `Removed ${d.memberName || 'family member'}${d.relationship ? ` (${d.relationship})` : ''}`
     case 'lead_assigned':
       return d.agentName ? `Assigned to ${d.agentName}` : (d.agentId ? `Assigned to agent` : null)
     case 'agent_unassigned':
@@ -100,18 +106,32 @@ const formatDetails = (action, details) => {
         return `Updated ${d.fields.length} fields across ${sections.size} sections`
       }
       return 'Need analysis updated'
+    case 'need_analysis_sent':
     case 'need_analysis_sent_to_client':
+      if (d.summary) return d.summary
       return d.clientEmail ? `Sent to ${d.clientEmail}${d.delivered === false ? ' (delivery failed)' : ''}` : null
     case 'need_analysis_deleted':
       return null
     case 'quote_run':
-      return d.carrierCount ? `Found ${d.carrierCount} quotes` : null
+      return d.summary || (d.carrierCount ? `Found ${d.carrierCount} quotes` : null)
     case 'quote_selected':
-      return d.carrier && d.premium ? `${d.carrier} at CHF ${d.premium}/mo` : null
-    case 'quote_deleted':
-      return null
+      if (d.summary) return d.summary
+      return d.carrier ? `${d.carrier}${d.premium ? ` at ${d.currency || 'CHF'} ${d.premium}/mo` : ''}${d.familyMemberName ? ` for ${d.familyMemberName}` : ' for Self'}` : null
+    case 'quote_emailed':
     case 'quote_emailed_to_client':
-      return d.clientEmail ? `Sent to ${d.clientEmail}${d.delivered === false ? ' (delivery failed)' : ''}` : null
+      if (d.summary) return d.summary
+      return d.carrier ? `Sent ${d.carrier} quote${d.familyMemberName ? ` to ${d.familyMemberName}` : ''}` : null
+    case 'quote_status_changed':
+      if (d.summary) return d.summary
+      return d.carrier ? `${d.carrier}: ${d.fromStatus || 'draft'} → ${d.toStatus}${d.familyMemberName ? ` for ${d.familyMemberName}` : ''}` : null
+    case 'quote_deleted':
+      if (d.summary) return d.summary
+      return d.carrier ? `Deleted ${d.carrier} quote${d.familyMemberName ? ` for ${d.familyMemberName}` : ''}` : null
+    case 'agents_assigned':
+      if (d.assignments && Array.isArray(d.assignments)) {
+        return d.assignments.map(a => a.agentName || a.agentId).join(', ')
+      }
+      return null
     case 'converted':
       return null
     default: {
@@ -144,12 +164,16 @@ const actionLabels = {
   lead_created_from_excel: 'Imported from Excel',
   need_analysis_saved: 'Need Analysis Updated',
   need_analysis_updated: 'Need Analysis Updated',
+  need_analysis_sent: 'Need Analysis Sent',
   need_analysis_sent_to_client: 'Need Analysis Sent',
   need_analysis_deleted: 'Need Analysis Deleted',
   quote_run: 'Quote Run',
   quote_selected: 'Quote Selected',
+  quote_emailed: 'Quote Sent',
+  quote_status_changed: 'Quote Status Changed',
   quote_deleted: 'Quote Deleted',
   quote_emailed_to_client: 'Quote Sent to Client',
+  agents_assigned: 'Agent Assigned',
   converted: 'Lead Converted',
 }
 
@@ -167,6 +191,8 @@ export default function LeadDetail() {
   const [personUuid, setPersonUuid] = useState(null)
   const [showQuoteModal, setShowQuoteModal] = useState(false)
   const [leadRefreshKey, setLeadRefreshKey] = useState(0)
+  const [notesRefreshKey, setNotesRefreshKey] = useState(0)
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0)
 
   useEffect(() => {
     if (!leadId) {
@@ -204,16 +230,25 @@ export default function LeadDetail() {
             assignments: apiData.assignments,
           })
           setFollowUpsList(Array.isArray(followUps) ? followUps : [])
-          setActivityLog(Array.isArray(activityData?.logs) ? activityData.logs : [])
+          const leadLogs = Array.isArray(activityData?.logs) ? activityData.logs : []
           setLeadStatus(apiData.status || 'new')
           getOrCreatePersonByLeadId(apiData)
-            .then((person) => setPersonUuid(person.id))
-            .catch(() => setPersonUuid(null))
+            .then((person) => {
+              setPersonUuid(person.id)
+              return getPersonActivityLogs(person.id).catch(() => [])
+            })
+            .then((personLogs) => {
+              const merged = [...leadLogs, ...(Array.isArray(personLogs) ? personLogs : [])].sort(
+                (a, b) => new Date(b.performedAt || b.createdAt) - new Date(a.performedAt || a.createdAt)
+              )
+              setActivityLog(merged)
+            })
+            .catch(() => setActivityLog(leadLogs))
         }
       })
       .catch(() => navigate('/admin/leads', { replace: true }))
       .finally(() => setLoading(false))
-  }, [leadId, navigate, leadRefreshKey])
+  }, [leadId, navigate, leadRefreshKey, activityRefreshKey])
 
   useEffect(() => {
     const handler = (e) => {
@@ -311,8 +346,7 @@ export default function LeadDetail() {
         priority: updatedLead.leadPriority ? updatedLead.leadPriority.charAt(0).toUpperCase() + updatedLead.leadPriority.slice(1) : 'Cold',
       })
       setLeadStatus(updatedLead.status)
-      const activity = await getActivityLog(lead.id).catch(() => ({ logs: [] }))
-      setActivityLog(Array.isArray(activity?.logs) ? activity.logs : [])
+      setActivityRefreshKey((k) => k + 1)
 
       const goToList = await confirmDialog({
         title: 'Lead converted',
@@ -332,19 +366,14 @@ export default function LeadDetail() {
     const content = await confirmDialog({ title: 'Add note', message: 'Add a note about this lead:', input: { placeholder: 'Type your note...' } })
     if (!content?.trim()) return
     try {
-      const result = await addNote(lead.id, { content: content.trim() })
-      if (result?.log) {
-        setActivityLog((prev) => [result.log, ...prev])
+      if (personUuid) {
+        await addPersonNote(personUuid, content.trim())
       } else {
-        setActivityLog((prev) => [
-          {
-            action: 'note_added',
-            details: { content: content.trim() },
-            performedAt: new Date().toISOString(),
-          },
-          ...prev,
-        ])
+        notify.warning('Save the lead first to enable notes.')
+        return
       }
+      setNotesRefreshKey((k) => k + 1)
+      setActivityRefreshKey((k) => k + 1)
     } catch (err) {
       notify.error(err.message || 'Failed to add note')
     }
@@ -761,7 +790,7 @@ export default function LeadDetail() {
       )}
 
       {/* ==================== TAB: FAMILY ==================== */}
-      {activeTab === 1 && <LeadFamilyTab personId={personUuid} lead={lead} />}
+      {activeTab === 1 && <LeadFamilyTab personId={personUuid} lead={lead} onActivityChange={() => setActivityRefreshKey((k) => k + 1)} />}
 
       {/* ==================== TAB: QUOTES ==================== */}
       {activeTab === 2 && <LeadQuotesTab personId={personUuid} lead={lead} />}
@@ -857,7 +886,7 @@ export default function LeadDetail() {
       )}
 
       {/* ==================== TAB: NOTES ==================== */}
-      {activeTab === 6 && personUuid && <LeadNotesTab personId={personUuid} lead={lead} />}
+      {activeTab === 6 && personUuid && <LeadNotesTab personId={personUuid} lead={lead} refreshKey={notesRefreshKey} />}
       {activeTab === 6 && !personUuid && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
           <p className="text-sm text-amber-700 font-semibold">Person data not available. Please refresh the page.</p>

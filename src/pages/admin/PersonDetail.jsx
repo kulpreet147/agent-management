@@ -98,6 +98,7 @@ const actionLabels = {
   person_created: 'Person Created',
   status_changed: 'Status Changed',
   follow_up_added: 'Follow-Up Scheduled',
+  follow_up_created: 'Follow-Up Scheduled',
   follow_up_completed: 'Follow-Up Completed',
   follow_up_skipped: 'Follow-Up Skipped',
   note_added: 'Note Added',
@@ -110,10 +111,16 @@ const actionLabels = {
   quote_run: 'Quote Run',
   quote_selected: 'Quote Selected',
   quote_emailed: 'Quote Sent',
+  quote_status_changed: 'Quote Status Changed',
+  quote_deleted: 'Quote Deleted',
+  need_analysis_updated: 'Need Analysis Updated',
   need_analysis_saved: 'Need Analysis Updated',
   need_analysis_sent: 'Need Analysis Sent',
+  need_analysis_sent_to_client: 'Need Analysis Sent',
+  need_analysis_deleted: 'Need Analysis Deleted',
   document_uploaded: 'Document Uploaded',
   agent_assigned: 'Agent Assigned',
+  agents_assigned: 'Agent Assigned',
   agent_reassigned: 'Agent Reassigned',
   opportunity_created: 'Opportunity Created',
   opportunity_updated: 'Opportunity Updated',
@@ -125,6 +132,7 @@ const actionIcons = {
   person_created: CheckCircle,
   status_changed: Activity,
   follow_up_added: Calendar,
+  follow_up_created: Calendar,
   follow_up_completed: CheckCircle,
   follow_up_skipped: X,
   note_added: StickyNote,
@@ -137,10 +145,16 @@ const actionIcons = {
   quote_run: Calculator,
   quote_selected: Star,
   quote_emailed: Mail,
+  quote_status_changed: Activity,
+  quote_deleted: Trash2,
+  need_analysis_updated: FileText,
   need_analysis_saved: FileText,
   need_analysis_sent: Mail,
+  need_analysis_sent_to_client: Mail,
+  need_analysis_deleted: Trash2,
   document_uploaded: FileText,
   agent_assigned: User,
+  agents_assigned: User,
   agent_reassigned: Users,
   opportunity_created: TrendingUp,
   opportunity_updated: TrendingUp,
@@ -160,34 +174,58 @@ const formatDetails = (action, details) => {
           : null
     case 'follow_up_added':
     case 'follow_up_created':
-      return d.type ? `Type: ${d.type}` : null
+      return d.type ? `Type: ${d.type}${d.scheduledAt ? ` — ${new Date(d.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}` : null
     case 'follow_up_completed':
       return d.outcome ? `Outcome: ${d.outcome}` : null
     case 'note_added':
-      return d.content ? `"${d.content}"` : null
+      return d.contentPreview ? `"${d.contentPreview}"` : d.content ? `"${d.content}"` : null
     case 'policy_added':
       return d.policyNumber ? `Policy ${d.policyNumber} (${d.policyType || 'Unknown type'})` : null
     case 'policy_removed':
       return d.policyNumber ? `Removed policy ${d.policyNumber}` : null
     case 'family_member_added':
     case 'family_member_updated':
-      return d.name ? d.name : null
+    case 'family_member_removed':
+      return d.memberName ? `${d.memberName}${d.relationship ? ` (${d.relationship})` : ''}` : null
     case 'quote_run':
-      return d.carrierCount ? `Found ${d.carrierCount} quotes` : null
+      return d.summary || (d.carrierCount ? `Found ${d.carrierCount} quotes` : null)
     case 'quote_selected':
-      return d.carrier && d.premium ? `${d.carrier} at CHF ${d.premium}/mo` : null
+      if (d.summary) return d.summary
+      return d.carrier ? `${d.carrier}${d.premium ? ` at ${d.currency || 'CHF'} ${d.premium}/mo` : ''}${d.familyMemberName ? ` for ${d.familyMemberName}` : ' for Self'}` : null
+    case 'quote_emailed':
+      if (d.summary) return d.summary
+      return d.carrier ? `Sent ${d.carrier} quote${d.familyMemberName ? ` to ${d.familyMemberName}` : ''}` : null
+    case 'quote_status_changed':
+      if (d.summary) return d.summary
+      return d.carrier ? `${d.carrier}: ${d.fromStatus || 'draft'} → ${d.toStatus}${d.familyMemberName ? ` for ${d.familyMemberName}` : ''}` : null
+    case 'quote_deleted':
+      if (d.summary) return d.summary
+      return d.carrier ? `Deleted ${d.carrier} quote${d.familyMemberName ? ` for ${d.familyMemberName}` : ''}` : null
+    case 'need_analysis_updated':
     case 'need_analysis_saved':
-      if (d.fields && Array.isArray(d.fields)) {
-        return `Updated ${d.fields.length} fields`
+      if (d.summary) return d.summary
+      if (d.sections && Array.isArray(d.sections)) {
+        return `Updated across ${d.sections.join(', ')}`
       }
       return 'Need analysis updated'
+    case 'need_analysis_sent':
+    case 'need_analysis_sent_to_client':
+      if (d.summary) return d.summary
+      return d.clientEmail ? `Sent to ${d.clientEmail}` : null
+    case 'agents_assigned':
+      if (d.assignments && Array.isArray(d.assignments)) {
+        return d.assignments.map(a => a.agentName || a.agentId).join(', ')
+      }
+      return null
     case 'agent_reassigned':
       return d.targetAgentName ? `Reassigned to ${d.targetAgentName}` : null
+    case 'opportunity_created':
+      return d.productType ? `${d.productType}${d.expectedPremium ? ` — ${d.expectedPremium}` : ''}` : null
     default: {
       const skip = [
         'fromStatus', 'toStatus', 'isNew', 'delivered', 'personId',
         'followUpId', 'agentId', 'targetAgentId', 'fromAgentId',
-        'agentName', 'targetAgentName', 'fromAgentName',
+        'agentName', 'targetAgentName', 'fromAgentName', 'memberName', 'relationship',
       ]
       const nonMeta = Object.fromEntries(Object.entries(d).filter(([k]) => !skip.includes(k)))
       if (Object.keys(nonMeta).length === 0) return null

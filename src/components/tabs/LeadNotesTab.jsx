@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { StickyNote, Plus, Trash2, RefreshCw, X, Clock, User } from 'lucide-react'
 import { getNotes, addNote, deleteNote } from '../../utils/persons.js'
 
-export default function LeadNotesTab({ personId, lead }) {
+export default function LeadNotesTab({ personId, lead, refreshKey }) {
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -17,7 +17,7 @@ export default function LeadNotesTab({ personId, lead }) {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadNotes() }, [personId])
+  useEffect(() => { loadNotes() }, [personId, refreshKey])
 
   const handleAdd = async () => {
     if (!noteContent.trim()) return

@@ -132,14 +132,14 @@ export default function LeadQuotesTab({ personId, lead }) {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
-                <th className="px-6 py-3">For</th>
-                <th className="px-6 py-3">Carrier</th>
-                <th className="px-6 py-3">Product</th>
-                <th className="px-6 py-3">Premium</th>
-                <th className="px-6 py-3">Coverage</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Date</th>
-                <th className="px-6 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 hidden md:table-cell">For</th>
+                <th className="px-4 py-3">Carrier</th>
+                <th className="px-4 py-3">Product</th>
+                <th className="px-4 py-3">Premium</th>
+                <th className="px-4 py-3 hidden lg:table-cell">Coverage</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 hidden lg:table-cell">Date</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -147,7 +147,7 @@ export default function LeadQuotesTab({ personId, lead }) {
                 const badge = getStatusBadge(q)
                 return (
                   <tr key={q.id} className={`hover:bg-slate-50 transition-colors ${q.status === 'accepted' ? 'bg-green-50/50' : q.status === 'rejected' ? 'bg-red-50/30' : ''}`}>
-                    <td className="px-6 py-4 text-xs font-semibold">
+                    <td className="px-4 py-3 text-xs font-semibold hidden md:table-cell">
                       {q.familyMember ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[10px] font-bold">
                           {q.familyMember.firstName} {q.familyMember.lastName}
@@ -156,25 +156,25 @@ export default function LeadQuotesTab({ personId, lead }) {
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">Self</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-slate-800">{q.carrier || 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{q.productType || q.product || q.model || 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-slate-800">
+                    <td className="px-4 py-3 text-sm font-semibold text-slate-800">{q.carrier || 'N/A'}</td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{q.productType || q.product || q.model || 'N/A'}</td>
+                    <td className="px-4 py-3 text-sm font-semibold text-slate-800">
                       {q.premium ? `${q.currency || 'CHF'} ${Number(q.premium).toLocaleString()}` : q.premiumMonthly ? `${q.currency || 'CHF'} ${Number(q.premiumMonthly).toLocaleString()}` : 'N/A'}
                       {q.premiumFrequency && <span className="text-xs text-slate-500"> /{q.premiumFrequency}</span>}
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
+                    <td className="px-4 py-3 text-sm text-slate-600 hidden lg:table-cell">
                       {q.coverageAmount ? `CHF ${Number(q.coverageAmount).toLocaleString()}` 
                         : q.faceAmount ? `CHF ${Number(q.faceAmount).toLocaleString()}`
                         : q.deductible ? `CHF ${Number(q.deductible).toLocaleString()} deductible`
                         : 'N/A'}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${badge.style}`}>{badge.label}</span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
+                    <td className="px-4 py-3 text-sm text-slate-600 hidden lg:table-cell">
                       {q.createdAt ? new Date(q.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         {q.status !== 'accepted' && q.status !== 'rejected' && (
                           <button onClick={() => handleAccept(q.id)} className="p-1.5 hover:bg-green-50 rounded transition-colors" title="Accept Quote">

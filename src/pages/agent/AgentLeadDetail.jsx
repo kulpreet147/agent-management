@@ -39,10 +39,9 @@ import {
   updateLeadStatus,
   getFollowUps,
   getActivityLog,
-  addNote,
 } from "../../utils/leads.js";
 import { getNeedAnalysis, saveNeedAnalysis } from "../../utils/leads.js";
-import { getPersonByPersonId, getOrCreatePersonByLeadId } from "../../utils/persons.js";
+import { getPersonByPersonId, getOrCreatePersonByLeadId, addNote as addPersonNote, getActivityLogs as getPersonActivityLogs } from "../../utils/persons.js";
 
 const actionTypes = [
   { value: "call", label: "Call" },
@@ -91,6 +90,8 @@ export default function AgentLeadDetail() {
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [personUuid, setPersonUuid] = useState(null);
   const [leadRefreshKey, setLeadRefreshKey] = useState(0);
+  const [notesRefreshKey, setNotesRefreshKey] = useState(0);
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!leadId) {
@@ -107,14 +108,23 @@ export default function AgentLeadDetail() {
         setLead(leadData);
         setLeadStatus(leadData.status || "new");
         setFollowUps(Array.isArray(followUpData) ? followUpData : []);
-        setActivityLog(activityData?.logs || []);
+        const leadLogs = activityData?.logs || [];
         getOrCreatePersonByLeadId(leadData)
-          .then((person) => setPersonUuid(person.id))
-          .catch(() => setPersonUuid(null));
+          .then((person) => {
+            setPersonUuid(person.id);
+            return getPersonActivityLogs(person.id).catch(() => []);
+          })
+          .then((personLogs) => {
+            const merged = [...leadLogs, ...(Array.isArray(personLogs) ? personLogs : [])].sort(
+              (a, b) => new Date(b.performedAt || b.createdAt) - new Date(a.performedAt || a.createdAt)
+            );
+            setActivityLog(merged);
+          })
+          .catch(() => setActivityLog(leadLogs));
       })
       .catch(() => navigate("/agent/leads", { replace: true }))
       .finally(() => setLoading(false));
-  }, [leadId, navigate, leadRefreshKey]);
+  }, [leadId, navigate, leadRefreshKey, activityRefreshKey]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -170,12 +180,18 @@ export default function AgentLeadDetail() {
     lead_created_from_excel: 'Imported from Excel',
     need_analysis_saved: 'Need Analysis Updated',
     need_analysis_updated: 'Need Analysis Updated',
+    need_analysis_sent: 'Need Analysis Sent',
     need_analysis_sent_to_client: 'Need Analysis Sent',
     need_analysis_deleted: 'Need Analysis Deleted',
     quote_run: 'Quote Run',
     quote_selected: 'Quote Selected',
+    quote_emailed: 'Quote Sent',
+    quote_status_changed: 'Quote Status Changed',
     quote_deleted: 'Quote Deleted',
     quote_emailed_to_client: 'Quote Sent to Client',
+    quote_saved: 'Quote Saved',
+    winquote_saved: 'WinQuote Saved',
+    agents_assigned: 'Agent Assigned',
     converted: 'Lead Converted',
   };
 
@@ -198,43 +214,28 @@ export default function AgentLeadDetail() {
 
     switch (action) {
       case "need_analysis_updated":
+      case "need_analysis_saved":
         if (details.summary) return details.summary;
         if (details.fields) {
           const sections = new Set();
           const sectionMap = {
-            ownHouse: "Assets",
-            houseValue: "Assets",
-            mortgageRemaining: "Assets",
-            rrsp: "Assets",
-            tfsa: "Assets",
-            outstandingMortgage: "Liabilities",
-            lineOfCredit: "Liabilities",
-            creditCardDebt: "Liabilities",
-            annualIncomePrimary: "Income",
-            annualIncomeSpouse: "Income",
-            totalHouseholdIncome: "Income",
-            lifeInsurance: "Insurance",
-            criticalIllness: "Insurance",
-            disability: "Insurance",
-            groupInsurance: "Insurance",
-            spouseName: "Family",
-            spouseDOB: "Family",
-            children: "Family",
-            desiredCoverage: "Coverage",
-            budgetMonthly: "Coverage",
-            coverageNotes: "Coverage",
+            ownHouse: "Assets", houseValue: "Assets", mortgageRemaining: "Assets", rrsp: "Assets", tfsa: "Assets",
+            outstandingMortgage: "Liabilities", lineOfCredit: "Liabilities", creditCardDebt: "Liabilities",
+            annualIncomePrimary: "Income", annualIncomeSpouse: "Income", totalHouseholdIncome: "Income",
+            lifeInsurance: "Insurance", criticalIllness: "Insurance", disability: "Insurance", groupInsurance: "Insurance",
+            spouseName: "Family", spouseDOB: "Family", children: "Family",
+            desiredCoverage: "Coverage", budgetMonthly: "Coverage", coverageNotes: "Coverage",
           };
-          details.fields.forEach((f) => {
-            if (sectionMap[f]) sections.add(sectionMap[f]);
-          });
+          details.fields.forEach((f) => { if (sectionMap[f]) sections.add(sectionMap[f]); });
           return `Updated ${details.fields.length} fields across ${sections.size} sections`;
         }
         return "Need analysis updated";
 
+      case "need_analysis_sent":
       case "need_analysis_sent_to_client":
         if (details.summary) return details.summary;
         if (details.clientEmail) {
-          return `Need analysis report sent to ${details.clientEmail}`;
+          return `Need analysis report sent to ${details.clientEmail}${details.delivered === false ? ' (delivery failed)' : ''}`;
         }
         return "Need analysis report sent to client";
 
@@ -242,6 +243,7 @@ export default function AgentLeadDetail() {
         return "Need analysis deleted";
 
       case "follow_up_created":
+      case "follow_up_added":
         return `Scheduled ${details.type || "follow-up"} for ${details.scheduledAt ? new Date(details.scheduledAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "unknown date"}`;
 
       case "follow_up_completed":
@@ -263,29 +265,43 @@ export default function AgentLeadDetail() {
         return `Status changed from ${details.fromStatus || details.from || "unknown"} to ${details.toStatus || details.to || "unknown"}`;
 
       case "note_added":
-        return details.content || "Note added";
+        return details.contentPreview ? `"${details.contentPreview}"` : details.content || "Note added";
+
+      case "family_member_added":
+        return `Added ${details.memberName || "family member"}${details.relationship ? ` (${details.relationship})` : ""}`;
+
+      case "family_member_updated":
+        return `Updated ${details.memberName || "family member"}${details.relationship ? ` (${details.relationship})` : ""}`;
+
+      case "family_member_removed":
+        return `Removed ${details.memberName || "family member"}${details.relationship ? ` (${details.relationship})` : ""}`;
 
       case "quote_run":
         if (details.summary) return details.summary;
-        return `Quote search — ${details.count || 0} offers from PrimAI`;
+        return `Quote search — ${details.count || details.carrierCount || 0} offers from PrimAI`;
 
       case "quote_selected":
         if (details.summary) return details.summary;
-        if (details.carrier && details.premium) {
-          return `${details.carrier} at ${details.premium} ${details.currency || ""}/mo`;
-        }
-        return "Quote selected";
+        return details.carrier ? `${details.carrier}${details.premium ? ` at ${details.currency || 'CHF'} ${details.premium}/mo` : ''}${details.familyMemberName ? ` for ${details.familyMemberName}` : ' for Self'}` : "Quote selected";
+
+      case "quote_emailed":
+      case "quote_emailed_to_client":
+        if (details.summary) return details.summary;
+        return details.carrier ? `Sent ${details.carrier} quote${details.familyMemberName ? ` to ${details.familyMemberName}` : ''}` : (details.clientEmail ? `Quote emailed to ${details.clientEmail}` : "Quote emailed to client");
+
+      case "quote_status_changed":
+        if (details.summary) return details.summary;
+        return details.carrier ? `${details.carrier}: ${details.fromStatus || 'draft'} → ${details.toStatus}${details.familyMemberName ? ` for ${details.familyMemberName}` : ''}` : null;
 
       case "quote_deleted":
         if (details.summary) return details.summary;
-        return "Quote deleted";
+        return details.carrier ? `Deleted ${details.carrier} quote${details.familyMemberName ? ` for ${details.familyMemberName}` : ''}` : "Quote deleted";
 
-      case "quote_emailed_to_client":
-        if (details.summary) return details.summary;
-        if (details.clientEmail) {
-          return `Quote emailed to ${details.clientEmail}`;
+      case "agents_assigned":
+        if (details.assignments && Array.isArray(details.assignments)) {
+          return details.assignments.map(a => a.agentName || a.agentId).join(', ');
         }
-        return "Quote emailed to client";
+        return null;
 
       default: {
         const skip = ['isNew', 'reportId', 'delivered', 'leadId', 'followUpId', 'agentId', 'targetAgentId', 'fromAgentId', 'agentName', 'targetAgentName', 'fromAgentName']
@@ -328,8 +344,7 @@ export default function AgentLeadDetail() {
       const updatedLead = await getLead(leadId);
       setLead(updatedLead);
       setLeadStatus(updatedLead.status);
-      const activity = await getActivityLog(leadId).catch(() => ({ logs: [] }));
-      setActivityLog(activity?.logs || []);
+      setActivityRefreshKey((k) => k + 1);
     } catch (err) {
       notify.error(err.message || "Failed to update status");
     } finally {
@@ -368,11 +383,16 @@ export default function AgentLeadDetail() {
 
   const handleAddNote = async () => {
     const note = await confirmDialog({ title: "Add Note", message: "Enter a note:", input: { placeholder: "Type your note..." } });
-    if (!note) return;
+    if (!note?.trim()) return;
     try {
-      await addNote(leadId, note, "general");
-      const activity = await getActivityLog(leadId).catch(() => ({ logs: [] }));
-      setActivityLog(activity?.logs || []);
+      if (personUuid) {
+        await addPersonNote(personUuid, note.trim());
+      } else {
+        notify.warning("Save the lead first to enable notes.");
+        return;
+      }
+      setNotesRefreshKey((k) => k + 1);
+      setActivityRefreshKey((k) => k + 1);
     } catch (err) {
       notify.error(err.message || "Failed to add note");
     }
@@ -390,8 +410,7 @@ export default function AgentLeadDetail() {
       const updatedLead = await getLead(leadId);
       setLead(updatedLead);
       setLeadStatus(updatedLead.status);
-      const activity = await getActivityLog(leadId).catch(() => ({ logs: [] }));
-      setActivityLog(activity?.logs || []);
+      setActivityRefreshKey((k) => k + 1);
 
       const goToList = await confirmDialog({
         title: "Lead Converted",
@@ -414,6 +433,7 @@ export default function AgentLeadDetail() {
   const handleQuoteSaved = (log) => {
     setActivityLog((prev) => [log, ...prev]);
     setShowQuoteModal(false);
+    setActivityRefreshKey((k) => k + 1);
   };
 
   const handleOpenNeedAnalysis = async () => {
@@ -534,8 +554,8 @@ export default function AgentLeadDetail() {
                 })}
               </nav>
 
-              <div className="grid grid-cols-12 gap-6">
-                <div className="col-span-12 lg:col-span-6 space-y-6">
+              <div className="grid grid-cols-12 gap-6 items-start">
+                <div className="col-span-12 lg:col-span-8 space-y-6">
                   {activeTab === "overview" && (
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-6">
                       <h3 className="text-sm font-bold text-slate-800">
@@ -583,9 +603,9 @@ export default function AgentLeadDetail() {
                     </div>
                   )}
 
-                  {activeTab === "family" && (
-                    <LeadFamilyTab personId={personUuid} lead={lead} />
-                  )}
+                   {activeTab === "family" && (
+                     <LeadFamilyTab personId={personUuid} lead={lead} onActivityChange={() => setActivityRefreshKey((k) => k + 1)} />
+                   )}
 
                   {activeTab === "need-analysis" && (
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
@@ -741,7 +761,7 @@ export default function AgentLeadDetail() {
                   )}
 
                   {activeTab === "notes" && personUuid && (
-                    <LeadNotesTab personId={personUuid} lead={lead} />
+                    <LeadNotesTab personId={personUuid} lead={lead} refreshKey={notesRefreshKey} />
                   )}
 
                   {activeTab === "notes" && !personUuid && (
@@ -760,7 +780,7 @@ export default function AgentLeadDetail() {
                   )}
                 </div>
 
-                <aside className="col-span-12 lg:col-span-6 space-y-6">
+                <aside className="col-span-12 lg:col-span-4 space-y-6 lg:sticky lg:top-6">
                   <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                     <h3 className="text-sm font-bold text-slate-800 mb-6">
                       Quick Actions
